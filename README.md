@@ -1,6 +1,6 @@
 # Software Web - Municipalidad de San Bartolo (Área de Rentas)
 
-Migración a web del sistema de Rentas (originalmente en C#). Proyecto de convenio de prácticas / tesis.
+Migración a web del sistema de Rentas. Proyecto de convenio de prácticas / tesis.
 
 ## Stack
 
