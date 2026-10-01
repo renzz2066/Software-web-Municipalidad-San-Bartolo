@@ -3,9 +3,14 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
+
+// ============================================================
+// ENUMS
+// ============================================================
 
 enum Rol {
   ADMIN
@@ -13,15 +18,611 @@ enum Rol {
   CAJERO
 }
 
+enum TipoPersona {
+  NATURAL
+  JURIDICA
+  SUCESION
+}
+
+enum EstadoRegistro {
+  ACTIVO
+  INACTIVO
+  BAJA
+}
+
+enum EstadoCuenta {
+  PENDIENTE
+  CANCELADO
+  FRACCIONADO
+  COACTIVO
+  ANULADO
+  EXTORNADO
+}
+
+enum MedioPago {
+  EFECTIVO
+  CHEQUE
+  TARJETA
+  DEPOSITO
+  TRANSFERENCIA
+}
+
+enum TipoTributo {
+  PREDIAL
+  ARBITRIOS
+  VEHICULAR
+  ALCABALA
+  MULTA
+  TUPA
+  OTRO
+}
+
+enum TipoValor {
+  OP // Orden de Pago
+  RD // Resolucion de Determinacion
+}
+
+enum EstadoValor {
+  EMITIDO
+  NOTIFICADO
+  COACTIVO
+  CANCELADO
+  ANULADO
+}
+
+enum EstadoLicencia {
+  VIGENTE
+  VENCIDA
+  ANULADA
+}
+
+enum AccionAuditoria {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+}
+
+// ============================================================
+// A. ADMINISTRACION Y SEGURIDAD
+// Ref SIMUN: usuarios.dbf + roles.dbf + oficinas.dbf
+// SIMUN es solo referencial: no se migran datos.
+// ============================================================
+
+model Oficina {
+  id        Int       @id @default(autoincrement())
+  codigo    String    @unique @db.VarChar(10)
+  nombre    String    @db.VarChar(100)
+  activo    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  usuarios  Usuario[]
+
+  @@map("oficinas")
+}
+
 model Usuario {
   id        Int      @id @default(autoincrement())
-  nombre    String
-  usuario   String   @unique
-  password  String
+  nombre    String   @db.VarChar(100)
+  usuario   String   @unique @db.VarChar(50)
+  password  String   @db.VarChar(255) // hash bcrypt, nunca texto plano
   rol       Rol      @default(CAJERO)
   activo    Boolean  @default(true)
+  oficinaId Int?
+  oficina   Oficina? @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  pagosCobrados    Pago[]        @relation("CajeroPagos")
+  conveniosCreados ConvenioCab[] @relation("CreadorConvenio")
+  auditorias       Auditoria[]
+
+  @@index([oficinaId])
   @@map("usuarios")
+}
+
+model Auditoria {
+  id         BigInt          @id @default(autoincrement())
+  usuarioId  Int?
+  usuario    Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  tabla      String          @db.VarChar(60)
+  accion     AccionAuditoria
+  registroId String          @db.VarChar(50)
+  detalle    Json?
+  createdAt  DateTime        @default(now())
+
+  @@index([tabla, registroId])
+  @@index([usuarioId])
+  @@map("auditoria")
+}
+
+// ============================================================
+// B. CONTRIBUYENTES
+// Ref SIMUN: generales.DBF (maestro) + contribuyentes.DBF (resumen DJ)
+// Se normaliza: una fila por persona, sin descripciones duplicadas.
+// ============================================================
+
+model Contribuyente {
+  id              Int            @id @default(autoincrement())
+  codigoLegacy    String?        @unique @db.VarChar(7) // CODCLI SIMUN, solo referencia historica
+  tipoPersona     TipoPersona    @default(NATURAL)
+  tipoDoc         String         @db.VarChar(10) // DNI, RUC, CE, PASAPORTE
+  numDoc          String         @unique @db.VarChar(20)
+  nombreCompleto  String         @db.VarChar(120)
+  direccionFiscal String?        @db.VarChar(150)
+  ubigeo          String?        @db.VarChar(6)
+  telefono        String?        @db.VarChar(15)
+  celular         String?        @db.VarChar(15)
+  email           String?        @db.VarChar(100)
+  estado          EstadoRegistro @default(ACTIVO)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  predios      PredioContribuyente[]
+  vehiculos    Vehiculo[]
+  cuentas      CuentaCorriente[]
+  pagos        Pago[]                @relation("PagadorContribuyente")
+  valores      ValorCab[]
+  convenios    ConvenioCab[]
+  coactivoExps CoactivoExp[]
+  licencias    Licencia[]
+
+  @@index([nombreCompleto])
+  @@index([estado])
+  @@map("contribuyentes")
+}
+
+// ============================================================
+// C. CATASTRO / PREDIOS
+// Ref SIMUN: predios_urbanos_rusticos.dbf + pisos.dbf +
+//   otras_instalaciones.dbf + condominos.dbf + declaracion_j.dbf
+// declaracion_j es snapshot historico: NO se modela como tabla,
+// se reconstruye con Predio + Piso + PredioContribuyente + Auditoria.
+// ============================================================
+
+model Zona {
+  id        Int      @id @default(autoincrement())
+  codigo    String   @unique @db.VarChar(5) // CODZON SIMUN
+  nombre    String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+
+  predios Predio[]
+
+  @@map("zonas")
+}
+
+model Urbanizacion {
+  id        Int      @id @default(autoincrement())
+  codigo    String   @unique @db.VarChar(10) // CODURB SIMUN
+  nombre    String   @db.VarChar(100)
+  createdAt DateTime @default(now())
+
+  predios Predio[]
+
+  @@map("urbanizaciones")
+}
+
+model Via {
+  id        Int      @id @default(autoincrement())
+  tipoVia   String   @db.VarChar(10) // AV, JR, CL, PSJE (tabla_tipo_de_vias)
+  nombre    String   @db.VarChar(100) // CALLES.DBF
+  createdAt DateTime @default(now())
+
+  predios Predio[]
+
+  @@unique([tipoVia, nombre])
+  @@map("vias")
+}
+
+model Predio {
+  id             Int            @id @default(autoincrement())
+  codigoLegacy   String?        @unique @db.VarChar(7) // CODPRED SIMUN
+  codigoCatastro String?        @unique @db.VarChar(20) // IDCATASTRO
+  zonaId         Int?
+  zona           Zona?          @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  urbanizacionId Int?
+  urbanizacion   Urbanizacion?  @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
+  viaId          Int?
+  via            Via?           @relation(fields: [viaId], references: [id], onDelete: Restrict)
+  numero         String?        @db.VarChar(10)
+  manzana        String?        @db.VarChar(10)
+  lote           String?        @db.VarChar(10)
+  referencia     String?        @db.VarChar(150)
+  areaTerreno    Decimal?       @db.Decimal(12, 2)
+  areaConstruida Decimal?       @db.Decimal(12, 2)
+  valorAutovaluo Decimal?       @db.Decimal(14, 2)
+  usoPredio      String?        @db.VarChar(10) // uso_del_predio.dbf
+  estado         EstadoRegistro @default(ACTIVO)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  contribuyentes     PredioContribuyente[]
+  pisos              Piso[]
+  otrasInstalaciones OtraInstalacion[]
+  cuentas            CuentaCorriente[]
+  valores            ValorCab[]
+  licencias          Licencia[]
+
+  @@index([zonaId])
+  @@index([urbanizacionId])
+  @@index([estado])
+  @@map("predios")
+}
+
+model PredioContribuyente {
+  id               Int            @id @default(autoincrement())
+  contribuyenteId  Int
+  contribuyente    Contribuyente  @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  predioId         Int
+  predio           Predio         @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  porcentaje       Decimal        @default(100.0) @db.Decimal(6, 2) // PORPRO SIMUN
+  fechaAdquisicion DateTime?      @db.Date
+  esPrincipal      Boolean        @default(true)
+  estado           EstadoRegistro @default(ACTIVO)
+  createdAt        DateTime       @default(now())
+
+  @@unique([contribuyenteId, predioId])
+  @@index([predioId])
+  @@map("predio_contribuyente")
+}
+
+model Piso {
+  id                 Int      @id @default(autoincrement())
+  predioId           Int
+  predio             Predio   @relation(fields: [predioId], references: [id], onDelete: Cascade)
+  nivel              String   @db.VarChar(10) // NIVEL: 01, 02...
+  anioConstruccion   Int?
+  clasificacion      String?  @db.VarChar(5) // CLAPIS
+  material           String?  @db.VarChar(5) // MATPIS
+  estadoConservacion String?  @db.VarChar(5) // ESTPIS
+  areaConstruida     Decimal? @db.Decimal(10, 2)
+  valorUnitario      Decimal? @db.Decimal(10, 2)
+  valorConstruccion  Decimal? @db.Decimal(12, 2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  otrasInstalaciones OtraInstalacion[]
+
+  @@index([predioId])
+  @@map("pisos")
+}
+
+model OtraInstalacion {
+  id          Int      @id @default(autoincrement())
+  predioId    Int
+  predio      Predio   @relation(fields: [predioId], references: [id], onDelete: Cascade)
+  pisoId      Int?
+  piso        Piso?    @relation(fields: [pisoId], references: [id], onDelete: SetNull)
+  descripcion String   @db.VarChar(150) // CLAOTRAS + CODOTRAS
+  unidad      String?  @db.VarChar(10)
+  cantidad    Decimal? @db.Decimal(10, 2)
+  valor       Decimal? @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([predioId])
+  @@map("otras_instalaciones")
+}
+
+// ============================================================
+// D. VEHICULAR
+// Ref SIMUN: impuesto_vehicular.dbf + detalle_vehicular.dbf +
+//   tabla_marca_vehicular + tabla_valor_mef_vehicular
+// ============================================================
+
+model Vehiculo {
+  id               Int            @id @default(autoincrement())
+  contribuyenteId  Int
+  contribuyente    Contribuyente  @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  placa            String         @unique @db.VarChar(15) // NRO_PLACA
+  marca            String         @db.VarChar(50)
+  modelo           String         @db.VarChar(80)
+  anioFabricacion  Int
+  numMotor         String?        @db.VarChar(30)
+  numTarjeta       String?        @db.VarChar(20)
+  valorAdquisicion Decimal?       @db.Decimal(12, 2)
+  estado           EstadoRegistro @default(ACTIVO)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  detalles VehiculoDetalleAnual[]
+  cuentas  CuentaCorriente[]
+
+  @@index([contribuyenteId])
+  @@map("vehiculos")
+}
+
+model VehiculoDetalleAnual {
+  id             Int      @id @default(autoincrement())
+  vehiculoId     Int
+  vehiculo       Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  anioFiscal     Int
+  baseImponible  Decimal  @db.Decimal(12, 2)
+  impuesto       Decimal  @db.Decimal(12, 2)
+  derechoEmision Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  @@unique([vehiculoId, anioFiscal])
+  @@map("vehiculo_detalle_anual")
+}
+
+// ============================================================
+// E. PARAMETRIA TRIBUTARIA
+// Ref SIMUN: tributo.DBF + UIT.DBF + impuesto.DBF (escala) +
+//   TARIFAS_ARB.DBF + TUPA.DBF
+// ============================================================
+
+model Tributo {
+  id        Int         @id @default(autoincrement())
+  codigo    String      @unique @db.VarChar(10) // CODTRI SIMUN
+  nombre    String      @db.VarChar(100)
+  tipo      TipoTributo @default(OTRO)
+  activo    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+
+  cuentas CuentaCorriente[]
+
+  @@map("tributos")
+}
+
+model Uit {
+  id        Int      @id @default(autoincrement())
+  anio      Int      @unique
+  valor     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  @@map("uit")
+}
+
+model EscalaPredial {
+  id        Int      @id @default(autoincrement())
+  anio      Int
+  tramo     Int // 1, 2, 3... (IMP_RANGO SIMUN)
+  desdeUit  Decimal  @db.Decimal(8, 2)
+  hastaUit  Decimal? @db.Decimal(8, 2) // null = sin tope
+  tasa      Decimal  @db.Decimal(6, 4) // tasa marginal
+  createdAt DateTime @default(now())
+
+  @@unique([anio, tramo])
+  @@map("escala_predial")
+}
+
+model TarifaArbitrio {
+  id        Int      @id @default(autoincrement())
+  anio      Int
+  concepto  String   @db.VarChar(30) // BARRIDO, PARQUES, RECOJO, SERENAZGO
+  tasa      Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  @@unique([anio, concepto])
+  @@map("tarifas_arbitrios")
+}
+
+model Tupa {
+  id        Int      @id @default(autoincrement())
+  codigo    String   @unique @db.VarChar(20)
+  glosa     String   @db.VarChar(200)
+  tasa      Decimal  @db.Decimal(10, 2) // soles
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("tupa")
+}
+
+// ============================================================
+// F. CUENTA CORRIENTE, CAJA Y CONVENIOS
+// Ref SIMUN: cta_aica.dbf (1.9M) + pagos.DBF (1M) +
+//   convenios_contri + convenios_detalle.DBF
+// Regla: Pago y ConvenioDet siempre referencian CuentaCorriente
+// para no perder trazabilidad deuda -> pago.
+// ============================================================
+
+model CuentaCorriente {
+  id               Int           @id @default(autoincrement())
+  contribuyenteId  Int
+  contribuyente    Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  predioId         Int?
+  predio           Predio?       @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  vehiculoId       Int?
+  vehiculo         Vehiculo?     @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  tributoId        Int
+  tributo          Tributo       @relation(fields: [tributoId], references: [id], onDelete: Restrict)
+  anioFiscal       Int
+  cuota            Int           @default(0) // 0 = anual, 1-4 trimestral, 1-12 mensual
+  importe          Decimal       @db.Decimal(12, 2)
+  descuento        Decimal       @default(0) @db.Decimal(12, 2)
+  reajuste         Decimal       @default(0) @db.Decimal(12, 2)
+  mora             Decimal       @default(0) @db.Decimal(12, 2)
+  derechoEmision   Decimal       @default(0) @db.Decimal(12, 2)
+  fechaVencimiento DateTime?     @db.Date
+  estado           EstadoCuenta  @default(PENDIENTE)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  pagos            Pago[]
+  convenioDetalles ConvenioDet[]
+  valorDetalles    ValorDet[]
+  coactivoDetalles CoactivoDet[]
+
+  @@index([contribuyenteId, anioFiscal])
+  @@index([predioId, anioFiscal])
+  @@index([tributoId, anioFiscal])
+  @@index([estado])
+  @@map("cuenta_corriente")
+}
+
+model Pago {
+  id                Int              @id @default(autoincrement())
+  cuentaCorrienteId Int?
+  cuentaCorriente   CuentaCorriente? @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
+  contribuyenteId   Int
+  contribuyente     Contribuyente    @relation("PagadorContribuyente", fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  cajeroId          Int
+  cajero            Usuario          @relation("CajeroPagos", fields: [cajeroId], references: [id], onDelete: Restrict)
+  numRecibo         String           @unique @db.VarChar(20) // NROMOV SIMUN
+  fechaPago         DateTime         @default(now()) @db.Timestamptz(6)
+  importe           Decimal          @db.Decimal(12, 2)
+  moraPagada        Decimal          @default(0) @db.Decimal(12, 2)
+  descuentoAplicado Decimal          @default(0) @db.Decimal(12, 2)
+  medioPago         MedioPago        @default(EFECTIVO)
+  numOperacion      String?          @db.VarChar(30) // voucher / cheque / deposito
+  estado            EstadoCuenta     @default(CANCELADO)
+  createdAt         DateTime         @default(now())
+
+  @@index([contribuyenteId])
+  @@index([cajeroId])
+  @@index([fechaPago])
+  @@map("pagos")
+}
+
+model ConvenioCab {
+  id              Int           @id @default(autoincrement())
+  numero          String        @unique @db.VarChar(20) // NROFRA SIMUN
+  contribuyenteId Int
+  contribuyente   Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  fecha           DateTime      @default(now()) @db.Date
+  montoTotal      Decimal       @db.Decimal(12, 2)
+  cuotaInicial    Decimal       @default(0) @db.Decimal(12, 2)
+  numCuotas       Int
+  estado          EstadoCuenta  @default(FRACCIONADO)
+  creadoPorId     Int?
+  creadoPor       Usuario?      @relation("CreadorConvenio", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+
+  detalles ConvenioDet[]
+
+  @@index([contribuyenteId])
+  @@map("convenios")
+}
+
+model ConvenioDet {
+  id                Int             @id @default(autoincrement())
+  convenioId        Int
+  convenio          ConvenioCab     @relation(fields: [convenioId], references: [id], onDelete: Cascade)
+  cuentaCorrienteId Int
+  cuentaCorriente   CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
+  cuotaNumero       Int
+  monto             Decimal         @db.Decimal(12, 2)
+  fechaVencimiento  DateTime        @db.Date
+  estado            EstadoCuenta    @default(PENDIENTE)
+
+  @@unique([convenioId, cuotaNumero])
+  @@index([cuentaCorrienteId])
+  @@map("convenio_detalle")
+}
+
+// ============================================================
+// G. COBRANZA ORDINARIA (OP/RD) Y COACTIVA
+// Ref SIMUN: valores_cobranza_cab/det + coactivo_cab/det +
+//   tabla_ejecutor_coactivo + tabla_auxiliares_coactivo
+// ============================================================
+
+model ValorCab {
+  id                Int           @id @default(autoincrement())
+  tipo              TipoValor
+  anio              Int
+  numero            String        @db.VarChar(15) // NUM_VAL
+  contribuyenteId   Int
+  contribuyente     Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  predioId          Int?
+  predio            Predio?       @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  totalDeuda        Decimal       @db.Decimal(12, 2)
+  fechaEmision      DateTime      @default(now()) @db.Date
+  fechaNotificacion DateTime?     @db.Date
+  estado            EstadoValor   @default(EMITIDO)
+  createdAt         DateTime      @default(now())
+
+  detalles    ValorDet[]
+  expedientes CoactivoExp[]
+
+  @@unique([tipo, anio, numero])
+  @@index([contribuyenteId])
+  @@map("valores_cab")
+}
+
+model ValorDet {
+  id                Int             @id @default(autoincrement())
+  valorId           Int
+  valor             ValorCab        @relation(fields: [valorId], references: [id], onDelete: Cascade)
+  cuentaCorrienteId Int
+  cuentaCorriente   CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
+  importe           Decimal         @db.Decimal(12, 2)
+  mora              Decimal         @default(0) @db.Decimal(12, 2)
+  reajuste          Decimal         @default(0) @db.Decimal(12, 2)
+  subtotal          Decimal         @db.Decimal(12, 2)
+
+  @@index([cuentaCorrienteId])
+  @@map("valores_det")
+}
+
+model CoactivoExp {
+  id              Int           @id @default(autoincrement())
+  anioExpediente  Int
+  numExpediente   String        @db.VarChar(15)
+  valorId         Int?
+  valor           ValorCab?     @relation(fields: [valorId], references: [id], onDelete: SetNull)
+  contribuyenteId Int
+  contribuyente   Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  ejecutor        String?       @db.VarChar(100)
+  auxiliar        String?       @db.VarChar(100)
+  estado          EstadoValor   @default(EMITIDO)
+  fechaGeneracion DateTime      @default(now()) @db.Date
+  createdAt       DateTime      @default(now())
+
+  detalles CoactivoDet[]
+
+  @@unique([anioExpediente, numExpediente])
+  @@index([contribuyenteId])
+  @@map("coactivo_exp")
+}
+
+model CoactivoDet {
+  id                Int              @id @default(autoincrement())
+  expedienteId      Int
+  expediente        CoactivoExp      @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  cuentaCorrienteId Int?
+  cuentaCorriente   CuentaCorriente? @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
+  descripcion       String           @db.VarChar(150)
+  monto             Decimal          @db.Decimal(12, 2)
+
+  @@index([expedienteId])
+  @@map("coactivo_det")
+}
+
+// ============================================================
+// H. LICENCIAS DE FUNCIONAMIENTO
+// Ref SIMUN: licencias.dbf + giros.dbf + clases/tipos de licencias
+// ============================================================
+
+model GiroNegocio {
+  id          Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(10)
+  descripcion String  @db.VarChar(150)
+  activo      Boolean @default(true)
+
+  licencias Licencia[]
+
+  @@map("giros_negocio")
+}
+
+model Licencia {
+  id               Int            @id @default(autoincrement())
+  numeroLicencia   String         @unique @db.VarChar(20) // NROLIC SIMUN
+  contribuyenteId  Int
+  contribuyente    Contribuyente  @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  predioId         Int?
+  predio           Predio?        @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  giroId           Int?
+  giro             GiroNegocio?   @relation(fields: [giroId], references: [id], onDelete: Restrict)
+  direccionLocal   String?        @db.VarChar(150) // DIRLIC
+  area             Decimal?       @db.Decimal(10, 2)
+  horario          String?        @db.VarChar(100)
+  fechaEmision     DateTime       @default(now()) @db.Date
+  fechaVencimiento DateTime?      @db.Date
+  estado           EstadoLicencia @default(VIGENTE)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([contribuyenteId])
+  @@index([estado])
+  @@map("licencias")
 }

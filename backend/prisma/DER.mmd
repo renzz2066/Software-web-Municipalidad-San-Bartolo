@@ -1,0 +1,48 @@
+erDiagram
+  %% A. ADMIN
+  Oficina ||--o{ Usuario : "oficinaId"
+  Usuario ||--o{ Pago : "cajero"
+  Usuario ||--o{ ConvenioCab : "creador"
+  Usuario ||--o{ Auditoria : "actor"
+
+  %% B. CONTRIBUYENTE
+  Contribuyente ||--o{ PredioContribuyente : "tiene"
+  Contribuyente ||--o{ Vehiculo : "posee"
+  Contribuyente ||--o{ CuentaCorriente : "adeuda"
+  Contribuyente ||--o{ Pago : "paga"
+  Contribuyente ||--o{ ValorCab : "deudor"
+  Contribuyente ||--o{ ConvenioCab : "fracciona"
+  Contribuyente ||--o{ CoactivoExp : "ejecutado"
+  Contribuyente ||--o{ Licencia : "titular"
+
+  %% C. PREDIO
+  Zona ||--o{ Predio : "zona"
+  Urbanizacion ||--o{ Predio : "urb"
+  Via ||--o{ Predio : "via"
+  Predio ||--o{ PredioContribuyente : "propietarios"
+  Predio ||--o{ Piso : "pisos"
+  Predio ||--o{ OtraInstalacion : "instalaciones"
+  Predio ||--o{ CuentaCorriente : "genera deuda"
+  Predio ||--o{ ValorCab : "afecto"
+  Predio ||--o{ Licencia : "local"
+  Piso ||--o{ OtraInstalacion : "piso"
+
+  %% D. VEHICULAR
+  Vehiculo ||--o{ VehiculoDetalleAnual : "detalle anual"
+  Vehiculo ||--o{ CuentaCorriente : "genera deuda"
+
+  %% E. PARAMETRIA
+  Tributo ||--o{ CuentaCorriente : "concepto"
+  GiroNegocio ||--o{ Licencia : "giro"
+
+  %% F. CUENTA CORRIENTE Y CAJA
+  CuentaCorriente ||--o{ Pago : "pagos"
+  CuentaCorriente ||--o{ ConvenioDet : "fraccionado en"
+  CuentaCorriente ||--o{ ValorDet : "incluido en"
+  CuentaCorriente ||--o{ CoactivoDet : "ejecutado en"
+  ConvenioCab ||--o{ ConvenioDet : "cuotas"
+
+  %% G. COBRANZA
+  ValorCab ||--o{ ValorDet : "detalle"
+  ValorCab ||--o{ CoactivoExp : "origen"
+  CoactivoExp ||--o{ CoactivoDet : "detalle"
