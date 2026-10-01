@@ -13,8 +13,8 @@
   - [x] Tablas relacionadas con FKs para visualizar ER (ver `DER.mmd`)
   - [x] Sin registros tributarios (solo seed `admin`)
   - [x] `.env.example` con `DATABASE_URL` (pooler 6543) + `DIRECT_URL` (5432)
-  - [ ] `npx prisma migrate dev` ejecutado contra Supabase real (pendiente: faltan las 2 URLs del proyecto)
-  - [ ] Login `POST /auth/login` sigue funcionando tras el cambio de motor
+  - [x] Migración `20261001110000_rentas_v1_postgres` aplicada a Supabase real (São Paulo) con `migrate deploy`
+  - [x] Login `POST /auth/login` + `GET /auth/me` verificados contra Postgres (`admin/ADMIN` OK)
 
 ## 2. Diseño técnico
 
@@ -55,10 +55,10 @@ Flujo de datos: `Ciudadano/Trámite → Frontend → Endpoint NestJS → Prisma 
 - [x] Migrar `datasource` a `postgresql` + `directUrl`
 - [x] Modelar 26 tablas con FKs e índices
 - [x] Actualizar `.env.example`, `prisma/README.md`, `DER.mmd`, esta spec
-- [ ] `npm install` (en curso) → `npx prisma validate`
-- [ ] Crear proyecto Supabase + pegar `DATABASE_URL/DIRECT_URL` en `.env`
-- [ ] `npx prisma migrate dev --name rentas_v1_postgres` + `npx prisma db seed`
-- [ ] `npm run start:dev` + `POST /auth/login` + `npm test`
+- [x] `npm install` → `npx prisma validate` OK, `lint` OK, unit tests 1/1 OK
+- [x] Proyecto Supabase (São Paulo) + `DATABASE_URL`/`DIRECT_URL`
+- [x] `npx prisma migrate deploy` + `npx prisma db seed` (admin/admin123)
+- [x] `npm run start:dev` + `POST /auth/login` + `GET /auth/me` OK contra Supabase
 - [ ] PR de la rama hacia `main`
 
 ## 4. Cómo levantar (resumen, detalle en `backend/prisma/README.md`)
