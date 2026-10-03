@@ -50,4 +50,13 @@ API construida con NestJS + TypeScript, Prisma (MySQL) y JWT propio (bcrypt + @n
 
 ## Notas de versiones
 
+> **Nota operativa (sesión login-visual-v1):** la BD real del proyecto es
+> Postgres en Supabase (`DATABASE_URL` con pooler `:6543` y `DIRECT_URL`
+> directa `:5432`), no MySQL local como indicaba este README. Ajusta tus
+> variables desde Supabase Dashboard → Project Settings → Database.
+> El backend tarda ~40s en compilar con `npm run start:dev` (modo watch);
+> espera al mensaje `Nest application successfully started` antes de probar el
+> login. Si ves `EADDRINUSE :::3000`, hay otra instancia de Nest viva: detén
+> ese proceso en vez de levantar uno nuevo.
+
 Este proyecto fija `prisma`/`@prisma/client` en `6.19.3` (última versión estable) en vez de la `8.0.0-rc.x` que instala `npm install prisma@latest` actualmente, ya que esa es una release candidate con cambios incompatibles (elimina el `url` del datasource en `schema.prisma`). No actualices a Prisma 7/8 sin revisar la guía de migración oficial primero.
