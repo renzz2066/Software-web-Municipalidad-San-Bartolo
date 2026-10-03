@@ -11,3 +11,16 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status
+    const url = String(error?.config?.url ?? '')
+    const isLoginRequest = url.includes('/auth/login')
+    if (status === 401 && !isLoginRequest) {
+      window.dispatchEvent(new Event('auth:expired'))
+    }
+    return Promise.reject(error)
+  },
+)
