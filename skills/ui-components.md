@@ -1,7 +1,8 @@
-# Skill: Componentes de Interfaz y UI Municipal
+# Skill: UI municipal (React + Tailwind v4)
+<!-- Formato: <40 líneas, accionable, sin duplicar AGENTS.md. Si editas, mantén este formato. -->
 
-## Principios de Diseño
-1. **Accesibilidad (WCAG)**: La interfaz debe ser accesible para todos los ciudadanos (contraste adecuado, etiquetas ARIA, navegabilidad por teclado).
-2. **Diseño Responsivo**: Garantizar compatibilidad con dispositivos móviles y de escritorio
-3. **Validación de Formularios**: Todos los datos ingresados de trámites o registros deben validarseen el cliente antes de enviarse al backend.
-4. **Reutilización**: Utilizar componentes modulares y limpios. 
+1. Estilos solo con Tailwind; tokens en `frontend/src/index.css` vía `@theme` (si la spec define paleta, úsala, no inventes otra).
+2. Iconos: sin CSS completo de Bootstrap (colisiona con Tailwind). Si la spec pide iconos, usa `bootstrap-icons` + clases `bi-*`.
+3. Accesibilidad AA: `label` por campo, foco visible, contraste, navegación por teclado. Sin emojis como iconos.
+4. Formularios: valida en cliente antes de `POST`; respeta el flujo `useAuth().login()` → `navigate('/')` (ver `frontend/README.md`).
+5. Responsive: móvil primero; panel lateral pasa a banner superior. Reutiliza componentes en `frontend/src/components/`.
