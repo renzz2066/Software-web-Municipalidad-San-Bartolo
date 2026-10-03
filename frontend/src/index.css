@@ -1,5 +1,40 @@
 @import "tailwindcss";
 
+@theme {
+  --color-mar-profundo: #0b2c4a;
+  --color-mar: #0a7ea4;
+  --color-turquesa: #00b4d8;
+  --color-arena: #f5e9d3;
+  --color-arena-claro: #faf6ec;
+  --color-coral: #e63946;
+  --font-sans: "Montserrat", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
 body {
   margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--color-arena-claro);
+}
+
+/* Foco visible accesible (WCAG) para el login */
+.login-input:focus-visible,
+.login-btn:focus-visible {
+  outline: 3px solid rgba(0, 180, 216, 0.45);
+  outline-offset: 1px;
+}
+
+/* Sutil movimiento de olas del panel institucional */
+@keyframes ola-deriva {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-18px); }
+}
+
+.ola-animada {
+  animation: ola-deriva 9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ola-animada {
+    animation: none;
+  }
 }
