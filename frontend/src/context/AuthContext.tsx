@@ -23,17 +23,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    const token = localStorage.getItem('accessToken')
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser))
+    try {
+      const storedUser = localStorage.getItem('user')
+      const token = localStorage.getItem('accessToken')
+      if (storedUser && token) {
+        const parsed = JSON.parse(storedUser) as Partial<AuthUser>
+        if (
+          typeof parsed.id === 'number' &&
+          typeof parsed.usuario === 'string' &&
+          typeof parsed.rol === 'string'
+        ) {
+          setUser(parsed as AuthUser)
+        } else {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+        }
+      }
+    } catch {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('user')
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
+  }, [])
+
+  useEffect(() => {
+    function handleExpired() {
+      logout()
+    }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
   }, [])
 
   async function login(usuario: string, password: string) {
+    const cleanUsuario = usuario.trim()
     const { data } = await api.post<{ accessToken: string; user: AuthUser }>('/auth/login', {
-      usuario,
+      usuario: cleanUsuario,
       password,
     })
     localStorage.setItem('accessToken', data.accessToken)
