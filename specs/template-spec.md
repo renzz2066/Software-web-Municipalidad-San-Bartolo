@@ -1,18 +1,20 @@
-# Especificación: [Nombre de la Funcionalidad Municipal]
+# Spec: [Nombre corto] (vN)
+<!-- Formato fijo 5 secciones. Para crear una spec, copia este archivo a `specs/<tema>-vN.md`. Las `*-v1.md` cerradas no se editan. -->
 
-## 1. Requerimientos 
-- **Historia de Usuario**: Como [ciudadano / administrador], quiero [funcionalidad] para poder [beneficio]. 
-- **Criterios de Aceptación**: 
-- [ ] Criterio 1: El usuario puede ingresar datos válidos. 
-- [ ] Criterio 2: El sistema responde con la confirmación del trámite.
+## 1. Historia y criterios
+- Como [ADMIN/SUPERVISOR/CAJERO], quiero [qué] para [beneficio].
+- [ ] Criterio 1 (observable en UI o API):
+- [ ] Criterio 2 (errores: 401 = credenciales, resto = conexión):
 
-## 2. Diseño Técnico 
-- **Componentes Afectados**: Frontend (`/src/components/...`), Backend (`/src/controllers/...`).
-- **Flujo de Datos**: `Usuario` -> `Formulario Web` -> `Endpoint API` -> `Validación/Base de Datos`
+## 2. Archivos afectados
+- Frontend: `frontend/src/...` (solo render si es visual).
+- Backend: `backend/src/...`, `backend/prisma/schema.prisma` (si cambia modelo).
 
-## 3. Lista de Tareas Ejecutables
-- [ ] Tarea 1: Diseñar el esquema o tabla correspondiente.
-- [ ] Tarea 2: Crear los endpoints en el backend.
-- [ ] Tarea 3: Construir la interfaz de usuario en el frontend.
-- [ ] Tarea 4: Escribir y ejecutar las pruebas automatizadas.
+## 3. Diseño (máx 10 líneas)
+Flujo: `Usuario -> Form -> Endpoint -> Prisma -> DB`. Decisiones y lo que NO se hace.
 
+## 4. Tareas
+- [ ] Rama `tipo/tema` desde `main`. Implementar. `lint` + `build`/`test`.
+
+## 5. Verificación
+`cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` · login `admin/admin123` (`:5173` + `:3000`).
