@@ -66,7 +66,7 @@ export function Login() {
 
           <div className="max-w-md">
             <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
-              <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-turquesa" />
+              <i aria-hidden="true" className="bi bi-geo-alt text-turquesa" />
               Distrito turístico · Bahía y malecón
             </p>
             <h2 className="text-4xl font-extrabold leading-tight drop-shadow">
@@ -77,14 +77,17 @@ export function Login() {
               caja y atención al contribuyente sanbartolino.
             </p>
             <ul className="mt-6 space-y-2 text-sm text-white/90">
-              <li className="flex items-center gap-2">
-                <span aria-hidden="true">🌊</span> Identidad costera del distrito
+              <li className="flex items-center gap-2.5">
+                <i aria-hidden="true" className="bi bi-water text-base text-turquesa" />
+                Identidad costera del distrito
               </li>
-              <li className="flex items-center gap-2">
-                <span aria-hidden="true">🏛️</span> Gestión municipal transparente
+              <li className="flex items-center gap-2.5">
+                <i aria-hidden="true" className="bi bi-bank text-base text-turquesa" />
+                Gestión municipal transparente
               </li>
-              <li className="flex items-center gap-2">
-                <span aria-hidden="true">🔒</span> Acceso por roles: ADMIN · SUPERVISOR · CAJERO
+              <li className="flex items-center gap-2.5">
+                <i aria-hidden="true" className="bi bi-shield-lock text-base text-turquesa" />
+                Acceso por roles: ADMIN · SUPERVISOR · CAJERO
               </li>
             </ul>
           </div>
@@ -159,9 +162,10 @@ export function Login() {
                     Usuario
                   </label>
                   <div className="relative">
-                    <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      👤
-                    </span>
+                    <i
+                      aria-hidden="true"
+                      className="bi bi-person pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"
+                    />
                     <input
                       id="usuario"
                       type="text"
@@ -180,9 +184,10 @@ export function Login() {
                     Contraseña
                   </label>
                   <div className="relative">
-                    <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                      🔑
-                    </span>
+                    <i
+                      aria-hidden="true"
+                      className="bi bi-key pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-slate-400"
+                    />
                     <input
                       id="password"
                       type="password"
