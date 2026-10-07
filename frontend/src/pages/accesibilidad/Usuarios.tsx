@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
+import { EliminarUsuarioModal } from './EliminarUsuarioModal'
 
 interface OficinaResumen {
   id: number
@@ -24,6 +25,8 @@ export function Usuarios() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [showDelete, setShowDelete] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -54,7 +57,7 @@ export function Usuarios() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshKey])
 
   const seleccionado = usuarios.find((u) => u.id === selectedId) ?? null
 
@@ -81,7 +84,7 @@ export function Usuarios() {
               <div>
                 <h1 className="text-lg font-bold text-mar-profundo">Gestión de Usuarios</h1>
                 <p className="text-sm text-slate-500">
-                  Lectura y edición de usuarios. Eliminar aún no disponible.
+                  Administración de usuarios del sistema.
                 </p>
               </div>
             </div>
@@ -209,9 +212,8 @@ export function Usuarios() {
                 </Link>
                 <button
                   type="button"
-                  disabled
-                  title="Próximamente"
-                  className="cursor-not-allowed rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-400"
+                  onClick={() => setShowDelete(true)}
+                  className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline-3 focus-visible:outline-turquesa"
                 >
                   <i aria-hidden="true" className="bi bi-trash mr-1" />
                   Eliminar
@@ -220,6 +222,19 @@ export function Usuarios() {
             </div>
           )}
         </main>
+
+        {showDelete && seleccionado && (
+          <EliminarUsuarioModal
+            id={seleccionado.id}
+            usuario={seleccionado.usuario}
+            onClose={() => setShowDelete(false)}
+            onDeleted={() => {
+              setShowDelete(false)
+              setSelectedId(null)
+              setRefreshKey((k) => k + 1)
+            }}
+          />
+        )}
       </div>
     </div>
   )

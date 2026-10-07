@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
@@ -124,5 +125,25 @@ export class UsersService {
       },
       select: usuarioPublico,
     });
+  }
+
+  async remove(id: number, solicitanteId: number) {
+    if (id === solicitanteId) {
+      throw new BadRequestException('No puedes eliminar tu propio usuario');
+    }
+
+    const existente = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!existente) {
+      throw new NotFoundException('El usuario no existe');
+    }
+
+    try {
+      await this.prisma.usuario.delete({ where: { id } });
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2003') {
+        throw new ConflictException('No se puede eliminar: el usuario tiene registros asociados');
+      }
+      throw error;
+    }
   }
 }
