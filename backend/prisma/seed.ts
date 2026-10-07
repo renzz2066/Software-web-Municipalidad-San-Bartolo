@@ -1,23 +1,38 @@
-import { PrismaClient, Rol } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+const ROLES_BASE = [
+  { nombre: 'ADMIN', descripcion: 'Acceso total al sistema' },
+  { nombre: 'SUPERVISOR', descripcion: 'Supervisión y consulta de operaciones' },
+  { nombre: 'CAJERO', descripcion: 'Operación de caja y cobros' },
+];
+
 async function main() {
+  for (const rol of ROLES_BASE) {
+    await prisma.rol.upsert({
+      where: { nombre: rol.nombre },
+      update: { descripcion: rol.descripcion },
+      create: rol,
+    });
+  }
+
   const passwordHash = await bcrypt.hash('admin123', 10);
 
   await prisma.usuario.upsert({
     where: { usuario: 'admin' },
     update: {},
     create: {
-      nombre: 'Administrador',
+      nombres: 'Administrador',
+      apellidos: '',
       usuario: 'admin',
       password: passwordHash,
-      rol: Rol.ADMIN,
+      rol: { connect: { nombre: 'ADMIN' } },
     },
   });
 
-  console.log('Usuario admin creado (usuario: admin / password: admin123)');
+  console.log('Roles base y usuario admin verificados (usuario: admin / password: admin123)');
 }
 
 main()

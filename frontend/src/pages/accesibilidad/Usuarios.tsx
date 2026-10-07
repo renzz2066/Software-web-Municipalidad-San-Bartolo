@@ -12,8 +12,9 @@ interface OficinaResumen {
 interface UsuarioResumen {
   id: number
   usuario: string
-  nombre: string
-  rol: string
+  nombres: string
+  apellidos: string
+  rol: { id: number; nombre: string }
   activo: boolean
   oficina: OficinaResumen | null
 }
@@ -80,19 +81,17 @@ export function Usuarios() {
               <div>
                 <h1 className="text-lg font-bold text-mar-profundo">Gestión de Usuarios</h1>
                 <p className="text-sm text-slate-500">
-                  Lectura de usuarios. Crear, modificar y eliminar aún no disponibles.
+                  Lectura de usuarios. Modificar y eliminar aún no disponibles.
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              disabled
-              title="Próximamente"
-              className="cursor-not-allowed rounded-md bg-mar-profundo/10 px-4 py-2 text-sm font-medium text-slate-400"
+            <Link
+              to="/accesibilidad/usuarios/nuevo"
+              className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
             >
               <i aria-hidden="true" className="bi bi-plus-lg mr-1" />
               Nuevo usuario
-            </button>
+            </Link>
           </div>
         </header>
 
@@ -176,10 +175,12 @@ export function Usuarios() {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-medium text-mar-profundo">{u.usuario}</td>
-                        <td className="px-4 py-3 text-slate-700">{u.nombre}</td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {`${u.nombres} ${u.apellidos}`.trim()}
+                        </td>
                         <td className="px-4 py-3">
                           <span className="rounded-md bg-mar-profundo/5 px-2 py-1 text-xs font-semibold text-mar-profundo">
-                            {u.rol}
+                            {u.rol.nombre}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate-600">

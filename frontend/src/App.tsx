@@ -3,6 +3,7 @@ import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
 import { Accesibilidad } from './pages/Accesibilidad'
 import { Usuarios } from './pages/accesibilidad/Usuarios'
+import { NuevoUsuario } from './pages/accesibilidad/NuevoUsuario'
 import { Roles } from './pages/accesibilidad/Roles'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
@@ -33,6 +34,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Usuarios />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accesibilidad/usuarios/nuevo"
+        element={
+          <ProtectedRoute>
+            <NuevoUsuario />
           </ProtectedRoute>
         }
       />
