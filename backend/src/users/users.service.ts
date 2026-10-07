@@ -12,4 +12,18 @@ export class UsersService {
   findById(id: number) {
     return this.prisma.usuario.findUnique({ where: { id } });
   }
+
+  findAll() {
+    return this.prisma.usuario.findMany({
+      select: {
+        id: true,
+        usuario: true,
+        nombre: true,
+        rol: true,
+        activo: true,
+        oficina: { select: { id: true, codigo: true, nombre: true } },
+      },
+      orderBy: { usuario: 'asc' },
+    });
+  }
 }
