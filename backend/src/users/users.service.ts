@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
+import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 
 const usuarioPublico = {
   id: true,
@@ -38,6 +39,17 @@ export class UsersService {
     });
   }
 
+  async findOne(id: number) {
+    const usuario = await this.prisma.usuario.findUnique({
+      where: { id },
+      select: usuarioPublico,
+    });
+    if (!usuario) {
+      throw new NotFoundException('El usuario no existe');
+    }
+    return usuario;
+  }
+
   async create(dto: CreateUsuarioDto) {
     const usuario = dto.usuario.trim();
 
@@ -65,6 +77,50 @@ export class UsersService {
         password,
         rolId: dto.rolId,
         activo: dto.activo ?? true,
+      },
+      select: usuarioPublico,
+    });
+  }
+
+  async update(id: number, dto: UpdateUsuarioDto) {
+    const existente = await this.prisma.usuario.findUnique({ where: { id } });
+    if (!existente) {
+      throw new NotFoundException('El usuario no existe');
+    }
+
+    let usuario = existente.usuario;
+    if (dto.usuario !== undefined && dto.usuario.trim() !== existente.usuario) {
+      usuario = dto.usuario.trim();
+      const duplicado = await this.prisma.usuario.findUnique({ where: { usuario } });
+      if (duplicado) {
+        throw new ConflictException('El usuario ya existe');
+      }
+    }
+
+    let password: string | undefined;
+    if (dto.password !== undefined && dto.password !== '') {
+      if (dto.password !== dto.confirmPassword) {
+        throw new BadRequestException('Las contraseñas no coinciden');
+      }
+      password = await bcrypt.hash(dto.password, 10);
+    }
+
+    if (dto.rolId !== undefined) {
+      const rol = await this.prisma.rol.findUnique({ where: { id: dto.rolId } });
+      if (!rol) {
+        throw new BadRequestException('El rol no existe');
+      }
+    }
+
+    return this.prisma.usuario.update({
+      where: { id },
+      data: {
+        usuario,
+        nombres: dto.nombres !== undefined ? dto.nombres.trim() : undefined,
+        apellidos: dto.apellidos !== undefined ? dto.apellidos.trim() : undefined,
+        ...(password !== undefined ? { password } : {}),
+        rolId: dto.rolId,
+        activo: dto.activo,
       },
       select: usuarioPublico,
     });

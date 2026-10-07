@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Accesibilidad } from './pages/Accesibilidad'
 import { Usuarios } from './pages/accesibilidad/Usuarios'
 import { NuevoUsuario } from './pages/accesibilidad/NuevoUsuario'
+import { EditarUsuario } from './pages/accesibilidad/EditarUsuario'
 import { Roles } from './pages/accesibilidad/Roles'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
@@ -42,6 +43,14 @@ function App() {
         element={
           <ProtectedRoute>
             <NuevoUsuario />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accesibilidad/usuarios/:id/editar"
+        element={
+          <ProtectedRoute>
+            <EditarUsuario />
           </ProtectedRoute>
         }
       />

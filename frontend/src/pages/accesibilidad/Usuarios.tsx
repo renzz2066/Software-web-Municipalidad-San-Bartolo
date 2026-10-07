@@ -81,7 +81,7 @@ export function Usuarios() {
               <div>
                 <h1 className="text-lg font-bold text-mar-profundo">Gestión de Usuarios</h1>
                 <p className="text-sm text-slate-500">
-                  Lectura de usuarios. Modificar y eliminar aún no disponibles.
+                  Lectura y edición de usuarios. Eliminar aún no disponible.
                 </p>
               </div>
             </div>
@@ -200,15 +200,13 @@ export function Usuarios() {
                 Seleccionado: <strong className="text-mar-profundo">{seleccionado.usuario}</strong>
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  disabled
-                  title="Próximamente"
-                  className="cursor-not-allowed rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-400"
+                <Link
+                  to={`/accesibilidad/usuarios/${seleccionado.id}/editar`}
+                  className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
                 >
                   <i aria-hidden="true" className="bi bi-pencil mr-1" />
                   Modificar
-                </button>
+                </Link>
                 <button
                   type="button"
                   disabled
