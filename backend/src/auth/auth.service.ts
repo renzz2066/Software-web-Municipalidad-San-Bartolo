@@ -22,15 +22,15 @@ export class AuthService {
       throw new UnauthorizedException('Usuario o contraseña incorrectos');
     }
 
-    const payload = { sub: user.id, usuario: user.usuario, rol: user.rol };
+    const payload = { sub: user.id, usuario: user.usuario, rol: user.rol.nombre };
 
     return {
       accessToken: await this.jwtService.signAsync(payload),
       user: {
         id: user.id,
-        nombre: user.nombre,
+        nombre: `${user.nombres} ${user.apellidos}`.trim(),
         usuario: user.usuario,
-        rol: user.rol,
+        rol: user.rol.nombre,
       },
     };
   }

@@ -12,12 +12,6 @@ datasource db {
 // ENUMS
 // ============================================================
 
-enum Rol {
-  ADMIN
-  SUPERVISOR
-  CAJERO
-}
-
 enum TipoPersona {
   NATURAL
   JURIDICA
@@ -101,12 +95,25 @@ model Oficina {
   @@map("oficinas")
 }
 
+model Rol {
+  id          Int       @id @default(autoincrement())
+  nombre      String    @unique @db.VarChar(50)
+  descripcion String?   @db.VarChar(200)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  usuarios    Usuario[]
+
+  @@map("roles")
+}
+
 model Usuario {
   id        Int      @id @default(autoincrement())
-  nombre    String   @db.VarChar(100)
+  nombres   String   @db.VarChar(100)
+  apellidos String   @db.VarChar(100)
   usuario   String   @unique @db.VarChar(50)
   password  String   @db.VarChar(255) // hash bcrypt, nunca texto plano
-  rol       Rol      @default(CAJERO)
+  rolId     Int
+  rol       Rol      @relation(fields: [rolId], references: [id], onDelete: Restrict)
   activo    Boolean  @default(true)
   oficinaId Int?
   oficina   Oficina? @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
@@ -117,6 +124,7 @@ model Usuario {
   conveniosCreados ConvenioCab[] @relation("CreadorConvenio")
   auditorias       Auditoria[]
 
+  @@index([rolId])
   @@index([oficinaId])
   @@map("usuarios")
 }
