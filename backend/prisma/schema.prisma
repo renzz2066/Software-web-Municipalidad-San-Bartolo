@@ -77,6 +77,11 @@ enum AccionAuditoria {
   LOGIN
 }
 
+enum TipoNivel {
+  MODULO
+  FUNCIONALIDAD
+}
+
 // ============================================================
 // A. ADMINISTRACION Y SEGURIDAD
 // Ref SIMUN: usuarios.dbf + roles.dbf + oficinas.dbf
@@ -104,6 +109,23 @@ model Rol {
   usuarios    Usuario[]
 
   @@map("roles")
+}
+
+model Nivel {
+  id          Int       @id @default(autoincrement())
+  codigo      String    @unique @db.VarChar(100) // llave estable del permiso (ej. accesibilidad.usuarios)
+  tipo        TipoNivel
+  nombre      String    @db.VarChar(100)
+  descripcion String?   @db.VarChar(200)
+  padreId     Int? // MODULO=null, FUNCIONALIDAD=modulo padre
+  padre       Nivel?    @relation("NivelJerarquia", fields: [padreId], references: [id], onDelete: Restrict)
+  hijos       Nivel[]   @relation("NivelJerarquia")
+  orden       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([padreId])
+  @@map("niveles")
 }
 
 model Usuario {
