@@ -34,6 +34,8 @@ export function Niveles() {
         if (cancelled) return
         if (isAxiosError(err) && err.response?.status === 401) {
           setError('Sesión vencida. Vuelve a ingresar.')
+        } else if (isAxiosError(err) && err.response?.status === 403) {
+          setError('Sin permisos para ver niveles.')
         } else {
           setError('No se pudo conectar con el servidor. Intenta nuevamente.')
         }

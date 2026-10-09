@@ -61,6 +61,16 @@ async function main() {
 
   console.log('Roles base y usuario admin verificados (usuario: admin / password: admin123)');
   console.log(`Niveles sincronizados: ${idsPorCodigo.size}`);
+
+  // ADMIN con acceso total (data-driven, sin excepciones en código)
+  const admin = await prisma.rol.findUnique({ where: { nombre: 'ADMIN' } });
+  if (admin) {
+    await prisma.rolNivel.createMany({
+      data: [...idsPorCodigo.values()].map((nivelId) => ({ rolId: admin.id, nivelId })),
+      skipDuplicates: true,
+    });
+    console.log('Accesos ADMIN verificados');
+  }
 }
 
 main()

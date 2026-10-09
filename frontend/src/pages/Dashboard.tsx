@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAccesos } from '../context/AccesosContext'
 
 export function Dashboard() {
   const { user, logout } = useAuth()
+  const { tiene, isLoading: isLoadingAccesos } = useAccesos()
+  const veAccesibilidad = isLoadingAccesos || tiene('accesibilidad')
 
   return (
     <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
@@ -29,6 +32,7 @@ export function Dashboard() {
             Módulos
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
+            {veAccesibilidad && (
             <Link
               to="/accesibilidad"
               className="group rounded-xl bg-white p-5 shadow-md ring-1 ring-mar-profundo/10 transition hover:shadow-lg hover:ring-mar/30 focus-visible:outline-3 focus-visible:outline-turquesa"
@@ -54,6 +58,7 @@ export function Dashboard() {
                 </div>
               </div>
             </Link>
+            )}
           </div>
         </main>
       </div>

@@ -1,6 +1,5 @@
 import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
@@ -140,10 +139,19 @@ export class UsersService {
     try {
       await this.prisma.usuario.delete({ where: { id } });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2003') {
+      if (isPrismaFkError(error)) {
         throw new ConflictException('No se puede eliminar: el usuario tiene registros asociados');
       }
       throw error;
     }
   }
+}
+
+function isPrismaFkError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: unknown }).code === 'P2003'
+  );
 }

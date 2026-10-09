@@ -6,9 +6,12 @@ import { Usuarios } from './pages/accesibilidad/Usuarios'
 import { NuevoUsuario } from './pages/accesibilidad/NuevoUsuario'
 import { EditarUsuario } from './pages/accesibilidad/EditarUsuario'
 import { Roles } from './pages/accesibilidad/Roles'
+import { NuevoRol } from './pages/accesibilidad/NuevoRol'
+import { EditarRol } from './pages/accesibilidad/EditarRol'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
 import { ProtectedRoute } from './routes/ProtectedRoute'
+import { RequireNivel } from './routes/RequireNivel'
 
 function App() {
   return (
@@ -26,7 +29,9 @@ function App() {
         path="/accesibilidad"
         element={
           <ProtectedRoute>
-            <Accesibilidad />
+            <RequireNivel codigo="accesibilidad">
+              <Accesibilidad />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />
@@ -34,7 +39,9 @@ function App() {
         path="/accesibilidad/usuarios"
         element={
           <ProtectedRoute>
-            <Usuarios />
+            <RequireNivel codigo="accesibilidad.usuarios">
+              <Usuarios />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />
@@ -42,7 +49,9 @@ function App() {
         path="/accesibilidad/usuarios/nuevo"
         element={
           <ProtectedRoute>
-            <NuevoUsuario />
+            <RequireNivel codigo="accesibilidad.usuarios">
+              <NuevoUsuario />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />
@@ -50,7 +59,9 @@ function App() {
         path="/accesibilidad/usuarios/:id/editar"
         element={
           <ProtectedRoute>
-            <EditarUsuario />
+            <RequireNivel codigo="accesibilidad.usuarios">
+              <EditarUsuario />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />
@@ -58,7 +69,29 @@ function App() {
         path="/accesibilidad/roles"
         element={
           <ProtectedRoute>
-            <Roles />
+            <RequireNivel codigo="accesibilidad.roles">
+              <Roles />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accesibilidad/roles/nuevo"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="accesibilidad.roles">
+              <NuevoRol />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accesibilidad/roles/:id/editar"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="accesibilidad.roles">
+              <EditarRol />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />
@@ -66,7 +99,9 @@ function App() {
         path="/accesibilidad/niveles"
         element={
           <ProtectedRoute>
-            <Niveles />
+            <RequireNivel codigo="accesibilidad.niveles">
+              <Niveles />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />
@@ -74,7 +109,9 @@ function App() {
         path="/accesibilidad/accesos-por-rol"
         element={
           <ProtectedRoute>
-            <AccesosPorRol />
+            <RequireNivel codigo="accesibilidad.accesos-por-rol">
+              <AccesosPorRol />
+            </RequireNivel>
           </ProtectedRoute>
         }
       />

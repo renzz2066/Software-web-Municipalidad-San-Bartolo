@@ -107,6 +107,7 @@ model Rol {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   usuarios    Usuario[]
+  accesos     RolNivel[]
 
   @@map("roles")
 }
@@ -120,12 +121,25 @@ model Nivel {
   padreId     Int? // MODULO=null, FUNCIONALIDAD=modulo padre
   padre       Nivel?    @relation("NivelJerarquia", fields: [padreId], references: [id], onDelete: Restrict)
   hijos       Nivel[]   @relation("NivelJerarquia")
+  rolesAsignados RolNivel[]
   orden       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   @@index([padreId])
   @@map("niveles")
+}
+
+model RolNivel {
+  rolId     Int
+  rol       Rol   @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  nivelId   Int
+  nivel     Nivel @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([rolId, nivelId])
+  @@map("rol_nivel")
 }
 
 model Usuario {
