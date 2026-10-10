@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
@@ -145,21 +145,22 @@ export function Usuarios() {
                   {usuarios.map((u) => {
                     const selected = u.id === selectedId
                     return (
-                      <tr
-                        key={u.id}
-                        tabIndex={0}
-                        aria-selected={selected}
-                        onClick={() => setSelectedId(selected ? null : u.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault()
-                            setSelectedId(selected ? null : u.id)
-                          }
-                        }}
-                        className={`cursor-pointer border-b border-slate-100 transition focus-visible:outline-3 focus-visible:outline-turquesa ${
-                          selected ? 'bg-mar/10' : 'hover:bg-slate-50'
-                        }`}
-                      >
+                      <Fragment key={u.id}>
+                        <tr
+                          tabIndex={0}
+                          aria-selected={selected}
+                          aria-expanded={selected}
+                          onClick={() => setSelectedId(selected ? null : u.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setSelectedId(selected ? null : u.id)
+                            }
+                          }}
+                          className={`cursor-pointer border-b border-slate-100 transition focus-visible:outline-3 focus-visible:outline-turquesa ${
+                            selected ? 'bg-mar/10' : 'hover:bg-slate-50'
+                          }`}
+                        >
                         <td className="px-4 py-3">
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -190,35 +191,37 @@ export function Usuarios() {
                           {u.oficina ? u.oficina.nombre : '—'}
                         </td>
                       </tr>
+                      {selected && (
+                        <tr className="border-b border-slate-100 bg-mar/5">
+                          <td colSpan={5} className="px-4 py-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <span className="text-xs text-slate-500">
+                                Seleccionado: <strong className="text-mar-profundo">{u.usuario}</strong>
+                              </span>
+                              <Link
+                                to={`/accesibilidad/usuarios/${u.id}/editar`}
+                                className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
+                              >
+                                <i aria-hidden="true" className="bi bi-pencil mr-1" />
+                                Modificar
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => setShowDelete(true)}
+                                className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline-3 focus-visible:outline-turquesa"
+                              >
+                                <i aria-hidden="true" className="bi bi-trash mr-1" />
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     )
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {seleccionado && !isLoading && !error && (
-            <div className="border-t border-slate-200 p-4 sm:p-6">
-              <p className="text-sm text-slate-500">
-                Seleccionado: <strong className="text-mar-profundo">{seleccionado.usuario}</strong>
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                <Link
-                  to={`/accesibilidad/usuarios/${seleccionado.id}/editar`}
-                  className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
-                >
-                  <i aria-hidden="true" className="bi bi-pencil mr-1" />
-                  Modificar
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setShowDelete(true)}
-                  className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline-3 focus-visible:outline-turquesa"
-                >
-                  <i aria-hidden="true" className="bi bi-trash mr-1" />
-                  Eliminar
-                </button>
-              </div>
             </div>
           )}
         </main>

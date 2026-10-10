@@ -1,26 +1,31 @@
 import { Link } from 'react-router-dom'
+import { useAccesos } from '../context/AccesosContext'
 
 const OPCIONES = [
   {
     to: '/accesibilidad/usuarios',
+    codigo: 'accesibilidad.usuarios',
     icono: 'bi bi-people',
     titulo: 'Gestión de Usuarios',
     descripcion: 'Usuarios internos del sistema.',
   },
   {
     to: '/accesibilidad/roles',
+    codigo: 'accesibilidad.roles',
     icono: 'bi bi-person-badge',
     titulo: 'Roles',
     descripcion: 'Roles asignables a usuarios.',
   },
   {
     to: '/accesibilidad/niveles',
+    codigo: 'accesibilidad.niveles',
     icono: 'bi bi-diagram-3',
     titulo: 'Niveles',
     descripcion: 'Acciones y funciones disponibles.',
   },
   {
     to: '/accesibilidad/accesos-por-rol',
+    codigo: 'accesibilidad.accesos-por-rol',
     icono: 'bi bi-key',
     titulo: 'Accesos por Roles',
     descripcion: 'Niveles habilitados por rol.',
@@ -28,6 +33,8 @@ const OPCIONES = [
 ] as const
 
 export function Accesibilidad() {
+  const { tiene, isLoading } = useAccesos()
+  const visibles = OPCIONES.filter((opcion) => isLoading || tiene(opcion.codigo))
   return (
     <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
       <div className="mx-auto max-w-4xl">
@@ -57,7 +64,12 @@ export function Accesibilidad() {
         </header>
 
         <main className="mt-6 grid gap-4 sm:grid-cols-2">
-          {OPCIONES.map((opcion) => (
+          {visibles.length === 0 && !isLoading ? (
+            <p className="rounded-xl bg-white p-6 text-center text-sm text-slate-500 shadow-md ring-1 ring-mar-profundo/10 sm:col-span-2">
+              Tu rol no tiene accesos asignados en este módulo.
+            </p>
+          ) : (
+            visibles.map((opcion) => (
             <Link
               key={opcion.to}
               to={opcion.to}
@@ -74,7 +86,8 @@ export function Accesibilidad() {
               </h2>
               <p className="mt-1 text-sm text-slate-500">{opcion.descripcion}</p>
             </Link>
-          ))}
+            ))
+          )}
         </main>
       </div>
     </div>
