@@ -19,7 +19,7 @@ export class NivelesController {
   }
 
   @UseGuards(NivelGuard)
-  @RequireNivel('accesibilidad.niveles')
+  @RequireNivel('accesibilidad.niveles', 'accesibilidad.accesos-por-rol')
   @Get()
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.nivelesService.findAll(user.id);

@@ -3,39 +3,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
 
-interface Subnivel {
-  id: number
-  codigo: string
-  nombre: string
-  descripcion: string | null
-}
-
-interface ModuloNivel {
-  id: number
-  codigo: string
-  nombre: string
-  descripcion: string | null
-  subniveles: Subnivel[]
-}
-
 interface RolDetalle {
   id: number
   nombre: string
   descripcion: string | null
-  accesos: { nivelId: number }[]
 }
 
 export function EditarRol() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const [modulos, setModulos] = useState<ModuloNivel[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
   const [nombre, setNombre] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [seleccionados, setSeleccionados] = useState<number[]>([])
 
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,16 +27,10 @@ export function EditarRol() {
 
     async function cargar() {
       try {
-        const [resRol, resNiveles] = await Promise.all([
-          api.get<RolDetalle>(`/roles/${id}`),
-          api.get<ModuloNivel[]>('/niveles'),
-        ])
+        const { data } = await api.get<RolDetalle>(`/roles/${id}`)
         if (cancelled) return
-        const r = resRol.data
-        setNombre(r.nombre)
-        setDescripcion(r.descripcion ?? '')
-        setSeleccionados(r.accesos.map((a) => a.nivelId))
-        setModulos(resNiveles.data)
+        setNombre(data.nombre)
+        setDescripcion(data.descripcion ?? '')
       } catch (err) {
         if (cancelled) return
         if (isAxiosError(err) && err.response?.status === 404) {
@@ -77,34 +53,6 @@ export function EditarRol() {
     }
   }, [id])
 
-  function toggleModulo(modulo: ModuloNivel) {
-    setSeleccionados((prev) => {
-      const set = new Set(prev)
-      const ids = [modulo.id, ...modulo.subniveles.map((s) => s.id)]
-      const todos = ids.every((nid) => set.has(nid))
-      if (todos) {
-        ids.forEach((nid) => set.delete(nid))
-      } else {
-        ids.forEach((nid) => set.add(nid))
-      }
-      return [...set]
-    })
-  }
-
-  function toggleSubnivel(modulo: ModuloNivel, sub: Subnivel) {
-    setSeleccionados((prev) => {
-      const set = new Set(prev)
-      if (set.has(sub.id)) {
-        set.delete(sub.id)
-      } else {
-        // Regla jerárquica: el subnivel exige su módulo asignado
-        set.add(sub.id)
-        set.add(modulo.id)
-      }
-      return [...set]
-    })
-  }
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
@@ -113,17 +61,12 @@ export function EditarRol() {
       setError('El nombre es obligatorio.')
       return
     }
-    if (seleccionados.length === 0) {
-      setError('Selecciona al menos un nivel.')
-      return
-    }
 
     setIsSubmitting(true)
     try {
       await api.patch(`/roles/${id}`, {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() === '' ? null : descripcion.trim(),
-        nivelIds: seleccionados,
       })
       navigate('/accesibilidad/roles', { replace: true })
     } catch (err) {
@@ -230,43 +173,16 @@ export function EditarRol() {
                 />
               </div>
 
-              <fieldset>
-                <legend className="mb-1 text-sm font-semibold text-mar-profundo">Niveles asignados</legend>
-                <p className="mb-3 text-xs text-slate-500">
-                  Un subnivel exige su módulo asignado. Al desmarcar un módulo se quitan sus subniveles.
-                </p>
-                <div className="space-y-3">
-                  {modulos.map((modulo) => (
-                    <div key={modulo.id} className="rounded-lg ring-1 ring-slate-200">
-                      <label className="flex cursor-pointer items-center gap-3 bg-slate-50 px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={seleccionados.includes(modulo.id)}
-                          onChange={() => toggleModulo(modulo)}
-                          className="h-4 w-4 accent-[#0a7ea4]"
-                        />
-                        <span className="text-sm font-bold text-mar-profundo">{modulo.nombre}</span>
-                        <span className="rounded-md bg-mar-profundo px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                          Módulo
-                        </span>
-                      </label>
-                      <div className="space-y-1 px-4 py-3">
-                        {modulo.subniveles.map((sub) => (
-                          <label key={sub.id} className="flex cursor-pointer items-center gap-3 py-1 pl-6">
-                            <input
-                              type="checkbox"
-                              checked={seleccionados.includes(sub.id)}
-                              onChange={() => toggleSubnivel(modulo, sub)}
-                              className="h-4 w-4 accent-[#0a7ea4]"
-                            />
-                            <span className="text-sm text-slate-700">{sub.nombre}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </fieldset>
+              <p className="mt-3 rounded-lg bg-mar/5 px-4 py-3 text-sm text-slate-600 ring-1 ring-mar/20">
+                Los accesos se asignan en{' '}
+                <Link
+                  to="/accesibilidad/accesos-por-rol"
+                  className="font-semibold text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+                >
+                  Accesos por Roles
+                </Link>
+                .
+              </p>
 
               {error && (
                 <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700">

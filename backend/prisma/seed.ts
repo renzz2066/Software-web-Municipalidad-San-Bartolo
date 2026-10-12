@@ -4,11 +4,7 @@ import { NIVELES_CATALOGO } from '../src/niveles/niveles.catalogo.js';
 
 const prisma = new PrismaClient();
 
-const ROLES_BASE = [
-  { nombre: 'ADMIN', descripcion: 'Acceso total al sistema' },
-  { nombre: 'SUPERVISOR', descripcion: 'Supervisión y consulta de operaciones' },
-  { nombre: 'CAJERO', descripcion: 'Operación de caja y cobros' },
-];
+const ROLES_BASE = [{ nombre: 'ADMIN', descripcion: 'Acceso total al sistema' }];
 
 async function main() {
   for (const rol of ROLES_BASE) {

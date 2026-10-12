@@ -30,6 +30,7 @@ export class NivelGuard implements CanActivate {
       select: { nivel: { select: { codigo: true } } },
     });
     const codigos = new Set(accesos.map((a) => a.nivel.codigo));
-    return requeridos.every((codigo) => codigos.has(codigo));
+    // Basta con UNO de los códigos (los listados aceptan su nivel o accesos-por-rol)
+    return requeridos.some((codigo) => codigos.has(codigo));
   }
 }
