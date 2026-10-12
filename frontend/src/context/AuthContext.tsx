@@ -6,6 +6,7 @@ export interface AuthUser {
   nombre: string
   usuario: string
   rol: string
+  accesos: string[]
 }
 
 interface AuthContextValue {
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           typeof parsed.usuario === 'string' &&
           typeof parsed.rol === 'string'
         ) {
-          setUser(parsed as AuthUser)
+          setUser({ ...parsed, accesos: Array.isArray(parsed.accesos) ? parsed.accesos : [] } as AuthUser)
         } else {
           localStorage.removeItem('accessToken')
           localStorage.removeItem('user')

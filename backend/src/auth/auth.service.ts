@@ -22,7 +22,9 @@ export class AuthService {
       throw new UnauthorizedException('Usuario o contraseña incorrectos');
     }
 
-    const payload = { sub: user.id, usuario: user.usuario, rol: user.rol.nombre };
+    const accesos = await this.usersService.accesosDeUsuario(user.id);
+
+    const payload = { sub: user.id, usuario: user.usuario, rol: user.rol.nombre, niveles: accesos };
 
     return {
       accessToken: await this.jwtService.signAsync(payload),
@@ -31,6 +33,7 @@ export class AuthService {
         nombre: `${user.nombres} ${user.apellidos}`.trim(),
         usuario: user.usuario,
         rol: user.rol.nombre,
+        accesos,
       },
     };
   }

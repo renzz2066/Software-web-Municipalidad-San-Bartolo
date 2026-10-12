@@ -25,7 +25,7 @@ salvo que el usuario lo pida explícito. Sin secretos en código (solo `.env` gi
 2. Auth delega en `useAuth().login()` → `navigate('/')`; 401 = credenciales, resto = conexión.
 3. Deuda/dinero: estados (`CANCELADO/EXTORNADO`), nunca `DELETE`. Cambios multi-tabla en `$transaction`.
 4. Tests solo para lógica crítica (tasas, auth, cobros) + edge cases; mockea DB/APIs externas.
-5. API auth real (ver `backend/README.md`): `POST /auth/login` → `{accessToken, user}`; `GET /auth/me` → usuario. Error Nest estándar (`401 {message, statusCode}`). No inventes wrapper `{success,data,error}`.
+5. API auth real (ver `backend/README.md`): `POST /auth/login` → `{accessToken, user{id,nombre,usuario,rol,accesos}}` (JWT incluye `niveles`; si cambian los accesos, reingresar); `GET /auth/me` → usuario. Error Nest estándar (`401 {message, statusCode}`). No inventes wrapper `{success,data,error}`.
 
 ## Skills (lazy-load: lee SOLO la necesaria, cuando la tarea la exija)
 | Tarea | Lee |
