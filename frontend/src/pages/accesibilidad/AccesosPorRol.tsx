@@ -24,6 +24,12 @@ interface ModuloNivel {
   subniveles: Subnivel[]
 }
 
+interface Matriz {
+  roles: RolResumen[]
+  modulos: ModuloNivel[]
+  seleccion: { rolId: number; nivelIds: number[] } | null
+}
+
 function iguales(a: number[], b: number[]) {
   if (a.length !== b.length) return false
   const set = new Set(a)
@@ -34,6 +40,7 @@ export function AccesosPorRol() {
   const [roles, setRoles] = useState<RolResumen[]>([])
   const [modulos, setModulos] = useState<ModuloNivel[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSwitching, setIsSwitching] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [selectedRolId, setSelectedRolId] = useState<number | null>(null)
@@ -42,6 +49,26 @@ export function AccesosPorRol() {
   const [isSaving, setIsSaving] = useState(false)
   const [exito, setExito] = useState(false)
 
+  function aplicarMatriz(data: Matriz) {
+    setRoles(data.roles)
+    setModulos(data.modulos)
+    setSelectedRolId(data.seleccion?.rolId ?? null)
+    setSeleccionados(data.seleccion?.nivelIds ?? [])
+    setGuardados(data.seleccion?.nivelIds ?? [])
+  }
+
+  function mapearError(err: unknown, defecto: string) {
+    if (isAxiosError(err) && err.response?.status === 401) {
+      setError('Sesión vencida. Vuelve a ingresar.')
+    } else if (isAxiosError(err) && err.response?.status === 403) {
+      setError('Sin permisos para ver accesos.')
+    } else if (isAxiosError(err) && err.response?.status === 404) {
+      setError('El rol ya no existe.')
+    } else {
+      setError(defecto)
+    }
+  }
+
   useEffect(() => {
     let cancelled = false
 
@@ -49,25 +76,10 @@ export function AccesosPorRol() {
       setIsLoading(true)
       setError(null)
       try {
-        const [resRoles, resNiveles] = await Promise.all([
-          api.get<RolResumen[]>('/roles'),
-          api.get<ModuloNivel[]>('/niveles'),
-        ])
-        if (cancelled) return
-        setRoles(resRoles.data)
-        setModulos(resNiveles.data)
-        if (resRoles.data.length > 0) {
-          setSelectedRolId(resRoles.data[0].id)
-        }
+        const { data } = await api.get<Matriz>('/niveles/matriz')
+        if (!cancelled) aplicarMatriz(data)
       } catch (err) {
-        if (cancelled) return
-        if (isAxiosError(err) && err.response?.status === 401) {
-          setError('Sesión vencida. Vuelve a ingresar.')
-        } else if (isAxiosError(err) && err.response?.status === 403) {
-          setError('Sin permisos para ver accesos.')
-        } else {
-          setError('No se pudo conectar con el servidor. Intenta nuevamente.')
-        }
+        if (!cancelled) mapearError(err, 'No se pudo conectar con el servidor. Intenta nuevamente.')
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -79,37 +91,24 @@ export function AccesosPorRol() {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function cargarAccesos() {
-      if (selectedRolId === null) return
-      setError(null)
-      setExito(false)
-      try {
-        const { data } = await api.get<{ nivelIds: number[] }>(`/roles/${selectedRolId}/accesos`)
-        if (cancelled) return
-        setSeleccionados(data.nivelIds)
-        setGuardados(data.nivelIds)
-      } catch (err) {
-        if (cancelled) return
-        if (isAxiosError(err) && err.response?.status === 404) {
-          setError('El rol ya no existe.')
-        } else if (isAxiosError(err) && err.response?.status === 401) {
-          setError('Sesión vencida. Vuelve a ingresar.')
-        } else if (isAxiosError(err) && err.response?.status === 403) {
-          setError('Sin permisos para ver accesos.')
-        } else {
-          setError('No se pudo cargar los accesos. Intenta nuevamente.')
-        }
-      }
+  async function cambiarRol(rolId: number) {
+    if (rolId === selectedRolId || isSaving) return
+    setIsSwitching(true)
+    setError(null)
+    setExito(false)
+    try {
+      const { data } = await api.get<Matriz>('/niveles/matriz', { params: { rolId } })
+      setRoles(data.roles)
+      setModulos(data.modulos)
+      setSelectedRolId(data.seleccion?.rolId ?? null)
+      setSeleccionados(data.seleccion?.nivelIds ?? [])
+      setGuardados(data.seleccion?.nivelIds ?? [])
+    } catch (err) {
+      mapearError(err, 'No se pudo cargar los accesos. Intenta nuevamente.')
+    } finally {
+      setIsSwitching(false)
     }
-
-    void cargarAccesos()
-    return () => {
-      cancelled = true
-    }
-  }, [selectedRolId])
+  }
 
   const modificado = !iguales(seleccionados, guardados)
   const rolSeleccionado = roles.find((r) => r.id === selectedRolId) ?? null
@@ -247,8 +246,9 @@ export function AccesosPorRol() {
                         <button
                           type="button"
                           aria-pressed={active}
-                          onClick={() => setSelectedRolId(rol.id)}
-                          className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-3 focus-visible:outline-turquesa ${
+                          disabled={isSwitching || isSaving}
+                          onClick={() => void cambiarRol(rol.id)}
+                          className={`w-full rounded-lg px-3 py-2 text-left text-sm font-medium transition focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-60 ${
                             active
                               ? 'bg-mar-profundo text-white'
                               : 'text-mar-profundo hover:bg-slate-100'
@@ -273,37 +273,43 @@ export function AccesosPorRol() {
                   Un subnivel exige su módulo asignado. Al desmarcar un módulo se quitan sus subniveles.
                 </p>
 
-                <div className="space-y-3">
-                  {modulos.map((modulo) => (
-                    <div key={modulo.id} className="rounded-lg ring-1 ring-slate-200">
-                      <label className="flex cursor-pointer items-center gap-3 bg-slate-50 px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={seleccionados.includes(modulo.id)}
-                          onChange={() => toggleModulo(modulo)}
-                          className="h-4 w-4 accent-[#0a7ea4]"
-                        />
-                        <span className="text-sm font-bold text-mar-profundo">{modulo.nombre}</span>
-                        <span className="rounded-md bg-mar-profundo px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
-                          Módulo
-                        </span>
-                      </label>
-                      <div className="space-y-1 px-4 py-3">
-                        {modulo.subniveles.map((sub) => (
-                          <label key={sub.id} className="flex cursor-pointer items-center gap-3 py-1 pl-6">
-                            <input
-                              type="checkbox"
-                              checked={seleccionados.includes(sub.id)}
-                              onChange={() => toggleSubnivel(modulo, sub)}
-                              className="h-4 w-4 accent-[#0a7ea4]"
-                            />
-                            <span className="text-sm text-slate-700">{sub.nombre}</span>
-                          </label>
-                        ))}
+                {isSwitching ? (
+                  <p className="py-4 text-center text-sm text-slate-500" role="status">
+                    Cargando accesos…
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {modulos.map((modulo) => (
+                      <div key={modulo.id} className="rounded-lg ring-1 ring-slate-200">
+                        <label className="flex cursor-pointer items-center gap-3 bg-slate-50 px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={seleccionados.includes(modulo.id)}
+                            onChange={() => toggleModulo(modulo)}
+                            className="h-4 w-4 accent-[#0a7ea4]"
+                          />
+                          <span className="text-sm font-bold text-mar-profundo">{modulo.nombre}</span>
+                          <span className="rounded-md bg-mar-profundo px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                            Módulo
+                          </span>
+                        </label>
+                        <div className="space-y-1 px-4 py-3">
+                          {modulo.subniveles.map((sub) => (
+                            <label key={sub.id} className="flex cursor-pointer items-center gap-3 py-1 pl-6">
+                              <input
+                                type="checkbox"
+                                checked={seleccionados.includes(sub.id)}
+                                onChange={() => toggleSubnivel(modulo, sub)}
+                                className="h-4 w-4 accent-[#0a7ea4]"
+                              />
+                              <span className="text-sm text-slate-700">{sub.nombre}</span>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 {error && (
                   <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700">
@@ -312,14 +318,14 @@ export function AccesosPorRol() {
                 )}
                 {exito && (
                   <p role="status" className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm font-medium text-green-700">
-                    Accesos guardados.
+                    Accesos guardados. Aplican cuando cada usuario vuelva a ingresar.
                   </p>
                 )}
 
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    disabled={!modificado || isSaving || seleccionados.length === 0}
+                    disabled={!modificado || isSaving || isSwitching || seleccionados.length === 0}
                     onClick={handleGrabar}
                     title={seleccionados.length === 0 ? 'Selecciona al menos un nivel' : undefined}
                     className="rounded-lg bg-gradient-to-r from-mar-profundo to-mar px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-md transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-3 focus-visible:outline-turquesa"
@@ -328,7 +334,7 @@ export function AccesosPorRol() {
                   </button>
                   <button
                     type="button"
-                    disabled={!modificado || isSaving}
+                    disabled={!modificado || isSaving || isSwitching}
                     onClick={handleCancelar}
                     className="rounded-lg bg-slate-200 px-6 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-3 focus-visible:outline-turquesa"
                   >

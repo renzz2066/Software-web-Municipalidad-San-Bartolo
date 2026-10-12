@@ -32,11 +32,54 @@ export class UsersService {
     });
   }
 
-  findAll() {
-    return this.prisma.usuario.findMany({
-      select: usuarioPublico,
-      orderBy: { usuario: 'asc' },
+  async accesosDeUsuario(id: number): Promise<string[]> {
+    const accesos = await this.prisma.rolNivel.findMany({
+      where: { rol: { usuarios: { some: { id } } } },
+      select: { nivel: { select: { codigo: true } } },
     });
+    return accesos.map((a) => a.nivel.codigo);
+  }
+
+  findAll() {
+    // UNA sola consulta con JOINs (Prisma haría 3 viajes: usuarios + roles + oficinas)
+    interface UsuarioFila {
+      id: number;
+      usuario: string;
+      nombres: string;
+      apellidos: string;
+      activo: boolean;
+      rolId: number;
+      rolNombre: string;
+      oficinaId: number | null;
+      oficinaCodigo: string | null;
+      oficinaNombre: string | null;
+    }
+    return this.prisma.$queryRaw<UsuarioFila[]>`
+      SELECT u.id, u.usuario, u.nombres, u.apellidos, u.activo,
+             r.id AS "rolId", r.nombre AS "rolNombre",
+             o.id AS "oficinaId", o.codigo AS "oficinaCodigo", o.nombre AS "oficinaNombre"
+      FROM usuarios u
+      JOIN roles r ON r.id = u."rolId"
+      LEFT JOIN oficinas o ON o.id = u."oficinaId"
+      ORDER BY u.usuario ASC
+    `.then((filas) =>
+      filas.map((f) => ({
+        id: f.id,
+        usuario: f.usuario,
+        nombres: f.nombres,
+        apellidos: f.apellidos,
+        rol: { id: f.rolId, nombre: f.rolNombre },
+        activo: f.activo,
+        oficina:
+          f.oficinaId === null
+            ? null
+            : {
+                id: f.oficinaId,
+                codigo: f.oficinaCodigo as string,
+                nombre: f.oficinaNombre as string,
+              },
+      })),
+    );
   }
 
   async findOne(id: number) {
