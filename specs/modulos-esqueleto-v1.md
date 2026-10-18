@@ -46,9 +46,9 @@ Utilitarios no tienen menú en SIMUN; sus submódulos son provisionales.
 
 ## 4. Tareas
 - [x] Rama `feat/modulos-esqueleto` desde `main`.
-- [ ] Nodos en `NIVELES_CATALOGO` (orden según botones de SIMUN).
-- [ ] `ModuloPlaceholder` con `volverA`; hub genérico de módulo; rutas con `RequireNivel`.
-- [ ] Tarjetas del Dashboard filtradas por nivel. `lint` + `build`.
+- [x] Nodos en `NIVELES_CATALOGO` (orden según botones de SIMUN).
+- [x] `ModuloPlaceholder` con `volverA`; hub genérico de módulo; rutas con `RequireNivel`.
+- [x] Tarjetas del Dashboard filtradas por nivel. `lint` + `build`.
 
 ## 5. Verificación
 `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` ·

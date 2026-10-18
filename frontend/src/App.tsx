@@ -10,6 +10,9 @@ import { NuevoRol } from './pages/accesibilidad/NuevoRol'
 import { EditarRol } from './pages/accesibilidad/EditarRol'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
+import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
+import { ModuloHub } from './pages/modulos/ModuloHub'
+import { MODULOS } from './pages/modulos/catalogo'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -115,6 +118,40 @@ function App() {
           </ProtectedRoute>
         }
       />
+      {MODULOS.map((modulo) => (
+        <Route
+          key={modulo.codigo}
+          path={`/${modulo.codigo}`}
+          element={
+            <ProtectedRoute>
+              <RequireNivel codigo={modulo.codigo}>
+                <ModuloHub modulo={modulo} />
+              </RequireNivel>
+            </ProtectedRoute>
+          }
+        />
+      ))}
+      {MODULOS.flatMap((modulo) =>
+        modulo.submodulos.map((sub) => (
+          <Route
+            key={`${modulo.codigo}.${sub.slug}`}
+            path={`/${modulo.codigo}/${sub.slug}`}
+            element={
+              <ProtectedRoute>
+                <RequireNivel codigo={`${modulo.codigo}.${sub.slug}`}>
+                  <ModuloPlaceholder
+                    icono={sub.icono}
+                    titulo={sub.titulo}
+                    descripcion={modulo.titulo}
+                    volverA={`/${modulo.codigo}`}
+                    volverTexto={modulo.titulo}
+                  />
+                </RequireNivel>
+              </ProtectedRoute>
+            }
+          />
+        )),
+      )}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
