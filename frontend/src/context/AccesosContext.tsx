@@ -11,14 +11,16 @@ interface AccesosContextValue {
 const AccesosContext = createContext<AccesosContextValue | undefined>(undefined)
 
 export function AccesosProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   // Gate síncrono y sin race: deriva directo del usuario en sesión
   // (los accesos vienen en el login). Revalida en segundo plano.
   const [frescos, setFrescos] = useState<string[] | null>(null)
+  const [revalidado, setRevalidado] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setFrescos(null)
+    setRevalidado(false)
 
     if (!isAuthenticated) return
 
@@ -30,6 +32,9 @@ export function AccesosProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Se conserva lo del login; el backend decide cada request
       })
+      .finally(() => {
+        if (!cancelled) setRevalidado(true)
+      })
 
     return () => {
       cancelled = true
@@ -37,13 +42,16 @@ export function AccesosProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated, user?.id])
 
   const accesos = frescos ?? user?.accesos ?? []
+  // Sesión guardada sin accesos (p. ej. anterior a que el login los incluyera):
+  // espera a /niveles/mis-accesos antes de que RequireNivel decida.
+  const isLoading = authLoading || (isAuthenticated && !frescos && !user?.accesos.length && !revalidado)
 
   function tiene(codigo: string) {
     return accesos.includes(codigo)
   }
 
   return (
-    <AccesosContext.Provider value={{ accesos, isLoading: false, tiene }}>
+    <AccesosContext.Provider value={{ accesos, isLoading, tiene }}>
       {children}
     </AccesosContext.Provider>
   )
