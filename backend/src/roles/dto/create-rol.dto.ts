@@ -10,7 +10,9 @@ export class CreateRolDto {
   @IsString()
   @MaxLength(200, { message: 'La descripción debe tener máximo 200 caracteres' })
   descripcion?: string;
+}
 
+export class SetAccesosDto {
   @IsArray({ message: 'Los niveles no son válidos' })
   @ArrayNotEmpty({ message: 'Selecciona al menos un nivel' })
   @IsInt({ each: true, message: 'Los niveles no son válidos' })

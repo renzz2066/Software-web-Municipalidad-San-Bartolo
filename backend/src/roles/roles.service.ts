@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateRolDto } from './dto/create-rol.dto.js';
+import { SetAccesosDto } from './dto/create-rol.dto.js';
 import { UpdateRolDto } from './dto/update-rol.dto.js';
 
 @Injectable()
@@ -38,27 +39,18 @@ export class RolesService {
       throw new ConflictException('El rol ya existe');
     }
 
-    const nivelIds = await this.validarNiveles(dto.nivelIds);
-
-    return this.prisma.$transaction(async (tx) => {
-      const rol = await tx.rol.create({
-        data: {
-          nombre,
-          descripcion: dto.descripcion?.trim() || null,
-        },
-      });
-      await tx.rolNivel.createMany({
-        data: nivelIds.map((nivelId) => ({ rolId: rol.id, nivelId })),
-      });
-      return tx.rol.findUniqueOrThrow({
-        where: { id: rol.id },
-        select: {
-          id: true,
-          nombre: true,
-          descripcion: true,
-          accesos: { select: { nivel: { select: { codigo: true } } } },
-        },
-      });
+    // Los accesos se asignan solo en Accesos por Roles (fuente única)
+    return this.prisma.rol.create({
+      data: {
+        nombre,
+        descripcion: dto.descripcion?.trim() || null,
+      },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        accesos: { select: { nivelId: true } },
+      },
     });
   }
 
@@ -99,35 +91,48 @@ export class RolesService {
       }
     }
 
-    let nivelIds: number[] | undefined;
-    if (dto.nivelIds !== undefined) {
-      nivelIds = await this.validarNiveles(dto.nivelIds);
+    // Los accesos se asignan solo en Accesos por Roles (fuente única)
+    return this.prisma.rol.update({
+      where: { id },
+      data: {
+        nombre,
+        descripcion: dto.descripcion !== undefined ? dto.descripcion.trim() || null : undefined,
+      },
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        accesos: { select: { nivelId: true } },
+      },
+    });
+  }
+
+  async getAccesos(id: number) {
+    const rol = await this.prisma.rol.findUnique({
+      where: { id },
+      select: { accesos: { select: { nivelId: true } } },
+    });
+    if (!rol) {
+      throw new NotFoundException('El rol no existe');
+    }
+    return { nivelIds: rol.accesos.map((a) => a.nivelId) };
+  }
+
+  async setAccesos(id: number, dto: SetAccesosDto) {
+    const existente = await this.prisma.rol.findUnique({ where: { id } });
+    if (!existente) {
+      throw new NotFoundException('El rol no existe');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.rol.update({
-        where: { id },
-        data: {
-          nombre,
-          descripcion: dto.descripcion !== undefined ? dto.descripcion.trim() || null : undefined,
-        },
-      });
-      if (nivelIds !== undefined) {
-        await tx.rolNivel.deleteMany({ where: { rolId: id } });
-        await tx.rolNivel.createMany({
-          data: nivelIds.map((nivelId) => ({ rolId: id, nivelId })),
-        });
-      }
-      return tx.rol.findUniqueOrThrow({
-        where: { id },
-        select: {
-          id: true,
-          nombre: true,
-          descripcion: true,
-          accesos: { select: { nivel: { select: { codigo: true } } } },
-        },
+    const nivelIds = await this.validarNiveles(dto.nivelIds);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.rolNivel.deleteMany({ where: { rolId: id } });
+      await tx.rolNivel.createMany({
+        data: nivelIds.map((nivelId) => ({ rolId: id, nivelId })),
       });
     });
+    return { nivelIds };
   }
 
   async remove(id: number) {

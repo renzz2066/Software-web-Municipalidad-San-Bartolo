@@ -6,6 +6,7 @@ export interface AuthUser {
   nombre: string
   usuario: string
   rol: string
+  accesos: string[]
 }
 
 interface AuthContextValue {
@@ -18,34 +19,32 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem('user')
-      const token = localStorage.getItem('accessToken')
-      if (storedUser && token) {
-        const parsed = JSON.parse(storedUser) as Partial<AuthUser>
-        if (
-          typeof parsed.id === 'number' &&
-          typeof parsed.usuario === 'string' &&
-          typeof parsed.rol === 'string'
-        ) {
-          setUser(parsed as AuthUser)
-        } else {
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('user')
-        }
-      }
-    } catch {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('user')
-    } finally {
-      setIsLoading(false)
+// Restauración síncrona: en el primer render ya hay sesión, así los guards
+// no redirigen antes de tiempo al recargar (F5) una ruta protegida.
+function restaurarSesion(): AuthUser | null {
+  try {
+    const storedUser = localStorage.getItem('user')
+    const token = localStorage.getItem('accessToken')
+    if (!storedUser || !token) return null
+    const parsed = JSON.parse(storedUser) as Partial<AuthUser>
+    if (
+      typeof parsed.id === 'number' &&
+      typeof parsed.usuario === 'string' &&
+      typeof parsed.rol === 'string'
+    ) {
+      return { ...parsed, accesos: Array.isArray(parsed.accesos) ? parsed.accesos : [] } as AuthUser
     }
-  }, [])
+  } catch {
+    // Sesión corrupta: se limpia abajo
+  }
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('user')
+  return null
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(restaurarSesion)
+  const isLoading = false
 
   useEffect(() => {
     function handleExpired() {

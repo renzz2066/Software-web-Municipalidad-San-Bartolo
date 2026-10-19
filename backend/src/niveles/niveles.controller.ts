@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { NivelesService } from './niveles.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { NivelGuard } from '../auth/guards/nivel.guard.js';
@@ -19,7 +19,14 @@ export class NivelesController {
   }
 
   @UseGuards(NivelGuard)
-  @RequireNivel('accesibilidad.niveles')
+  @RequireNivel('accesibilidad.accesos-por-rol')
+  @Get('matriz')
+  matriz(@Query('rolId', new ParseIntPipe({ optional: true })) rolId?: number) {
+    return this.nivelesService.matriz(rolId);
+  }
+
+  @UseGuards(NivelGuard)
+  @RequireNivel('accesibilidad.niveles', 'accesibilidad.accesos-por-rol')
   @Get()
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.nivelesService.findAll(user.id);

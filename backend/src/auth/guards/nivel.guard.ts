@@ -1,16 +1,14 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaService } from '../../prisma/prisma.service.js';
 import { NIVEL_KEY } from '../decorators/nivel.decorator.js';
 
+// Sin BD: lee los accesos del claim `niveles` del JWT (fijados en el login).
+// Si cambian los accesos del rol, el usuario debe reingresar.
 @Injectable()
 export class NivelGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): boolean {
     const requeridos = this.reflector.getAllAndOverride<string[]>(NIVEL_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -21,15 +19,12 @@ export class NivelGuard implements CanActivate {
     }
 
     const { user } = context.switchToHttp().getRequest();
-    if (!user?.id) {
+    const niveles: unknown = user?.niveles;
+    if (!Array.isArray(niveles)) {
       return false;
     }
 
-    const accesos = await this.prisma.rolNivel.findMany({
-      where: { rol: { usuarios: { some: { id: user.id } } } },
-      select: { nivel: { select: { codigo: true } } },
-    });
-    const codigos = new Set(accesos.map((a) => a.nivel.codigo));
-    return requeridos.every((codigo) => codigos.has(codigo));
+    // Basta con UNO de los códigos (los listados aceptan su nivel o accesos-por-rol)
+    return requeridos.some((codigo) => (niveles as string[]).includes(codigo));
   }
 }
