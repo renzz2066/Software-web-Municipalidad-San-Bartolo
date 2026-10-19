@@ -1,11 +1,23 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAccesos } from '../context/AccesosContext'
+import { MODULOS } from './modulos/catalogo'
+
+// Orden de botones de SIMUN; Accesibilidad ocupa el lugar de "Seguridad".
+const TARJETAS = [
+  ...MODULOS.map(({ codigo, titulo, descripcion, icono }) => ({ codigo, titulo, descripcion, icono })),
+  {
+    codigo: 'accesibilidad',
+    titulo: 'Accesibilidad',
+    descripcion: 'Usuarios, roles, niveles y accesos por rol.',
+    icono: 'bi bi-shield-lock',
+  },
+]
 
 export function Dashboard() {
   const { user, logout } = useAuth()
   const { tiene, isLoading: isLoadingAccesos } = useAccesos()
-  const veAccesibilidad = isLoadingAccesos || tiene('accesibilidad')
+  const visibles = TARJETAS.filter((t) => isLoadingAccesos || tiene(t.codigo))
 
   return (
     <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
@@ -32,33 +44,32 @@ export function Dashboard() {
             Módulos
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {veAccesibilidad && (
-            <Link
-              to="/accesibilidad"
-              className="group rounded-xl bg-white p-5 shadow-md ring-1 ring-mar-profundo/10 transition hover:shadow-lg hover:ring-mar/30 focus-visible:outline-3 focus-visible:outline-turquesa"
-            >
-              <div className="flex items-start gap-4">
-                <span
-                  aria-hidden="true"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-                >
-                  <i className="bi bi-shield-lock" />
-                </span>
-                <div>
-                  <h3 className="font-semibold text-mar-profundo group-hover:text-mar">
-                    Accesibilidad
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Usuarios, roles, niveles y accesos por rol.
-                  </p>
-                  <p className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-mar">
-                    Abrir módulo
-                    <i aria-hidden="true" className="bi bi-arrow-right" />
-                  </p>
+            {visibles.map((tarjeta) => (
+              <Link
+                key={tarjeta.codigo}
+                to={`/${tarjeta.codigo}`}
+                className="group rounded-xl bg-white p-5 shadow-md ring-1 ring-mar-profundo/10 transition hover:shadow-lg hover:ring-mar/30 focus-visible:outline-3 focus-visible:outline-turquesa"
+              >
+                <div className="flex items-start gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
+                  >
+                    <i className={tarjeta.icono} />
+                  </span>
+                  <div>
+                    <h3 className="font-semibold text-mar-profundo group-hover:text-mar">
+                      {tarjeta.titulo}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">{tarjeta.descripcion}</p>
+                    <p className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-mar">
+                      Abrir módulo
+                      <i aria-hidden="true" className="bi bi-arrow-right" />
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Link>
-            )}
+              </Link>
+            ))}
           </div>
         </main>
       </div>
