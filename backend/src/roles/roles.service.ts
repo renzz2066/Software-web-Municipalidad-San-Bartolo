@@ -10,7 +10,7 @@ export class RolesService {
 
   findAll() {
     return this.prisma.rol.findMany({
-      select: { id: true, nombre: true, descripcion: true },
+      select: { id: true, nombre: true, descripcion: true, activo: true },
       orderBy: { nombre: 'asc' },
     });
   }
@@ -22,6 +22,7 @@ export class RolesService {
         id: true,
         nombre: true,
         descripcion: true,
+        activo: true,
         accesos: { select: { nivelId: true } },
       },
     });
@@ -49,6 +50,7 @@ export class RolesService {
         id: true,
         nombre: true,
         descripcion: true,
+        activo: true,
         accesos: { select: { nivelId: true } },
       },
     });
@@ -97,11 +99,13 @@ export class RolesService {
       data: {
         nombre,
         descripcion: dto.descripcion !== undefined ? dto.descripcion.trim() || null : undefined,
+        activo: dto.activo,
       },
       select: {
         id: true,
         nombre: true,
         descripcion: true,
+        activo: true,
         accesos: { select: { nivelId: true } },
       },
     });
@@ -126,43 +130,38 @@ export class RolesService {
 
     const nivelIds = await this.validarNiveles(dto.nivelIds);
 
+    // Delta: solo se quitan/agregan los que cambian (la auditoría registra cambios reales)
     await this.prisma.$transaction(async (tx) => {
-      await tx.rolNivel.deleteMany({ where: { rolId: id } });
-      await tx.rolNivel.createMany({
-        data: nivelIds.map((nivelId) => ({ rolId: id, nivelId })),
-      });
+      const actuales = await tx.rolNivel.findMany({ where: { rolId: id }, select: { nivelId: true } });
+      const antes = new Set(actuales.map((a) => a.nivelId));
+      const despues = new Set(nivelIds);
+      const quitar = [...antes].filter((nivelId) => !despues.has(nivelId));
+      const agregar = nivelIds.filter((nivelId) => !antes.has(nivelId));
+      if (quitar.length > 0) {
+        await tx.rolNivel.deleteMany({ where: { rolId: id, nivelId: { in: quitar } } });
+      }
+      if (agregar.length > 0) {
+        await tx.rolNivel.createMany({ data: agregar.map((nivelId) => ({ rolId: id, nivelId })) });
+      }
     });
     return { nivelIds };
   }
 
+  // Baja lógica: un rol inactivo no se asigna y sus usuarios no inician sesión
   async remove(id: number) {
     const existente = await this.prisma.rol.findUnique({ where: { id } });
     if (!existente) {
       throw new NotFoundException('El rol no existe');
     }
+    if (!existente.activo) {
+      return;
+    }
 
-    const conUsuarios = await this.prisma.usuario.count({ where: { rolId: id } });
+    const conUsuarios = await this.prisma.usuario.count({ where: { rolId: id, activo: true } });
     if (conUsuarios > 0) {
-      throw new ConflictException('No se puede eliminar: el rol tiene usuarios asignados');
+      throw new ConflictException('No se puede desactivar: el rol tiene usuarios activos');
     }
 
-    try {
-      // Los accesos se eliminan en cascada con el rol
-      await this.prisma.rol.delete({ where: { id } });
-    } catch (error) {
-      if (isPrismaFkError(error)) {
-        throw new ConflictException('No se puede eliminar: el rol tiene registros asociados');
-      }
-      throw error;
-    }
+    await this.prisma.rol.update({ where: { id }, data: { activo: false } });
   }
-}
-
-function isPrismaFkError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code: unknown }).code === 'P2003'
-  );
 }

@@ -75,6 +75,8 @@ enum AccionAuditoria {
   UPDATE
   DELETE
   LOGIN
+  LOGIN_FALLIDO
+  LOGOUT
 }
 
 enum TipoNivel {
@@ -86,45 +88,56 @@ enum TipoNivel {
 // A. ADMINISTRACION Y SEGURIDAD
 // Ref SIMUN: usuarios.dbf + roles.dbf + oficinas.dbf
 // SIMUN es solo referencial: no se migran datos.
+// creadoPorId/modificadoPorId: los llena el trigger auditoria_autor
+// desde app.usuario_id (specs/auditoria-v1.md); nunca el DTO.
 // ============================================================
 
 model Oficina {
-  id        Int       @id @default(autoincrement())
-  codigo    String    @unique @db.VarChar(10)
-  nombre    String    @db.VarChar(100)
-  activo    Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  usuarios  Usuario[]
+  id              Int       @id @default(autoincrement())
+  codigo          String    @unique @db.VarChar(10)
+  nombre          String    @db.VarChar(100)
+  activo          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario?  @relation("OficinaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?  @relation("OficinaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+  usuarios        Usuario[]
 
   @@map("oficinas")
 }
 
 model Rol {
-  id          Int       @id @default(autoincrement())
-  nombre      String    @unique @db.VarChar(50)
-  descripcion String?   @db.VarChar(200)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  usuarios    Usuario[]
-  accesos     RolNivel[]
+  id              Int        @id @default(autoincrement())
+  nombre          String     @unique @db.VarChar(50)
+  descripcion     String?    @db.VarChar(200)
+  activo          Boolean    @default(true) // baja lógica: DELETE /roles/:id desactiva
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario?   @relation("RolCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?   @relation("RolModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+  usuarios        Usuario[]
+  accesos         RolNivel[]
 
   @@map("roles")
 }
 
 model Nivel {
-  id          Int       @id @default(autoincrement())
-  codigo      String    @unique @db.VarChar(100) // llave estable del permiso (ej. accesibilidad.usuarios)
-  tipo        TipoNivel
-  nombre      String    @db.VarChar(100)
-  descripcion String?   @db.VarChar(200)
-  padreId     Int? // MODULO=null, FUNCIONALIDAD=modulo padre
-  padre       Nivel?    @relation("NivelJerarquia", fields: [padreId], references: [id], onDelete: Restrict)
-  hijos       Nivel[]   @relation("NivelJerarquia")
+  id             Int        @id @default(autoincrement())
+  codigo         String     @unique @db.VarChar(100) // llave estable del permiso (ej. accesibilidad.usuarios)
+  tipo           TipoNivel
+  nombre         String     @db.VarChar(100)
+  descripcion    String?    @db.VarChar(200)
+  padreId        Int? // MODULO=null, FUNCIONALIDAD=modulo padre
+  padre          Nivel?     @relation("NivelJerarquia", fields: [padreId], references: [id], onDelete: Restrict)
+  hijos          Nivel[]    @relation("NivelJerarquia")
   rolesAsignados RolNivel[]
-  orden       Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  orden          Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@index([padreId])
   @@map("niveles")
@@ -132,9 +145,9 @@ model Nivel {
 
 model RolNivel {
   rolId     Int
-  rol       Rol   @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  rol       Rol      @relation(fields: [rolId], references: [id], onDelete: Cascade)
   nivelId   Int
-  nivel     Nivel @relation(fields: [nivelId], references: [id], onDelete: Restrict)
+  nivel     Nivel    @relation(fields: [nivelId], references: [id], onDelete: Restrict)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -143,40 +156,78 @@ model RolNivel {
 }
 
 model Usuario {
-  id        Int      @id @default(autoincrement())
-  nombres   String   @db.VarChar(100)
-  apellidos String   @db.VarChar(100)
-  usuario   String   @unique @db.VarChar(50)
-  password  String   @db.VarChar(255) // hash bcrypt, nunca texto plano
-  rolId     Int
-  rol       Rol      @relation(fields: [rolId], references: [id], onDelete: Restrict)
-  activo    Boolean  @default(true)
-  oficinaId Int?
-  oficina   Oficina? @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  nombres         String   @db.VarChar(100)
+  apellidos       String   @db.VarChar(100)
+  usuario         String   @unique @db.VarChar(50)
+  password        String   @db.VarChar(255) // hash bcrypt, nunca texto plano
+  rolId           Int
+  rol             Rol      @relation(fields: [rolId], references: [id], onDelete: Restrict)
+  activo          Boolean  @default(true)
+  oficinaId       Int?
+  oficina         Oficina? @relation(fields: [oficinaId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario? @relation("UsuarioCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario? @relation("UsuarioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   pagosCobrados    Pago[]        @relation("CajeroPagos")
   conveniosCreados ConvenioCab[] @relation("CreadorConvenio")
   auditorias       Auditoria[]
+
+  // Autoría (creadoPor/modificadoPor) de las tablas principales
+  usuariosCreados           Usuario[]         @relation("UsuarioCreadoPor")
+  usuariosModificados       Usuario[]         @relation("UsuarioModificadoPor")
+  rolesCreados              Rol[]             @relation("RolCreadoPor")
+  rolesModificados          Rol[]             @relation("RolModificadoPor")
+  oficinasCreadas           Oficina[]         @relation("OficinaCreadoPor")
+  oficinasModificadas       Oficina[]         @relation("OficinaModificadoPor")
+  contribuyentesCreados     Contribuyente[]   @relation("ContribuyenteCreadoPor")
+  contribuyentesModificados Contribuyente[]   @relation("ContribuyenteModificadoPor")
+  prediosCreados            Predio[]          @relation("PredioCreadoPor")
+  prediosModificados        Predio[]          @relation("PredioModificadoPor")
+  vehiculosCreados          Vehiculo[]        @relation("VehiculoCreadoPor")
+  vehiculosModificados      Vehiculo[]        @relation("VehiculoModificadoPor")
+  cuentasCreadas            CuentaCorriente[] @relation("CuentaCreadoPor")
+  cuentasModificadas        CuentaCorriente[] @relation("CuentaModificadoPor")
+  pagosModificados          Pago[]            @relation("PagoModificadoPor")
+  conveniosModificados      ConvenioCab[]     @relation("ConvenioModificadoPor")
+  valoresCreados            ValorCab[]        @relation("ValorCreadoPor")
+  valoresModificados        ValorCab[]        @relation("ValorModificadoPor")
+  expedientesCreados        CoactivoExp[]     @relation("ExpedienteCreadoPor")
+  expedientesModificados    CoactivoExp[]     @relation("ExpedienteModificadoPor")
+  licenciasCreadas          Licencia[]        @relation("LicenciaCreadoPor")
+  licenciasModificadas      Licencia[]        @relation("LicenciaModificadoPor")
 
   @@index([rolId])
   @@index([oficinaId])
   @@map("usuarios")
 }
 
+// Solo inserción: un trigger bloquea UPDATE/DELETE/TRUNCATE. Fecha = now() del servidor.
+// CREATE/UPDATE/DELETE los escribe el trigger auditoria_registrar; LOGIN* y LOGOUT, la app.
 model Auditoria {
-  id         BigInt          @id @default(autoincrement())
-  usuarioId  Int?
-  usuario    Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
-  tabla      String          @db.VarChar(60)
-  accion     AccionAuditoria
-  registroId String          @db.VarChar(50)
-  detalle    Json?
-  createdAt  DateTime        @default(now())
+  id            BigInt          @id @default(autoincrement())
+  usuarioId     Int? // actor; null = SISTEMA/anónimo
+  usuario       Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  usuarioNombre String?         @db.VarChar(50) // snapshot; en LOGIN_FALLIDO = usuario intentado
+  accion        AccionAuditoria
+  tabla         String          @db.VarChar(60)
+  registroId    String?         @db.VarChar(50) // PK compuesta → "rolId:nivelId"
+  modulo        String?         @db.VarChar(100) // código de nivel, 'auth' o null
+  ip            String?         @db.VarChar(45)
+  userAgent     String?         @db.VarChar(255)
+  datosAntes    Json? // UPDATE: solo campos cambiados
+  datosDespues  Json?
+  detalle       Json? // motivo de fallo, usuario de BD en scripts
+  createdAt     DateTime        @default(now()) @db.Timestamptz(6)
 
+  @@index([createdAt])
+  @@index([usuarioId, createdAt])
   @@index([tabla, registroId])
-  @@index([usuarioId])
+  @@index([accion, createdAt])
   @@map("auditoria")
 }
 
@@ -201,6 +252,10 @@ model Contribuyente {
   estado          EstadoRegistro @default(ACTIVO)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario?       @relation("ContribuyenteCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?       @relation("ContribuyenteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   predios      PredioContribuyente[]
   vehiculos    Vehiculo[]
@@ -259,26 +314,30 @@ model Via {
 }
 
 model Predio {
-  id             Int            @id @default(autoincrement())
-  codigoLegacy   String?        @unique @db.VarChar(7) // CODPRED SIMUN
-  codigoCatastro String?        @unique @db.VarChar(20) // IDCATASTRO
-  zonaId         Int?
-  zona           Zona?          @relation(fields: [zonaId], references: [id], onDelete: Restrict)
-  urbanizacionId Int?
-  urbanizacion   Urbanizacion?  @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
-  viaId          Int?
-  via            Via?           @relation(fields: [viaId], references: [id], onDelete: Restrict)
-  numero         String?        @db.VarChar(10)
-  manzana        String?        @db.VarChar(10)
-  lote           String?        @db.VarChar(10)
-  referencia     String?        @db.VarChar(150)
-  areaTerreno    Decimal?       @db.Decimal(12, 2)
-  areaConstruida Decimal?       @db.Decimal(12, 2)
-  valorAutovaluo Decimal?       @db.Decimal(14, 2)
-  usoPredio      String?        @db.VarChar(10) // uso_del_predio.dbf
-  estado         EstadoRegistro @default(ACTIVO)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id              Int            @id @default(autoincrement())
+  codigoLegacy    String?        @unique @db.VarChar(7) // CODPRED SIMUN
+  codigoCatastro  String?        @unique @db.VarChar(20) // IDCATASTRO
+  zonaId          Int?
+  zona            Zona?          @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  urbanizacionId  Int?
+  urbanizacion    Urbanizacion?  @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
+  viaId           Int?
+  via             Via?           @relation(fields: [viaId], references: [id], onDelete: Restrict)
+  numero          String?        @db.VarChar(10)
+  manzana         String?        @db.VarChar(10)
+  lote            String?        @db.VarChar(10)
+  referencia      String?        @db.VarChar(150)
+  areaTerreno     Decimal?       @db.Decimal(12, 2)
+  areaConstruida  Decimal?       @db.Decimal(12, 2)
+  valorAutovaluo  Decimal?       @db.Decimal(14, 2)
+  usoPredio       String?        @db.VarChar(10) // uso_del_predio.dbf
+  estado          EstadoRegistro @default(ACTIVO)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario?       @relation("PredioCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?       @relation("PredioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   contribuyentes     PredioContribuyente[]
   pisos              Piso[]
@@ -367,6 +426,10 @@ model Vehiculo {
   estado           EstadoRegistro @default(ACTIVO)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+  creadoPorId      Int?
+  creadoPor        Usuario?       @relation("VehiculoCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId  Int?
+  modificadoPor    Usuario?       @relation("VehiculoModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   detalles VehiculoDetalleAnual[]
   cuentas  CuentaCorriente[]
@@ -481,6 +544,10 @@ model CuentaCorriente {
   estado           EstadoCuenta  @default(PENDIENTE)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  creadoPorId      Int?
+  creadoPor        Usuario?      @relation("CuentaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId  Int?
+  modificadoPor    Usuario?      @relation("CuentaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   pagos            Pago[]
   convenioDetalles ConvenioDet[]
@@ -511,6 +578,8 @@ model Pago {
   numOperacion      String?          @db.VarChar(30) // voucher / cheque / deposito
   estado            EstadoCuenta     @default(CANCELADO)
   createdAt         DateTime         @default(now())
+  modificadoPorId   Int? // autor = cajeroId; esto registra extornos/anulaciones
+  modificadoPor     Usuario?         @relation("PagoModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   @@index([contribuyenteId])
   @@index([cajeroId])
@@ -530,6 +599,8 @@ model ConvenioCab {
   estado          EstadoCuenta  @default(FRACCIONADO)
   creadoPorId     Int?
   creadoPor       Usuario?      @relation("CreadorConvenio", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  modificadoPorId Int?
+  modificadoPor   Usuario?      @relation("ConvenioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
   createdAt       DateTime      @default(now())
 
   detalles ConvenioDet[]
@@ -574,6 +645,10 @@ model ValorCab {
   fechaNotificacion DateTime?     @db.Date
   estado            EstadoValor   @default(EMITIDO)
   createdAt         DateTime      @default(now())
+  creadoPorId       Int?
+  creadoPor         Usuario?      @relation("ValorCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId   Int?
+  modificadoPor     Usuario?      @relation("ValorModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   detalles    ValorDet[]
   expedientes CoactivoExp[]
@@ -611,6 +686,10 @@ model CoactivoExp {
   estado          EstadoValor   @default(EMITIDO)
   fechaGeneracion DateTime      @default(now()) @db.Date
   createdAt       DateTime      @default(now())
+  creadoPorId     Int?
+  creadoPor       Usuario?      @relation("ExpedienteCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?      @relation("ExpedienteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   detalles CoactivoDet[]
 
@@ -665,6 +744,10 @@ model Licencia {
   estado           EstadoLicencia @default(VIGENTE)
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+  creadoPorId      Int?
+  creadoPor        Usuario?       @relation("LicenciaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId  Int?
+  modificadoPor    Usuario?       @relation("LicenciaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   @@index([contribuyenteId])
   @@index([estado])

@@ -105,10 +105,7 @@ export class UsersService {
       throw new ConflictException('El usuario ya existe');
     }
 
-    const rol = await this.prisma.rol.findUnique({ where: { id: dto.rolId } });
-    if (!rol) {
-      throw new BadRequestException('El rol no existe');
-    }
+    await this.validarRolActivo(dto.rolId);
 
     const password = await bcrypt.hash(dto.password, 10);
 
@@ -125,10 +122,14 @@ export class UsersService {
     });
   }
 
-  async update(id: number, dto: UpdateUsuarioDto) {
-    const existente = await this.prisma.usuario.findUnique({ where: { id } });
+  async update(id: number, dto: UpdateUsuarioDto, solicitanteId: number) {
+    const existente = await this.prisma.usuario.findUnique({ where: { id }, include: { rol: true } });
     if (!existente) {
       throw new NotFoundException('El usuario no existe');
+    }
+
+    if (dto.activo === false && existente.activo) {
+      await this.validarDesactivacion(existente, solicitanteId);
     }
 
     let usuario = existente.usuario;
@@ -148,11 +149,8 @@ export class UsersService {
       password = await bcrypt.hash(dto.password, 10);
     }
 
-    if (dto.rolId !== undefined) {
-      const rol = await this.prisma.rol.findUnique({ where: { id: dto.rolId } });
-      if (!rol) {
-        throw new BadRequestException('El rol no existe');
-      }
+    if (dto.rolId !== undefined && dto.rolId !== existente.rolId) {
+      await this.validarRolActivo(dto.rolId);
     }
 
     return this.prisma.usuario.update({
@@ -169,32 +167,41 @@ export class UsersService {
     });
   }
 
+  // Baja lógica: nunca DELETE (el historial y la auditoría lo referencian)
   async remove(id: number, solicitanteId: number) {
-    if (id === solicitanteId) {
-      throw new BadRequestException('No puedes eliminar tu propio usuario');
-    }
-
-    const existente = await this.prisma.usuario.findUnique({ where: { id } });
+    const existente = await this.prisma.usuario.findUnique({ where: { id }, include: { rol: true } });
     if (!existente) {
       throw new NotFoundException('El usuario no existe');
     }
+    if (!existente.activo) {
+      return;
+    }
 
-    try {
-      await this.prisma.usuario.delete({ where: { id } });
-    } catch (error) {
-      if (isPrismaFkError(error)) {
-        throw new ConflictException('No se puede eliminar: el usuario tiene registros asociados');
+    await this.validarDesactivacion(existente, solicitanteId);
+    await this.prisma.usuario.update({ where: { id }, data: { activo: false } });
+  }
+
+  private async validarDesactivacion(usuario: { id: number; rol: { nombre: string } }, solicitanteId: number) {
+    if (usuario.id === solicitanteId) {
+      throw new BadRequestException('No puedes desactivar tu propio usuario');
+    }
+    if (usuario.rol.nombre === 'ADMIN') {
+      const otrosAdmins = await this.prisma.usuario.count({
+        where: { id: { not: usuario.id }, activo: true, rol: { nombre: 'ADMIN' } },
+      });
+      if (otrosAdmins === 0) {
+        throw new BadRequestException('No puedes desactivar al último ADMIN activo');
       }
-      throw error;
     }
   }
-}
 
-function isPrismaFkError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code: unknown }).code === 'P2003'
-  );
+  private async validarRolActivo(rolId: number) {
+    const rol = await this.prisma.rol.findUnique({ where: { id: rolId } });
+    if (!rol) {
+      throw new BadRequestException('El rol no existe');
+    }
+    if (!rol.activo) {
+      throw new BadRequestException('El rol está inactivo');
+    }
+  }
 }
