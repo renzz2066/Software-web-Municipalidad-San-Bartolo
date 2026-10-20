@@ -31,10 +31,15 @@ export class UsersController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUsuarioDto) {
-    return this.usersService.update(id, dto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUsuarioDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.usersService.update(id, dto, user.id);
   }
 
+  // Desactiva (activo=false); no borra
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(

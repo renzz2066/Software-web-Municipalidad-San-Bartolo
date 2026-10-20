@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateRolDto {
   @IsOptional()
@@ -10,4 +10,9 @@ export class UpdateRolDto {
   @IsString()
   @MaxLength(200, { message: 'La descripción debe tener máximo 200 caracteres' })
   descripcion?: string;
+
+  // Permite reactivar un rol desactivado
+  @IsOptional()
+  @IsBoolean({ message: 'El estado no es válido' })
+  activo?: boolean;
 }

@@ -15,6 +15,14 @@ export class AuthController {
     return this.authService.login(dto.usuario, dto.password);
   }
 
+  // JWT stateless: solo registra el cierre de sesión; el token expira solo
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@CurrentUser() user: AuthenticatedUser) {
+    await this.authService.logout(user);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser) {
