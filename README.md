@@ -6,7 +6,7 @@ Migración a web del sistema de Rentas. Proyecto de convenio de prácticas / tes
 
 - **Backend:** Node.js + NestJS + TypeScript
 - **Frontend:** React + Tailwind (Vite)
-- **Base de datos:** MySQL + Prisma
+- **Base de datos:** postgresql + Prisma
 - **Auth:** JWT propio (bcrypt + @nestjs/jwt)
 - **IA (futuro, para tesis):** microservicio aparte o consumo de API, a definir más adelante
 

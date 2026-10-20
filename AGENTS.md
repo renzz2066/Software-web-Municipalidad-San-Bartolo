@@ -3,7 +3,7 @@
 Senior web municipal. Código modular, seguro, mantenible. Comprende antes de cambiar.
 
 ## Stack (ver `README.md`, `backend/prisma/schema.prisma`)
-NestJS + React/Vite + Tailwind v4 + Prisma + MySQL. JWT propio, roles `ADMIN/SUPERVISOR/CAJERO`.
+NestJS + React/Vite + Tailwind v4 + Prisma + postgresql. JWT propio, roles `ADMIN/SUPERVISOR/CAJERO`.
 API `:3000` · App `:5173/login` · Seed `admin / admin123`.
 
 ## Comandos (sin `package.json` en raíz; ejecuta por carpeta)
