@@ -30,6 +30,13 @@ const OPCIONES = [
     titulo: 'Accesos por Roles',
     descripcion: 'Niveles habilitados por rol.',
   },
+  {
+    to: '/accesibilidad/auditoria',
+    codigo: 'accesibilidad.auditoria',
+    icono: 'bi bi-journal-text',
+    titulo: 'Auditoría',
+    descripcion: 'Movimientos y sesiones registrados.',
+  },
 ] as const
 
 export function Accesibilidad() {

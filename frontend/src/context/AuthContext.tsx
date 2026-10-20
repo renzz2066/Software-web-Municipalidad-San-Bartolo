@@ -46,9 +46,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(restaurarSesion)
   const isLoading = false
 
+  function limpiarSesion() {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('user')
+    setUser(null)
+  }
+
   useEffect(() => {
+    // Token vencido: solo limpia (POST /auth/logout respondería 401)
     function handleExpired() {
-      logout()
+      limpiarSesion()
     }
     window.addEventListener('auth:expired', handleExpired)
     return () => window.removeEventListener('auth:expired', handleExpired)
@@ -65,10 +72,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user)
   }
 
+  // Registra LOGOUT en auditoría sin bloquear: la sesión se limpia aunque falle.
+  // El token va explícito porque el interceptor lo leería ya borrado.
   function logout() {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('user')
-    setUser(null)
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      api
+        .post('/auth/logout', null, { headers: { Authorization: `Bearer ${token}` } })
+        .catch(() => {})
+    }
+    limpiarSesion()
   }
 
   return (

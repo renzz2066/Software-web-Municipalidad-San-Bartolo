@@ -5,29 +5,29 @@
 - Como ADMIN, quiero consultar en pantalla quién creó, cambió o desactivó qué registro y
   quién inició sesión (o lo intentó), con filtros y el detalle del cambio, para no depender
   de SQL ni de Postman. Consume `GET /auditoria` (specs/auditoria-v1.md, C7) sin cambiar su contrato.
-- [ ] C1: nivel nuevo `accesibilidad.auditoria` ("Auditoría", orden 5) en `NIVELES_CATALOGO`;
-  ADMIN lo recibe solo al sincronizar. Tarjeta en `/accesibilidad` y ruta
+- [x] C1: nivel nuevo `accesibilidad.auditoria` ("Auditoría", orden 5) en `NIVELES_CATALOGO`;
+  ADMIN lo recibe al sincronizar (`POST /niveles/sincronizar`). Tarjeta en `/accesibilidad` y ruta
   `/accesibilidad/auditoria` con `RequireNivel` (sin nivel → redirige a `/`, como hoy).
-- [ ] C2: tabla paginada (20 por página; selector 20/50/100), orden más reciente primero.
+- [x] C2: tabla paginada (20 por página; selector 20/50/100), orden más reciente primero.
   Columnas: Fecha (hora Lima, `dd/mm/aaaa hh:mm:ss`), Usuario, Acción (insignia), Tabla,
   Registro, Módulo, IP. Muestra "N registros · página X de Y"; Anterior/Siguiente.
-- [ ] C3: filtros Usuario (select con `GET /users`), Acción (6 valores del enum), Tabla
+- [x] C3: filtros Usuario (select con `GET /users`), Acción (6 valores del enum), Tabla
   (select fijo: `usuarios`, `roles`, `rol_nivel`, `oficinas`, `niveles`), Desde/Hasta
   (`<input type="date">` → `AAAA-MM-DD`, se envía tal cual), ID de registro (texto).
-  "Buscar" vuelve a página 1; "Limpiar" quita todo. Desde > Hasta → error en cliente, sin GET.
+  Sin filtros en la URL, Desde = hoy − 6 días y Hasta = hoy (D6). "Buscar" vuelve a página 1; "Limpiar" quita todo. Desde > Hasta → error en cliente, sin GET.
   Filtros y página viven en la URL (`?accion=...&page=2`): F5 y "volver" los conservan.
-- [ ] C4: Usuario: si `usuario` viene, `nombres apellidos (usuario)`. Si `usuarioId` null y
+- [x] C4: Usuario: si `usuario` viene, `nombres apellidos (usuario)`. Si `usuarioId` null y
   acción `LOGIN_FALLIDO` → texto "Intento: «usuarioNombre»" en itálica + insignia roja
   (el nombre no es un usuario válido; puede ser basura o una contraseña tecleada mal).
   Si `usuarioId` null en CREATE/UPDATE/DELETE → insignia gris "SISTEMA" y, si existe,
   `detalle.dbUsuario` (rol de BD, `session_user`) como texto secundario.
-- [ ] C5: clic/Enter en una fila abre detalle (panel modal accesible: foco atrapado, `Esc`
+- [x] C5: clic/Enter en una fila abre detalle (panel modal accesible: foco atrapado, `Esc`
   cierra, `aria-labelledby`). Muestra metadatos (id, fecha, usuario, acción, tabla,
   registro, módulo, IP, userAgent, `detalle`) y el diff (sección 3). Sin acciones de edición.
-- [ ] C6: estados: cargando (skeleton/texto), vacío ("Sin movimientos con esos filtros"),
+- [x] C6: estados: cargando (skeleton/texto), vacío ("Sin movimientos con esos filtros"),
   400 → mensaje del backend, 403 → "Solo administradores", resto → error de conexión con
   "Reintentar". 401 lo resuelve el interceptor global (`auth:expired`).
-- [ ] C7 (D4 de auditoria-v1): "Cerrar sesión" del Dashboard llama `POST /auth/logout`
+- [x] C7 (D4 de auditoria-v1): "Cerrar sesión" del Dashboard llama `POST /auth/logout`
   y limpia la sesión aunque la llamada falle o tarde (no bloquea al usuario). El cierre por
   token expirado (`auth:expired`) **no** llama al endpoint. Queda fila `LOGOUT` visible en C2.
 
@@ -54,6 +54,8 @@ No se hace: exportar CSV/Excel, filtro por módulo, búsqueda de texto libre, ti
 gráficos, ver auditoría de un registro desde su propia pantalla (v2).
 
 ### Riesgos y dudas
+Aprobado 2026-10-19 con las propuestas: D1 `@Roles('ADMIN')` + `@RequireNivel` · D5 logout
+real en v1 · D6 rango por defecto últimos 7 días · test vitest de la función del diff.
 - **D1 Nivel vs rol**: hoy `GET /auditoria` exige `@Roles('ADMIN')`. Si se asigna
   `accesibilidad.auditoria` a otro rol, vería la tarjeta y recibiría 403. Propongo
   **mantener `@Roles('ADMIN')` y sumar `@RequireNivel`** (ambos deben cumplirse): el nivel
@@ -82,17 +84,18 @@ gráficos, ver auditoría de un registro desde su propia pantalla (v2).
   como un campo más; no se oculta en la UI.
 
 ## 4. Tareas
-- [ ] Rama `feat/auditoria-pantalla` desde `main` (tras merge de `feat/auditoria`).
-- [ ] Nodo `accesibilidad.auditoria` + `@RequireNivel` en controller (según D1).
-- [ ] Ruta, tarjeta, `Auditoria.tsx` (filtros en URL, tabla, paginado, estados).
-- [ ] `AuditoriaDetalle.tsx` (modal accesible + diff).
-- [ ] Logout con `POST /auth/logout` + exclusión en `api.ts`.
-- [ ] Test (vitest, si se acepta): función pura del diff (CREATE/UPDATE/DELETE/`[CAMBIADO]`).
-- [ ] `lint` + `build` (front), `lint` + `test` (back).
+- [x] Rama `feat/auditoria-pantalla` desde `main` (tras merge de `feat/auditoria`, PR #8).
+- [x] Nodo `accesibilidad.auditoria` + `@RequireNivel` en controller (según D1).
+- [x] Ruta, tarjeta, `Auditoria.tsx` (filtros en URL, tabla, paginado, estados).
+- [x] `AuditoriaDetalle.tsx` (modal accesible + diff).
+- [x] Logout con `POST /auth/logout` + exclusión en `api.ts`.
+- [x] Test (vitest): función pura del diff (CREATE/UPDATE/DELETE/`[CAMBIADO]`).
+- [x] `lint` + `build` (front), `lint` + `test` (back).
 
 ## 5. Verificación
 `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` ·
-reiniciar Nest (sincroniza el nivel) y reingresar `admin/admin123` (el JWT trae niveles) ·
+`POST /niveles/sincronizar` (ADMIN; no corre al iniciar) y reingresar `admin/admin123`
+(el JWT trae niveles) ·
 login fallido con "xyz" → aparece "Intento: «xyz»" · editar un usuario → detalle muestra
 solo campos cambiados · cambiar contraseña → "Contraseña cambiada" · `UPDATE` por SQL →
 fila SISTEMA · Cerrar sesión → fila LOGOUT · F5 con filtros conserva filtros y página ·

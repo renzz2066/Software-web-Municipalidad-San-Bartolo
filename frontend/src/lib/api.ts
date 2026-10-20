@@ -17,8 +17,9 @@ api.interceptors.response.use(
   (error) => {
     const status = error?.response?.status
     const url = String(error?.config?.url ?? '')
-    const isLoginRequest = url.includes('/auth/login')
-    if (status === 401 && !isLoginRequest) {
+    // login: 401 = credenciales; logout: la sesión ya se limpió
+    const isAuthRequest = url.includes('/auth/login') || url.includes('/auth/logout')
+    if (status === 401 && !isAuthRequest) {
       window.dispatchEvent(new Event('auth:expired'))
     }
     return Promise.reject(error)

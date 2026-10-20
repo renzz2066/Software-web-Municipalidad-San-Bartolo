@@ -10,6 +10,7 @@ import { NuevoRol } from './pages/accesibilidad/NuevoRol'
 import { EditarRol } from './pages/accesibilidad/EditarRol'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
+import { Auditoria } from './pages/accesibilidad/Auditoria'
 import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
@@ -114,6 +115,16 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="accesibilidad.accesos-por-rol">
               <AccesosPorRol />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accesibilidad/auditoria"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="accesibilidad.auditoria">
+              <Auditoria />
             </RequireNivel>
           </ProtectedRoute>
         }
