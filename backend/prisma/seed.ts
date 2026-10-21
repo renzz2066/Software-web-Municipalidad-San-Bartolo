@@ -67,6 +67,28 @@ async function main() {
     });
     console.log('Accesos ADMIN verificados');
   }
+
+  // Parámetros legales de Rentas (specs/rentas-nucleo-v1.md, Fase A). Aranceles, valores
+  // unitarios y tarifas dependen de ordenanzas locales: se registran en Maestros, no aquí.
+  const anio = 2026;
+  await prisma.uit.upsert({
+    where: { anio },
+    update: {},
+    create: { anio, valor: 5500, ordenanza: 'UIT 2026 (MEF)' },
+  });
+  const escala = [
+    { tramo: 1, desdeUit: 0, hastaUit: 15, tasa: 0.2 },
+    { tramo: 2, desdeUit: 15, hastaUit: 60, tasa: 0.6 },
+    { tramo: 3, desdeUit: 60, hastaUit: null, tasa: 1 },
+  ];
+  for (const t of escala) {
+    await prisma.escalaPredial.upsert({
+      where: { anio_tramo: { anio, tramo: t.tramo } },
+      update: {},
+      create: { anio, ...t, ordenanza: 'D.L. 776 art. 13' },
+    });
+  }
+  console.log(`UIT y escala predial ${anio} verificadas`);
 }
 
 main()

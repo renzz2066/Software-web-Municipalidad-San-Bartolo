@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
@@ -14,8 +15,14 @@ import { Auditoria } from './pages/accesibilidad/Auditoria'
 import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
+import { Maestros } from './pages/rentas/maestros/Maestros'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
+
+// Submódulos ya implementados; el resto muestra "En construcción".
+const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
+  'rentas.maestros': <Maestros />,
+}
 
 function App() {
   return (
@@ -150,13 +157,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <RequireNivel codigo={`${modulo.codigo}.${sub.slug}`}>
-                  <ModuloPlaceholder
-                    icono={sub.icono}
-                    titulo={sub.titulo}
-                    descripcion={modulo.titulo}
-                    volverA={`/${modulo.codigo}`}
-                    volverTexto={modulo.titulo}
-                  />
+                  {PAGINAS_SUBMODULO[`${modulo.codigo}.${sub.slug}`] ?? (
+                    <ModuloPlaceholder
+                      icono={sub.icono}
+                      titulo={sub.titulo}
+                      descripcion={modulo.titulo}
+                      volverA={`/${modulo.codigo}`}
+                      volverTexto={modulo.titulo}
+                    />
+                  )}
                 </RequireNivel>
               </ProtectedRoute>
             }

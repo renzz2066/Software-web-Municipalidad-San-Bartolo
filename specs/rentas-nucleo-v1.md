@@ -80,7 +80,7 @@ Decisiones (aprobadas 2026-10-21):
 
 ## 4. Tareas
 - [x] Rama `feat/rentas-nucleo` desde `main`; primer commit = esta spec (`docs(specs)`).
-- [ ] Fase A: migración de tablas aprobadas + maestros (C4) + seed de parámetros de prueba.
+- [x] Fase A: migración `20261021120000_rentas_maestros` + maestros (C4) + seed UIT/escala 2026.
 - [ ] Fase B: contribuyentes + ficha 360 (C1, C2).
 - [ ] Fase C: predios + DJ versionada (C3).
 - [ ] Fase D: `calculo/*` puro con tests → simular/ejecutar (C5).
