@@ -1,5 +1,5 @@
 # Spec: Rentas — núcleo tributario (v1)
-<!-- Formato fijo 5 secciones. Borrador: pendiente de aprobación. Las `*-v1.md` cerradas no se editan. -->
+<!-- Formato fijo 5 secciones. Aprobada 2026-10-21. Las `*-v1.md` cerradas no se editan. -->
 
 Referencia SIMUN: `Programas/MENU01.MPR` (Registro Tributario, Maestros, Cálculos Masivos).
 Alcance: lo mínimo para que exista **deuda tributaria correcta** (predial + arbitrios). Es la
@@ -71,13 +71,12 @@ Mejoras frente a SIMUN (incluidas en v1):
 Propuestas para v2 (no en v1): consulta RENIEC/SUNAT por API, constancia de no adeudo con
 QR de verificación, alertas (predios sin DJ del año, deuda alta sin valor), DJ online del vecino.
 
-Decisiones a revisar:
-1. ¿Aprobamos las 5 tablas nuevas? Alternativa a `declaraciones_juradas`: solo auditoría
-   (pierde el "motivo" y la foto del predio por año; no recomendado).
-2. Arbitrios de San Bartolo: ¿tarifa por zona + uso, por área o por frontis? `TarifaArbitrio`
-   actual (`anio, concepto, tasa`) no alcanza si es por zona/uso → agregar `zonaId`, `uso`.
-3. Cuotas predial: ¿4 trimestrales + opción pago anual con descuento? ¿Derecho de emisión fijo?
-4. Redondeo: a 2 decimales por cuota (propuesto) vs. al total anual.
+Decisiones (aprobadas 2026-10-21):
+1. Se crean las 5 tablas nuevas (`declaraciones_juradas` versiona la DJ con motivo).
+2. Arbitrios por **zona + uso**: `TarifaArbitrio` gana `zonaId?` y `uso?` (null = aplica a todas).
+3. Predial en 4 cuotas trimestrales (feb/may/ago/nov, 2–4 con IPM) o pago anual hasta fin
+   de febrero sin reajuste. Derecho de emisión: pendiente, se define en Fase D.
+4. Redondeo a 2 decimales por cuota.
 
 ## 4. Tareas
 - [x] Rama `feat/rentas-nucleo` desde `main`; primer commit = esta spec (`docs(specs)`).
