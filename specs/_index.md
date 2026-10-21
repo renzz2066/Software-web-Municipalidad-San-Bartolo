@@ -6,3 +6,4 @@
 - `recarga-ruta-protegida-v1.md`: F5 en ruta con `RequireNivel` no redirige a `/`.
 - `auditoria-v1.md`: activa. Auditoría de cambios (triggers PG) + sesiones + `GET /auditoria`.
 - `auditoria-pantalla-v1.md`: activa. Pantalla `/accesibilidad/auditoria` + logout real.
+- `rentas-nucleo-v1.md`: borrador. Contribuyentes, predios/DJ, maestros, cálculo predial/arbitrios, estado de cuenta.
