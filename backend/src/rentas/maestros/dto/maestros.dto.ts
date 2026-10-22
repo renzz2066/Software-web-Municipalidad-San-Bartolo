@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -15,6 +16,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { CLASIFICACIONES, ESTADOS_CONSERVACION, MATERIALES } from '../../catalogos-construccion.js';
 
 // Montos en soles con 2 decimales; porcentajes 0-100.
 const DOS_DECIMALES = { maxDecimalPlaces: 2 };
@@ -99,23 +101,17 @@ export class ValoresUnitariosDto extends ConOrdenanzaDto {
 }
 
 export class DepreciacionDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(30)
+  @IsIn(CLASIFICACIONES, { message: 'Clasificación no válida' })
   clasificacion: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(20)
+  @IsIn(MATERIALES, { message: 'Material no válido' })
   material: string;
 
   @IsInt()
   @Min(0)
   antiguedadHasta: number;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(15)
+  @IsIn(ESTADOS_CONSERVACION, { message: 'Estado de conservación no válido' })
   estadoConservacion: string;
 
   @IsNumber(DOS_DECIMALES)

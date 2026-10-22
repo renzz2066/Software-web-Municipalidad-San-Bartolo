@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../lib/api'
+import { CLASIFICACIONES, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { Catalogo } from './Catalogo'
 import { TablaEditable, type Columna } from './TablaEditable'
 import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona } from './maestrosApi'
@@ -49,10 +50,10 @@ const COL_VALORES: Columna[] = [
 ]
 
 const COL_DEPRECIACION: Columna[] = [
-  { key: 'clasificacion', label: 'Clasificación', tipo: 'texto', placeholder: 'CASA HABITACION' },
-  { key: 'material', label: 'Material', tipo: 'texto', placeholder: 'CONCRETO' },
+  { key: 'clasificacion', label: 'Clasificación', tipo: 'select', opciones: CLASIFICACIONES },
+  { key: 'material', label: 'Material', tipo: 'select', opciones: MATERIALES },
   { key: 'antiguedadHasta', label: 'Antigüedad hasta (años)', tipo: 'numero', decimales: 0 },
-  { key: 'estadoConservacion', label: 'Conservación', tipo: 'texto', placeholder: 'BUENO' },
+  { key: 'estadoConservacion', label: 'Conservación', tipo: 'select', opciones: ESTADOS_CONSERVACION },
   { key: 'porcentaje', label: 'Depreciación (%)', tipo: 'numero' },
 ]
 

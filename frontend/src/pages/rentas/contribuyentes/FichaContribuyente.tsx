@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
 import { ESTILO_ESTADO, RUTA_BASE, TIPOS_PERSONA, soles, type Contribuyente } from './tipos'
@@ -43,6 +43,7 @@ interface DeclaracionFila {
   motivo: string
   fecha: string
   observacion: string | null
+  contribuyente: { id: number; nombreCompleto: string }
 }
 
 interface Resumen {
@@ -72,6 +73,7 @@ function direccionPredio(p: PredioFicha['predio']): string {
 
 export function FichaContribuyente() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [datos, setDatos] = useState<Resumen | null>(null)
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['id']>('predios')
   const [error, setError] = useState<string | null>(null)
@@ -144,6 +146,15 @@ export function FichaContribuyente() {
                     <i aria-hidden="true" className="bi bi-pencil mr-1" />
                     Editar datos
                   </Link>
+                  {c.estado !== 'BAJA' && (
+                    <Link
+                      to={`${RUTA_BASE}/predios/nuevo?declarante=${c.id}`}
+                      className="ml-2 mt-2 inline-block rounded-md bg-mar-profundo px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
+                    >
+                      <i aria-hidden="true" className="bi bi-house-add mr-1" />
+                      Inscribir predio
+                    </Link>
+                  )}
                 </div>
               </div>
             </header>
@@ -171,7 +182,7 @@ export function FichaContribuyente() {
             <main role="tabpanel" className="overflow-x-auto rounded-b-xl rounded-tr-xl bg-white shadow-md ring-1 ring-mar-profundo/10">
               {pestana === 'predios' &&
                 (datos.predios.length === 0 ? (
-                  <Vacio texto="Sin predios registrados. El registro de predios con su declaración jurada llega en la Fase C." />
+                  <Vacio texto="Sin predios registrados." />
                 ) : (
                   <table className="w-full min-w-[640px] text-left text-sm">
                     <thead>
@@ -185,7 +196,15 @@ export function FichaContribuyente() {
                     </thead>
                     <tbody>
                       {datos.predios.map((pc) => (
-                        <tr key={pc.predio.id} className="border-b border-slate-100">
+                        <tr
+                          key={pc.predio.id}
+                          tabIndex={0}
+                          onClick={() => navigate(`${RUTA_BASE}/predios/${pc.predio.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') navigate(`${RUTA_BASE}/predios/${pc.predio.id}`)
+                          }}
+                          className="cursor-pointer border-b border-slate-100 hover:bg-slate-50 focus-visible:outline-3 focus-visible:outline-turquesa"
+                        >
                           <td className="px-4 py-3 text-mar-profundo">{direccionPredio(pc.predio)}</td>
                           <td className="px-4 py-3 text-slate-600">{pc.predio.usoPredio ?? '—'}</td>
                           <td className="px-4 py-3 text-right">{pc.predio.areaTerreno ?? '—'}</td>
@@ -240,7 +259,7 @@ export function FichaContribuyente() {
                         <th scope="col" className="px-4 py-3">Año</th>
                         <th scope="col" className="px-4 py-3">Motivo</th>
                         <th scope="col" className="px-4 py-3">Predio</th>
-                        <th scope="col" className="px-4 py-3">Observación</th>
+                        <th scope="col" className="px-4 py-3">Declarante</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -249,8 +268,12 @@ export function FichaContribuyente() {
                           <td className="px-4 py-3">{dj.fecha.slice(0, 10)}</td>
                           <td className="px-4 py-3">{dj.anio}</td>
                           <td className="px-4 py-3">{dj.motivo}</td>
-                          <td className="px-4 py-3">#{dj.predioId}</td>
-                          <td className="px-4 py-3 text-slate-600">{dj.observacion ?? '—'}</td>
+                          <td className="px-4 py-3">
+                            <Link to={`${RUTA_BASE}/predios/${dj.predioId}`} className="font-medium text-mar hover:underline">
+                              #{dj.predioId}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600">{dj.contribuyente.nombreCompleto}</td>
                         </tr>
                       ))}
                     </tbody>

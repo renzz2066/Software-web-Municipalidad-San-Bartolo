@@ -19,6 +19,8 @@ import { Maestros } from './pages/rentas/maestros/Maestros'
 import { Contribuyentes } from './pages/rentas/contribuyentes/Contribuyentes'
 import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteForm'
 import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
+import { Predio } from './pages/rentas/predios/Predio'
+import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -166,6 +168,36 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="rentas.registro-tributario">
               <ContribuyenteForm key="editar" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/predios/nuevo"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <DeclaracionForm key="nuevo" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/predios/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <Predio />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/predios/:id/declaracion"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <DeclaracionForm key="declaracion" />
             </RequireNivel>
           </ProtectedRoute>
         }

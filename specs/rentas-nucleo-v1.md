@@ -82,7 +82,7 @@ Decisiones (aprobadas 2026-10-21):
 - [x] Rama `feat/rentas-nucleo` desde `main`; primer commit = esta spec (`docs(specs)`).
 - [x] Fase A: migración `20261021120000_rentas_maestros` + maestros (C4) + seed UIT/escala 2026.
 - [x] Fase B: contribuyentes + ficha 360 (C1, C2); baja bloqueada si hay deuda pendiente.
-- [ ] Fase C: predios + DJ versionada (C3).
+- [x] Fase C: predios + DJ versionada (C3). `Piso.categorias` (A-I ×7) y catálogos RNT compartidos con depreciación.
 - [ ] Fase D: `calculo/*` puro con tests → simular/ejecutar (C5).
 - [ ] Fase E: estado de cuenta (C6) + niveles (C7). `lint` + `build` + `test` en cada fase.
 

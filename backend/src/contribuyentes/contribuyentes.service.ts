@@ -148,9 +148,19 @@ export class ContribuyentesService {
         _count: { _all: true },
         orderBy: [{ anioFiscal: 'desc' }, { tributoId: 'asc' }],
       }),
+      // DDJJ que presentó o que afectan a predios donde es o fue titular.
       this.prisma.declaracionJurada.findMany({
-        where: { contribuyenteId: id },
-        select: { id: true, predioId: true, anio: true, motivo: true, fecha: true, observacion: true, createdAt: true },
+        where: { OR: [{ contribuyenteId: id }, { predio: { contribuyentes: { some: { contribuyenteId: id } } } }] },
+        select: {
+          id: true,
+          predioId: true,
+          anio: true,
+          motivo: true,
+          fecha: true,
+          observacion: true,
+          createdAt: true,
+          contribuyente: { select: { id: true, nombreCompleto: true } },
+        },
         orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
         take: 50,
       }),
