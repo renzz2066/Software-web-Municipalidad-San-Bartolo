@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { EstadoRegistro, MotivoDeclaracion, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { hoyLima } from '../rentas/fechas.js';
 import { anioValido } from '../rentas/maestros/maestros.reglas.js';
 import { validarDeclaracion } from './declaracion.reglas.js';
 import { DatosPredioDto, DeclaracionDto } from './dto/declaracion.dto.js';
@@ -103,7 +104,7 @@ export class PrediosService {
 
       const error = validarDeclaracion(
         { ...dto, fecha },
-        { hoy: new Date().toISOString().slice(0, 10), titularesActuales: actual?.contribuyentes.map((c) => c.contribuyenteId) ?? [] },
+        { hoy: hoyLima(), titularesActuales: actual?.contribuyentes.map((c) => c.contribuyenteId) ?? [] },
       );
       if (error) {
         throw new BadRequestException(error);

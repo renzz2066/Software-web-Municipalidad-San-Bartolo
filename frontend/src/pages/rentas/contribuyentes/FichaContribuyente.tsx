@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { PanelCalculo } from '../calculo/PanelCalculo'
+import { hoyIso, useEstadoCuenta } from '../estado-cuenta/estadoCuentaApi'
+import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
 import { mensajeError } from '../maestros/maestrosApi'
 import { ESTILO_ESTADO, RUTA_BASE, TIPOS_PERSONA, soles, type Contribuyente } from './tipos'
 
@@ -137,11 +139,11 @@ export function FichaContribuyente() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Deuda pendiente</p>
+                  <p className="text-xs uppercase tracking-wider text-slate-500">Insoluto pendiente</p>
                   <p className={`text-2xl font-bold ${Number(datos.totalDeuda) > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
                     {soles(datos.totalDeuda)}
                   </p>
-                  <p className="text-xs text-slate-500">Insoluto + reajuste + mora registrados</p>
+                  <p className="text-xs text-slate-500">Sin mora; ver pestaña Deuda</p>
                   <Link
                     to={`${RUTA_BASE}/contribuyentes/${c.id}/editar`}
                     className="mt-2 inline-block rounded-md border border-mar-profundo/30 px-3 py-1.5 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
@@ -221,37 +223,7 @@ export function FichaContribuyente() {
                   </table>
                 ))}
 
-              {pestana === 'deuda' &&
-                (datos.deuda.length === 0 ? (
-                  <Vacio texto="Sin deuda pendiente." />
-                ) : (
-                  <table className="w-full min-w-[640px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
-                        <th scope="col" className="px-4 py-3">Año</th>
-                        <th scope="col" className="px-4 py-3">Tributo</th>
-                        <th scope="col" className="px-4 py-3 text-right">Cuotas</th>
-                        <th scope="col" className="px-4 py-3 text-right">Insoluto</th>
-                        <th scope="col" className="px-4 py-3 text-right">Reajuste</th>
-                        <th scope="col" className="px-4 py-3 text-right">Mora</th>
-                        <th scope="col" className="px-4 py-3 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {datos.deuda.map((d) => (
-                        <tr key={`${d.anio}-${d.tributo.id}`} className="border-b border-slate-100">
-                          <td className="px-4 py-3">{d.anio}</td>
-                          <td className="px-4 py-3 text-mar-profundo">{d.tributo.nombre}</td>
-                          <td className="px-4 py-3 text-right">{d.cuotas}</td>
-                          <td className="px-4 py-3 text-right">{soles(d.importe)}</td>
-                          <td className="px-4 py-3 text-right">{soles(d.reajuste)}</td>
-                          <td className="px-4 py-3 text-right">{soles(d.mora)}</td>
-                          <td className="px-4 py-3 text-right font-semibold">{soles(d.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ))}
+              {pestana === 'deuda' && <DeudaALaFecha contribuyenteId={c.id} refreshKey={refreshKey} />}
 
               {pestana === 'ddjj' &&
                 (datos.declaraciones.length === 0 ? (
@@ -299,4 +271,46 @@ export function FichaContribuyente() {
 
 function Vacio({ texto }: { texto: string }) {
   return <p className="p-8 text-center text-sm text-slate-500">{texto}</p>
+}
+
+// Estado de cuenta con reajuste y mora a la fecha elegida (C6).
+function DeudaALaFecha({ contribuyenteId, refreshKey }: { contribuyenteId: number; refreshKey: number }) {
+  const [fecha, setFecha] = useState(hoyIso)
+  const { datos, error, isLoading } = useEstadoCuenta(contribuyenteId, fecha, refreshKey)
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <label htmlFor="deuda-fecha" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Deuda al
+          </label>
+          <input
+            id="deuda-fecha"
+            type="date"
+            value={fecha}
+            onChange={(e) => e.target.value && setFecha(e.target.value)}
+            className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
+          />
+        </div>
+        <Link
+          to={`${RUTA_BASE}/contribuyentes/${contribuyenteId}/estado-cuenta?fecha=${fecha}`}
+          className="rounded-md border border-mar-profundo/30 px-3 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
+        >
+          <i aria-hidden="true" className="bi bi-printer mr-1" />
+          Versión imprimible
+        </Link>
+      </div>
+      {error ? (
+        <p role="alert" className="text-sm font-medium text-red-700">
+          {error}
+        </p>
+      ) : isLoading || !datos ? (
+        <p role="status" className="text-sm text-slate-500">
+          Calculando deuda…
+        </p>
+      ) : (
+        <TablaEstadoCuenta datos={datos} />
+      )}
+    </div>
+  )
 }

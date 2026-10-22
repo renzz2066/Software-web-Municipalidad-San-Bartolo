@@ -22,6 +22,7 @@ import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteFo
 import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
 import { Predio } from './pages/rentas/predios/Predio'
 import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
+import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -170,6 +171,16 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="rentas.registro-tributario">
               <ContribuyenteForm key="editar" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/:id/estado-cuenta"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <EstadoCuentaImprimible />
             </RequireNivel>
           </ProtectedRoute>
         }

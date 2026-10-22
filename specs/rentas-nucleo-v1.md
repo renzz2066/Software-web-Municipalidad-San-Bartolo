@@ -86,7 +86,9 @@ Decisiones (aprobadas 2026-10-21):
 - [x] Fase C: predios + DJ versionada (C3). `Piso.categorias` (A-I ×7) y catálogos RNT compartidos con depreciación.
 - [x] Fase D: `calculo/*` puro con tests → simular/ejecutar (C5). Límite v1: si una cuota ya pagada
   cambia al recalcular, no se genera la diferencia (queda para caja/valores).
-- [ ] Fase E: estado de cuenta (C6) + niveles (C7). `lint` + `build` + `test` en cada fase.
+- [x] Fase E: estado de cuenta (C6) con reajuste IPM y mora TIM al vuelo + imprimible; niveles (C7).
+  `lint` + `build` + `test` en cada fase.
+- [ ] PR de `feat/rentas-nucleo` hacia `main` (cuando el usuario lo pida).
 
 ## 5. Verificación
 `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` ·

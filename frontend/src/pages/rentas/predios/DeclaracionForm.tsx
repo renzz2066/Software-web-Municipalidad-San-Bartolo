@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
+import { hoyLocal } from '../../../lib/fechas'
 import { CLASIFICACIONES, COMPONENTES_CORTOS, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { BuscadorContribuyente } from '../contribuyentes/BuscadorContribuyente'
 import { RUTA_BASE, type Contribuyente } from '../contribuyentes/tipos'
@@ -49,7 +50,7 @@ interface DatosForm {
   usoPredio: string
 }
 
-const HOY = new Date().toISOString().slice(0, 10)
+const HOY = hoyLocal()
 const DATOS_VACIOS: DatosForm = {
   viaId: '',
   urbanizacionId: '',
