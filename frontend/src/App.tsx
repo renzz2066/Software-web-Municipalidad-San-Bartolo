@@ -16,12 +16,16 @@ import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
 import { Maestros } from './pages/rentas/maestros/Maestros'
+import { Contribuyentes } from './pages/rentas/contribuyentes/Contribuyentes'
+import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteForm'
+import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
 // Submódulos ya implementados; el resto muestra "En construcción".
 const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.maestros': <Maestros />,
+  'rentas.registro-tributario': <Contribuyentes />,
 }
 
 function App() {
@@ -132,6 +136,36 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="accesibilidad.auditoria">
               <Auditoria />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/nuevo"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <ContribuyenteForm />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <FichaContribuyente />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/:id/editar"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <ContribuyenteForm key="editar" />
             </RequireNivel>
           </ProtectedRoute>
         }

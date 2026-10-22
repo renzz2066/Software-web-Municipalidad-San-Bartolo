@@ -5,7 +5,7 @@ export function mensajeError(err: unknown): string {
   if (isAxiosError(err)) {
     const status = err.response?.status
     if (status === 401) return 'Sesión vencida. Vuelve a ingresar.'
-    if (status === 403) return 'Sin permisos para los maestros de Rentas.'
+    if (status === 403) return 'Sin permisos para esta sección.'
     const message: unknown = err.response?.data?.message
     if (status && status < 500 && message) {
       return Array.isArray(message) ? message.join('. ') : String(message)
