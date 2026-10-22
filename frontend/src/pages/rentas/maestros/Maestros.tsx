@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../lib/api'
-import { CLASIFICACIONES, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
+import { CLASIFICACIONES, CONCEPTOS_ARBITRIO, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { Catalogo } from './Catalogo'
 import { TablaEditable, type Columna } from './TablaEditable'
 import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona } from './maestrosApi'
@@ -124,7 +124,7 @@ export function Maestros() {
 
   const colTarifas = useMemo<Columna[]>(
     () => [
-      { key: 'concepto', label: 'Concepto', tipo: 'texto', placeholder: 'BARRIDO' },
+      { key: 'concepto', label: 'Concepto', tipo: 'select', opciones: CONCEPTOS_ARBITRIO },
       {
         key: 'zonaId',
         label: 'Zona',
@@ -382,6 +382,7 @@ function FormUit({
   alGuardar: () => void
 }) {
   const [valor, setValor] = useState(resumen?.uit?.valor ?? '')
+  const [derechoEmision, setDerechoEmision] = useState(resumen?.uit?.derechoEmision ?? '0')
   const [ordenanza, setOrdenanza] = useState(resumen?.uit?.ordenanza ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null)
@@ -389,6 +390,10 @@ function FormUit({
   async function guardar(e: React.FormEvent) {
     e.preventDefault()
     const n = Number(valor)
+    if (Number(derechoEmision) < 0) {
+      setMensaje({ ok: false, texto: 'El derecho de emisión no puede ser negativo' })
+      return
+    }
     if (!valor || !Number.isFinite(n) || n <= 0) {
       setMensaje({ ok: false, texto: 'Ingresa un valor de UIT mayor que 0' })
       return
@@ -396,7 +401,11 @@ function FormUit({
     setIsSaving(true)
     setMensaje(null)
     try {
-      await api.put(`/rentas/maestros/uit/${anio}`, { valor: n, ordenanza: ordenanza.trim() || undefined })
+      await api.put(`/rentas/maestros/uit/${anio}`, {
+        valor: n,
+        derechoEmision: Number(derechoEmision) || 0,
+        ordenanza: ordenanza.trim() || undefined,
+      })
       setMensaje({ ok: true, texto: 'UIT guardada.' })
       alGuardar()
     } catch (err) {
@@ -421,6 +430,22 @@ function FormUit({
           value={valor}
           disabled={bloqueado || isSaving}
           onChange={(e) => setValor(e.target.value)}
+          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100"
+        />
+      </div>
+      <div>
+        <label htmlFor="uit-emision" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+          Derecho de emisión (S/ por contribuyente)
+        </label>
+        <input
+          id="uit-emision"
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          value={derechoEmision}
+          disabled={bloqueado || isSaving}
+          onChange={(e) => setDerechoEmision(e.target.value)}
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100"
         />
       </div>

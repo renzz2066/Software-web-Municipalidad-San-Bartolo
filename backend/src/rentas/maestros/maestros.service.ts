@@ -52,7 +52,7 @@ export class MaestrosService {
   async guardarUit(anio: number, dto: UitDto) {
     return this.prisma.$transaction(async (tx) => {
       await this.asegurarEditable(tx, anio);
-      const data = { valor: dto.valor, ordenanza: this.texto(dto.ordenanza) };
+      const data = { valor: dto.valor, derechoEmision: dto.derechoEmision ?? 0, ordenanza: this.texto(dto.ordenanza) };
       return tx.uit.upsert({ where: { anio }, update: data, create: { anio, ...data } });
     });
   }

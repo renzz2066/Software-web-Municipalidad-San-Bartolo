@@ -503,11 +503,12 @@ model Tributo {
 }
 
 model Uit {
-  id        Int      @id @default(autoincrement())
-  anio      Int      @unique
-  valor     Decimal  @db.Decimal(10, 2)
-  ordenanza String?  @db.VarChar(60) // norma que lo aprueba
-  createdAt DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  anio           Int      @unique
+  valor          Decimal  @db.Decimal(10, 2)
+  derechoEmision Decimal  @default(0) @db.Decimal(10, 2) // monto fijo anual por contribuyente (cuota 1 del predial)
+  ordenanza      String?  @db.VarChar(60) // norma que lo aprueba
+  createdAt      DateTime @default(now())
 
   @@map("uit")
 }

@@ -89,6 +89,19 @@ async function main() {
     });
   }
   console.log(`UIT y escala predial ${anio} verificadas`);
+
+  // Tributos que genera el cálculo (Fase D). Los códigos de arbitrios = conceptos de tarifas.
+  const tributos = [
+    { codigo: 'PREDIAL', nombre: 'IMPUESTO PREDIAL', tipo: 'PREDIAL' as const },
+    { codigo: 'RESIDUOS', nombre: 'ARBITRIO RESIDUOS SÓLIDOS', tipo: 'ARBITRIOS' as const },
+    { codigo: 'BARRIDO', nombre: 'ARBITRIO BARRIDO DE CALLES', tipo: 'ARBITRIOS' as const },
+    { codigo: 'PARQUES', nombre: 'ARBITRIO PARQUES Y JARDINES', tipo: 'ARBITRIOS' as const },
+    { codigo: 'SERENAZGO', nombre: 'ARBITRIO SERENAZGO', tipo: 'ARBITRIOS' as const },
+  ];
+  for (const t of tributos) {
+    await prisma.tributo.upsert({ where: { codigo: t.codigo }, update: {}, create: t });
+  }
+  console.log('Tributos de rentas verificados');
 }
 
 main()

@@ -16,6 +16,7 @@ import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
 import { Maestros } from './pages/rentas/maestros/Maestros'
+import { CalculoMasivo } from './pages/rentas/calculo/CalculoMasivo'
 import { Contribuyentes } from './pages/rentas/contribuyentes/Contribuyentes'
 import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteForm'
 import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
@@ -28,6 +29,7 @@ import { RequireNivel } from './routes/RequireNivel'
 const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.maestros': <Maestros />,
   'rentas.registro-tributario': <Contribuyentes />,
+  'rentas.calculo-masivo': <CalculoMasivo />,
 }
 
 function App() {

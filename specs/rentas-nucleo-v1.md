@@ -28,7 +28,7 @@ transferencia a coactivo) · `caja-v1` (pagos/extornos) · `rentas-fiscalizacion
 - [ ] C6 Estado de cuenta a una fecha: importe, reajuste, mora (TIM) y total por cuota,
   calculados al vuelo; imprimible/PDF desde el navegador. Mismo endpoint lo usarán Caja y Coactiva.
 - [ ] C7 Accesos: `rentas.registro-tributario` (C1–C3, C6), `rentas.maestros` (C4);
-  C5 masivo exige el nivel `rentas.registro-tributario.calculo-masivo` (FUNCIONALIDAD).
+  C5 masivo exige el nivel `rentas.calculo-masivo` (submódulo propio: el catálogo es de 2 capas).
   Sin nivel → 403. Errores: 401 = credenciales, resto = conexión/validación.
 
 ## 2. Archivos afectados
@@ -75,7 +75,8 @@ Decisiones (aprobadas 2026-10-21):
 1. Se crean las 5 tablas nuevas (`declaraciones_juradas` versiona la DJ con motivo).
 2. Arbitrios por **zona + uso**: `TarifaArbitrio` gana `zonaId?` y `uso?` (null = aplica a todas).
 3. Predial en 4 cuotas trimestrales (feb/may/ago/nov, 2–4 con IPM) o pago anual hasta fin
-   de febrero sin reajuste. Derecho de emisión: pendiente, se define en Fase D.
+   de febrero sin reajuste. Derecho de emisión: monto fijo anual (`uit.derechoEmision`) en la cuota 1.
+   Arbitrios: 4 cuotas trimestrales, conceptos fijos RESIDUOS/BARRIDO/PARQUES/SERENAZGO.
 4. Redondeo a 2 decimales por cuota.
 
 ## 4. Tareas
@@ -83,7 +84,8 @@ Decisiones (aprobadas 2026-10-21):
 - [x] Fase A: migración `20261021120000_rentas_maestros` + maestros (C4) + seed UIT/escala 2026.
 - [x] Fase B: contribuyentes + ficha 360 (C1, C2); baja bloqueada si hay deuda pendiente.
 - [x] Fase C: predios + DJ versionada (C3). `Piso.categorias` (A-I ×7) y catálogos RNT compartidos con depreciación.
-- [ ] Fase D: `calculo/*` puro con tests → simular/ejecutar (C5).
+- [x] Fase D: `calculo/*` puro con tests → simular/ejecutar (C5). Límite v1: si una cuota ya pagada
+  cambia al recalcular, no se genera la diferencia (queda para caja/valores).
 - [ ] Fase E: estado de cuenta (C6) + niveles (C7). `lint` + `build` + `test` en cada fase.
 
 ## 5. Verificación

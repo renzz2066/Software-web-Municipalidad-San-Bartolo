@@ -21,6 +21,14 @@ export const ESTADOS_CONSERVACION = [
   { value: 'MALO', label: 'Malo' },
 ]
 
+// Conceptos de arbitrios (= códigos de Tributo en el backend).
+export const CONCEPTOS_ARBITRIO = [
+  { value: 'RESIDUOS', label: 'Residuos sólidos' },
+  { value: 'BARRIDO', label: 'Barrido de calles' },
+  { value: 'PARQUES', label: 'Parques y jardines' },
+  { value: 'SERENAZGO', label: 'Serenazgo' },
+]
+
 // Orden de las 7 letras de Piso.categorias.
 export const COMPONENTES_CORTOS = ['Muros', 'Techos', 'Pisos', 'Puertas', 'Revest.', 'Baños', 'Instal.']
 

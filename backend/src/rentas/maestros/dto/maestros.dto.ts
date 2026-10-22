@@ -16,7 +16,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { CLASIFICACIONES, ESTADOS_CONSERVACION, MATERIALES } from '../../catalogos-construccion.js';
+import { CLASIFICACIONES, CONCEPTOS_ARBITRIO, ESTADOS_CONSERVACION, MATERIALES } from '../../catalogos-construccion.js';
 
 // Montos en soles con 2 decimales; porcentajes 0-100.
 const DOS_DECIMALES = { maxDecimalPlaces: 2 };
@@ -32,6 +32,11 @@ export class UitDto extends ConOrdenanzaDto {
   @IsNumber(DOS_DECIMALES, { message: 'La UIT debe ser un monto con 2 decimales' })
   @Min(0.01, { message: 'La UIT debe ser mayor que 0' })
   valor: number;
+
+  @IsOptional()
+  @IsNumber(DOS_DECIMALES, { message: 'El derecho de emisión debe ser un monto con 2 decimales' })
+  @Min(0)
+  derechoEmision?: number;
 }
 
 export class TramoDto {
@@ -128,9 +133,7 @@ export class DepreciacionesDto extends ConOrdenanzaDto {
 }
 
 export class TarifaArbitrioDto {
-  @IsString()
-  @IsNotEmpty({ message: 'El concepto es obligatorio' })
-  @MaxLength(30)
+  @IsIn(CONCEPTOS_ARBITRIO, { message: 'Concepto no válido (RESIDUOS, BARRIDO, PARQUES, SERENAZGO)' })
   concepto: string;
 
   @IsOptional()

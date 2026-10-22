@@ -39,7 +39,7 @@ export interface Via {
 
 export interface ResumenAnio {
   anio: number
-  uit: { valor: string; ordenanza: string | null } | null
+  uit: { valor: string; derechoEmision: string; ordenanza: string | null } | null
   conteos: Record<string, number>
   bloqueado: boolean
 }

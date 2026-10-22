@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
+import { PanelCalculo } from '../calculo/PanelCalculo'
 import { mensajeError } from '../maestros/maestrosApi'
 import { ESTILO_ESTADO, RUTA_BASE, TIPOS_PERSONA, soles, type Contribuyente } from './tipos'
 
@@ -58,6 +59,7 @@ const PESTANAS = [
   { id: 'predios', titulo: 'Predios' },
   { id: 'deuda', titulo: 'Deuda' },
   { id: 'ddjj', titulo: 'Declaraciones juradas' },
+  { id: 'calculo', titulo: 'Calcular deuda' },
 ] as const
 
 function direccionPredio(p: PredioFicha['predio']): string {
@@ -77,6 +79,7 @@ export function FichaContribuyente() {
   const [datos, setDatos] = useState<Resumen | null>(null)
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['id']>('predios')
   const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -92,7 +95,7 @@ export function FichaContribuyente() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, refreshKey])
 
   const c = datos?.contribuyente
 
@@ -172,9 +175,11 @@ export function FichaContribuyente() {
                   }`}
                 >
                   {p.titulo}
-                  <span className="ml-1 text-xs text-slate-400">
-                    ({p.id === 'predios' ? datos.predios.length : p.id === 'deuda' ? datos.deuda.length : datos.declaraciones.length})
-                  </span>
+                  {p.id !== 'calculo' && (
+                    <span className="ml-1 text-xs text-slate-400">
+                      ({p.id === 'predios' ? datos.predios.length : p.id === 'deuda' ? datos.deuda.length : datos.declaraciones.length})
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -279,6 +284,11 @@ export function FichaContribuyente() {
                     </tbody>
                   </table>
                 ))}
+              {pestana === 'calculo' && (
+                <div className="p-6">
+                  <PanelCalculo contribuyenteId={c.id} alEjecutar={() => setRefreshKey((k) => k + 1)} />
+                </div>
+              )}
             </main>
           </>
         )}
