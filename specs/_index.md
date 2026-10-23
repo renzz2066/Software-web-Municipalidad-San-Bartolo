@@ -7,3 +7,4 @@
 - `auditoria-v1.md`: activa. Auditoría de cambios (triggers PG) + sesiones + `GET /auditoria`.
 - `auditoria-pantalla-v1.md`: activa. Pantalla `/accesibilidad/auditoria` + logout real.
 - `rentas-nucleo-v1.md`: activa. Contribuyentes, predios/DJ, maestros, cálculo predial/arbitrios, estado de cuenta.
+- `rentas-valores-v1.md`: borrador. OP/RD, notificación, fraccionamiento, transferencia a coactivo.
