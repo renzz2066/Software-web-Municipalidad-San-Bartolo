@@ -1,5 +1,5 @@
 # Spec: Rentas — valores, fraccionamiento y transferencia a coactivo (v1)
-<!-- Formato fijo 5 secciones. Borrador 2026-10-23 (pendiente de aprobación). Las `*-v1.md` cerradas no se editan. -->
+<!-- Formato fijo 5 secciones. Aprobada 2026-10-23. Las `*-v1.md` cerradas no se editan. -->
 
 Referencia SIMUN: `Programas/MENU01.MPR` → Control y Recaudación (Fraccionamiento, Emisión de
 Valores, Transferencias a Coactivo); tablas `valores_cobranza_cab/det`, `preconvenios_*`,
@@ -84,7 +84,7 @@ Mejoras frente a SIMUN (incluidas en v1):
 Propuestas para v2: pérdida automática del convenio (2 cuotas vencidas, tras `caja-v1`),
 notificación con foto/geo desde el celular, constancia de notificación por QR.
 
-Decisiones (pendientes de aprobación):
+Decisiones (aprobadas 2026-10-23):
 1. `valores_cab` gana: `modalidadNotificacion?`, `notificadoDni?`, `notificadoNombre?`,
    `fechaExigible?`, `motivoAnulacion?`, `transferenciaId?`, `baseImponible?`. Numeración con
    `correlativos` (no se cambia el `@@unique([tipo, anio, numero])` actual).
@@ -96,11 +96,10 @@ Decisiones (pendientes de aprobación):
    descuentan sábados y domingos.
 4. `transferencias_coactivo (anio, numero, fecha, cantidad, monto, estado ENVIADA|RECIBIDA|DEVUELTA)`;
    en v1 solo se crea `ENVIADA`.
-5. Arbitrios con valor: RD por predio. Si prefieres una RD por contribuyente con todos sus
-   predios (menos papel), se cambia la agrupación de V2.
+5. Arbitrios con valor: RD por predio (no una RD por contribuyente con todos sus predios).
 
 ## 4. Tareas
-- [ ] Rama `feat/rentas-valores` desde `main`; primer commit = esta spec (`docs(specs)`).
+- [x] Rama `feat/rentas-valores` desde `main`; primer commit = esta spec (`docs(specs)`).
 - [ ] Fase A: migración (decisiones 1–4) + correlativos + feriados/parámetros en Maestros + tributo `FRACCION`.
 - [ ] Fase B: emisión OP/RD simular/ejecutar + imprimible + protección en cálculo (V1–V3, V8).
 - [ ] Fase C: notificación, exigibilidad y anulación (V4, V5).
