@@ -88,7 +88,7 @@ Decisiones (aprobadas 2026-10-21):
   cambia al recalcular, no se genera la diferencia (queda para caja/valores).
 - [x] Fase E: estado de cuenta (C6) con reajuste IPM y mora TIM al vuelo + imprimible; niveles (C7).
   `lint` + `build` + `test` en cada fase.
-- [ ] PR de `feat/rentas-nucleo` hacia `main` (cuando el usuario lo pida).
+- [x] PR de `feat/rentas-nucleo` hacia `main` (cuando el usuario lo pida): #11.
 
 ## 5. Verificación
 `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` ·

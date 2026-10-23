@@ -12,6 +12,7 @@ export interface LineaEstado {
   cuota: number
   vencimiento: string | null
   estado: 'PENDIENTE' | 'COACTIVO' | 'FRACCIONADO'
+  situacion: string | null // valor que la cobra o convenio al que pertenece
   diasAtraso: number
   insoluto: string
   reajuste: string

@@ -170,6 +170,12 @@ describe('planificar (idempotencia)', () => {
     expect(r.actualizar.map((a) => a.id)).toEqual([11]);
   });
 
+  it('no actualiza ni anula pendientes que están en un valor vigente', () => {
+    const enValor = (id: number, cuota: number, importe: number) => ({ ...existente(id, cuota, importe, 'PENDIENTE'), enValor: true });
+    const r = planificar([linea(1, 30), linea(2, 25)], [enValor(10, 1, 25), enValor(11, 2, 25), enValor(12, 3, 25)]);
+    expect(r).toMatchObject({ crear: [], actualizar: [], anular: [], sinCambio: 1, protegidas: 1 });
+  });
+
   it('anula pendientes que ya no corresponden y reactiva anuladas que vuelven', () => {
     const r = planificar([linea(1, 25)], [existente(10, 1, 25, 'ANULADO'), existente(11, 2, 25, 'PENDIENTE'), existente(12, 3, 25, 'COACTIVO')]);
     expect(r.actualizar.map((a) => a.id)).toEqual([10]);

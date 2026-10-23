@@ -178,6 +178,44 @@ export class TasasMoraDto {
   items: TasaMoraDto[];
 }
 
+export class FeriadoDto {
+  @IsDateString({}, { message: 'La fecha del feriado debe ser AAAA-MM-DD' })
+  fecha: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Describe el feriado' })
+  @MaxLength(100)
+  descripcion: string;
+}
+
+export class FeriadosDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FeriadoDto)
+  items: FeriadoDto[];
+}
+
+export class ParametroFraccionamientoDto extends ConOrdenanzaDto {
+  @IsNumber(DOS_DECIMALES, { message: 'La cuota inicial mínima es un porcentaje con 2 decimales' })
+  @Min(0)
+  @Max(100, { message: 'La cuota inicial mínima es un porcentaje (0-100)' })
+  cuotaInicialMinPct: number;
+
+  @IsInt({ message: 'El número máximo de cuotas debe ser entero' })
+  @Min(1, { message: 'Debe permitirse al menos 1 cuota' })
+  @Max(120, { message: 'Máximo 120 cuotas' })
+  cuotasMax: number;
+
+  @IsNumber(DOS_DECIMALES, { message: 'El monto mínimo debe ser un monto con 2 decimales' })
+  @Min(0)
+  montoMinimo: number;
+
+  @IsNumber({ maxDecimalPlaces: 4 }, { message: 'El interés admite hasta 4 decimales' })
+  @Min(0)
+  @Max(100, { message: 'El interés es un porcentaje mensual (0-100)' })
+  interesMensual: number;
+}
+
 export class AbrirAnioDto {
   @IsInt()
   desde: number;

@@ -8,6 +8,8 @@ import {
   ArancelesDto,
   DepreciacionesDto,
   EscalaDto,
+  FeriadosDto,
+  ParametroFraccionamientoDto,
   TarifasArbitriosDto,
   TasasMoraDto,
   UitDto,
@@ -100,7 +102,29 @@ export class MaestrosController {
     return this.maestros.guardarTasasMora(tipo, dto);
   }
 
+  @Get('feriados/:anio')
+  listarFeriados(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.listarFeriados(anio);
+  }
+
+  @Put('feriados/:anio')
+  guardarFeriados(@Param('anio', ParseIntPipe) anio: number, @Body() dto: FeriadosDto) {
+    return this.maestros.guardarFeriados(anio, dto);
+  }
+
+  @Get('fraccionamiento/:anio')
+  obtenerFraccionamiento(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.obtenerFraccionamiento(anio);
+  }
+
+  @Put('fraccionamiento/:anio')
+  guardarFraccionamiento(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ParametroFraccionamientoDto) {
+    return this.maestros.guardarFraccionamiento(anio, dto);
+  }
+
+  // Solo lectura: también lo usa el filtro por zona de la emisión de valores.
   @Get('zonas')
+  @RequireNivel('rentas.maestros', 'rentas.control-recaudacion')
   listarZonas() {
     return this.maestros.listarZonas();
   }

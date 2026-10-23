@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { CLASIFICACIONES, CONCEPTOS_ARBITRIO, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { Catalogo } from './Catalogo'
+import { FormFraccionamiento } from './FormFraccionamiento'
 import { TablaEditable, type Columna } from './TablaEditable'
 import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona } from './maestrosApi'
 
 // Maestros de Rentas (specs/rentas-nucleo-v1.md, C4): parámetros por año + ubicación.
+// Feriados y fraccionamiento: specs/rentas-valores-v1.md (decisiones 2 y 3).
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS = Array.from({ length: 8 }, (_, i) => ANIO_ACTUAL + 1 - i)
@@ -19,6 +21,8 @@ const PESTANAS = [
   { id: 'depreciacion', titulo: 'Depreciación' },
   { id: 'tarifas', titulo: 'Tarifas arbitrios' },
   { id: 'mora', titulo: 'TIM / IPM' },
+  { id: 'fraccionamiento', titulo: 'Fraccionamiento' },
+  { id: 'feriados', titulo: 'Feriados' },
   { id: 'ubicacion', titulo: 'Ubicación' },
 ] as const
 
@@ -55,6 +59,11 @@ const COL_DEPRECIACION: Columna[] = [
   { key: 'antiguedadHasta', label: 'Antigüedad hasta (años)', tipo: 'numero', decimales: 0 },
   { key: 'estadoConservacion', label: 'Conservación', tipo: 'select', opciones: ESTADOS_CONSERVACION },
   { key: 'porcentaje', label: 'Depreciación (%)', tipo: 'numero' },
+]
+
+const COL_FERIADOS: Columna[] = [
+  { key: 'fecha', label: 'Fecha', tipo: 'fecha' },
+  { key: 'descripcion', label: 'Descripción', tipo: 'texto' },
 ]
 
 const COL_MORA: Columna[] = [
@@ -323,6 +332,15 @@ export function Maestros() {
                 />
               </section>
             </div>
+          )}
+          {pestana === 'fraccionamiento' && <FormFraccionamiento key={anio} anio={anio} />}
+          {pestana === 'feriados' && (
+            <TablaEditable
+              url={`/rentas/maestros/feriados/${anio}`}
+              columnas={COL_FERIADOS}
+              conOrdenanza={false}
+              ayuda={`Feriados de ${anio} para contar días hábiles (plazo de reclamo de una RD). Sábados y domingos ya se descuentan solos.`}
+            />
           )}
           {pestana === 'ubicacion' && (
             <div className="grid gap-8 lg:grid-cols-3">

@@ -6,6 +6,8 @@ import { BuscarContribuyentesDto, CreateContribuyenteDto, UpdateContribuyenteDto
 
 // Deuda viva: lo que aún se puede cobrar (en caja, convenio o coactivo).
 const ESTADOS_DEUDA: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.FRACCIONADO, EstadoCuenta.COACTIVO];
+// Para sumar la deuda viva: la FRACCIONADO ya está en las cuotas del convenio (tributo FRACCION).
+const ESTADOS_SALDO: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.COACTIVO];
 
 const SELECT_LISTA = {
   id: true,
@@ -143,7 +145,7 @@ export class ContribuyentesService {
       }),
       this.prisma.cuentaCorriente.groupBy({
         by: ['anioFiscal', 'tributoId'],
-        where: { contribuyenteId: id, estado: { in: ESTADOS_DEUDA } },
+        where: { contribuyenteId: id, estado: { in: ESTADOS_SALDO } },
         _sum: { importe: true, reajuste: true, mora: true, derechoEmision: true, descuento: true },
         _count: { _all: true },
         orderBy: [{ anioFiscal: 'desc' }, { tributoId: 'asc' }],

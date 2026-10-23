@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from '../../auth/types/jwt-payload.type.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CONCEPTOS_ARBITRIO } from '../catalogos-construccion.js';
 import { anioValido } from '../maestros/maestros.reglas.js';
+import { ESTADOS_VALOR_VIGENTE } from '../valores/valores.reglas.js';
 import {
   CUOTAS_POR_ANIO,
   impuestoPredial,
@@ -99,6 +100,28 @@ export class CalculoService {
     }
   }
 
+  // Para emitir valores (specs/rentas-valores-v1.md, V8): contribuyentes cuya deuda del año cambiaría
+  // al recalcular o cuyo predial no se puede calcular (datos incompletos: no se sabe si su deuda está
+  // al día); a ellos no se les emite. Devuelve también la base imponible predial de cada uno.
+  async revisarParaEmision(tx: Tx, anio: number, tipos: TipoCalculo[], contribuyenteId?: number) {
+    const { plan, existentes, bases, tributos, fallidos } = await this.preparar(tx, { anio, contribuyenteId, tributos: tipos });
+    const idPredial = tributos.get('PREDIAL');
+    const pendientes = new Map<number, Set<TipoCalculo>>();
+    const marcar = (cid: number, tributoId: number) => {
+      const s = pendientes.get(cid) ?? new Set<TipoCalculo>();
+      s.add(tributoId === idPredial ? 'PREDIAL' : 'ARBITRIOS');
+      pendientes.set(cid, s);
+    };
+    for (const l of [...plan.crear, ...plan.actualizar]) marcar(l.contribuyenteId, l.tributoId);
+    const porId = new Map(existentes.map((e) => [e.id, e]));
+    for (const id of plan.anular) {
+      const e = porId.get(id);
+      if (e) marcar(e.contribuyenteId, e.tributoId);
+    }
+    if (idPredial) for (const cid of fallidos) marcar(cid, idPredial);
+    return { pendientes, bases };
+  }
+
   private async preparar(tx: Tx, entrada: CalculoEntrada) {
     const { anio, contribuyenteId } = entrada;
     const tipos = entrada.tributos?.length ? entrada.tributos : (['PREDIAL', 'ARBITRIOS'] as TipoCalculo[]);
@@ -126,6 +149,7 @@ export class CalculoService {
     const lineas: LineaCuenta[] = [];
     const errores: string[] = [];
     const fallidos = new Set<number>();
+    const bases = new Map<number, Prisma.Decimal>();
     const detalle: Record<string, unknown>[] = [];
     let totalPredial = new D(0);
     let totalArbitrios = new D(0);
@@ -145,6 +169,7 @@ export class CalculoService {
             return acc.plus(redondear(v.autoavaluo.times(x.pct).div(100)));
           }, new D(0));
           impuesto = impuestoPredial(base, params);
+          bases.set(cid, base);
           const emision = new D(params.derechoEmision);
           repartir(impuesto, CUOTAS_POR_ANIO).forEach((importe, i) =>
             lineas.push({
@@ -218,9 +243,21 @@ export class CalculoService {
     const existentes = (
       await tx.cuentaCorriente.findMany({
         where: { anioFiscal: anio, tributoId: { in: [...tributos.values()] }, ...(contribuyenteId ? { contribuyenteId } : {}) },
-        select: { id: true, contribuyenteId: true, predioId: true, tributoId: true, cuota: true, importe: true, derechoEmision: true, estado: true },
+        select: {
+          id: true,
+          contribuyenteId: true,
+          predioId: true,
+          tributoId: true,
+          cuota: true,
+          importe: true,
+          derechoEmision: true,
+          estado: true,
+          valorDetalles: { where: { valor: { estado: { in: ESTADOS_VALOR_VIGENTE } } }, select: { id: true }, take: 1 },
+        },
       })
-    ).filter((e) => !(fallidos.has(e.contribuyenteId) && e.tributoId === idPredial));
+    )
+      .filter((e) => !(fallidos.has(e.contribuyenteId) && e.tributoId === idPredial))
+      .map(({ valorDetalles, ...e }) => ({ ...e, enValor: valorDetalles.length > 0 }));
     const plan = planificar(lineas, existentes);
 
     const respuesta = {
@@ -245,7 +282,7 @@ export class CalculoService {
       detalle,
       ejecutado: false,
     };
-    return { respuesta, plan, valorizados };
+    return { respuesta, plan, valorizados, existentes, bases, tributos, fallidos };
   }
 
   private async cargarParametros(tx: Tx, anio: number, tipos: TipoCalculo[]): Promise<ParametrosAnio> {

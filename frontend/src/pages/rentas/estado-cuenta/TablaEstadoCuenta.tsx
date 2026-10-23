@@ -20,7 +20,7 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
         </p>
       ))}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left text-sm print:min-w-0 print:text-xs">
+        <table className="w-full min-w-[920px] text-left text-sm print:min-w-0 print:text-xs">
           <caption className="sr-only">Estado de cuenta al {datos.fecha}</caption>
           <thead>
             <tr className="border-b border-slate-300 text-xs uppercase tracking-wider text-slate-500">
@@ -28,6 +28,7 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
               <th scope="col" className="px-2 py-2">Tributo</th>
               <th scope="col" className="px-2 py-2">Cuota</th>
               <th scope="col" className="px-2 py-2">Vence</th>
+              <th scope="col" className="px-2 py-2">Situación</th>
               <th scope="col" className="px-2 py-2 text-right">Insoluto</th>
               <th scope="col" className="px-2 py-2 text-right">Reajuste</th>
               <th scope="col" className="px-2 py-2 text-right">Mora</th>
@@ -51,6 +52,7 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
                   {l.vencimiento ?? '—'}
                   {l.diasAtraso > 0 && <span className="block text-xs">{l.diasAtraso} días</span>}
                 </td>
+                <td className="px-2 py-1.5 text-xs text-slate-600">{l.situacion ?? '—'}</td>
                 <td className="px-2 py-1.5 text-right">{soles(l.insoluto)}</td>
                 <td className="px-2 py-1.5 text-right">{soles(l.reajuste)}</td>
                 <td className="px-2 py-1.5 text-right">{soles(l.mora)}</td>
@@ -61,7 +63,7 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-semibold text-mar-profundo">
-              <th scope="row" colSpan={4} className="px-2 py-2 text-left">
+              <th scope="row" colSpan={5} className="px-2 py-2 text-left">
                 Total al {datos.fecha}
               </th>
               <td className="px-2 py-2 text-right">{soles(t.insoluto)}</td>
