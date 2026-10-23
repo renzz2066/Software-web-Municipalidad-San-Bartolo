@@ -84,6 +84,7 @@ export const NIVELES_CATALOGO: NivelDef[] = [
   // Esqueleto de módulos SIMUN (specs/modulos-esqueleto-v1.md): sin funciones aún.
   ...modulo('rentas', 'Rentas', 'Registro tributario, recaudación y fiscalización.', 1, [
     ['registro-tributario', 'Registro Tributario'],
+    ['calculo-masivo', 'Cálculo Masivo'],
     ['control-recaudacion', 'Control y Recaudación'],
     ['fiscalizacion', 'Fiscalización Tributaria'],
     ['maestros', 'Maestros'],

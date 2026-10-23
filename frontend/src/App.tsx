@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
@@ -14,8 +15,23 @@ import { Auditoria } from './pages/accesibilidad/Auditoria'
 import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
+import { Maestros } from './pages/rentas/maestros/Maestros'
+import { CalculoMasivo } from './pages/rentas/calculo/CalculoMasivo'
+import { Contribuyentes } from './pages/rentas/contribuyentes/Contribuyentes'
+import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteForm'
+import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
+import { Predio } from './pages/rentas/predios/Predio'
+import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
+import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
+
+// Submódulos ya implementados; el resto muestra "En construcción".
+const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
+  'rentas.maestros': <Maestros />,
+  'rentas.registro-tributario': <Contribuyentes />,
+  'rentas.calculo-masivo': <CalculoMasivo />,
+}
 
 function App() {
   return (
@@ -129,6 +145,76 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/nuevo"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <ContribuyenteForm />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <FichaContribuyente />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/:id/editar"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <ContribuyenteForm key="editar" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/contribuyentes/:id/estado-cuenta"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <EstadoCuentaImprimible />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/predios/nuevo"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <DeclaracionForm key="nuevo" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/predios/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <Predio />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/registro-tributario/predios/:id/declaracion"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <DeclaracionForm key="declaracion" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
       {MODULOS.map((modulo) => (
         <Route
           key={modulo.codigo}
@@ -150,13 +236,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <RequireNivel codigo={`${modulo.codigo}.${sub.slug}`}>
-                  <ModuloPlaceholder
-                    icono={sub.icono}
-                    titulo={sub.titulo}
-                    descripcion={modulo.titulo}
-                    volverA={`/${modulo.codigo}`}
-                    volverTexto={modulo.titulo}
-                  />
+                  {PAGINAS_SUBMODULO[`${modulo.codigo}.${sub.slug}`] ?? (
+                    <ModuloPlaceholder
+                      icono={sub.icono}
+                      titulo={sub.titulo}
+                      descripcion={modulo.titulo}
+                      volverA={`/${modulo.codigo}`}
+                      volverTexto={modulo.titulo}
+                    />
+                  )}
                 </RequireNivel>
               </ProtectedRoute>
             }

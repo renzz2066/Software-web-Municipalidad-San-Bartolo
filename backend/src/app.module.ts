@@ -8,6 +8,9 @@ import { RolesModule } from './roles/roles.module.js';
 import { NivelesModule } from './niveles/niveles.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AuditoriaModule } from './auditoria/auditoria.module.js';
+import { RentasModule } from './rentas/rentas.module.js';
+import { ContribuyentesModule } from './contribuyentes/contribuyentes.module.js';
+import { PrediosModule } from './predios/predios.module.js';
 import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.middleware.js';
 
 @Module({
@@ -19,6 +22,9 @@ import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.midd
     RolesModule,
     NivelesModule,
     AuthModule,
+    RentasModule,
+    ContribuyentesModule,
+    PrediosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

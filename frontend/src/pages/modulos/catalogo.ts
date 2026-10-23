@@ -24,6 +24,7 @@ export const MODULOS: Modulo[] = [
     icono: 'bi bi-house-door',
     submodulos: [
       { slug: 'registro-tributario', titulo: 'Registro Tributario', icono: 'bi bi-journal-text' },
+      { slug: 'calculo-masivo', titulo: 'Cálculo Masivo', icono: 'bi bi-calculator' },
       { slug: 'control-recaudacion', titulo: 'Control y Recaudación', icono: 'bi bi-graph-up-arrow' },
       { slug: 'fiscalizacion', titulo: 'Fiscalización Tributaria', icono: 'bi bi-search' },
       { slug: 'maestros', titulo: 'Maestros', icono: 'bi bi-table' },
