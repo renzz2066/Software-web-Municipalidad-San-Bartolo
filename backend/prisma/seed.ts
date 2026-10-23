@@ -91,12 +91,14 @@ async function main() {
   console.log(`UIT y escala predial ${anio} verificadas`);
 
   // Tributos que genera el cálculo (Fase D). Los códigos de arbitrios = conceptos de tarifas.
+  // FRACCION: cuotas de convenios de fraccionamiento (specs/rentas-valores-v1.md, V6).
   const tributos = [
     { codigo: 'PREDIAL', nombre: 'IMPUESTO PREDIAL', tipo: 'PREDIAL' as const },
     { codigo: 'RESIDUOS', nombre: 'ARBITRIO RESIDUOS SÓLIDOS', tipo: 'ARBITRIOS' as const },
     { codigo: 'BARRIDO', nombre: 'ARBITRIO BARRIDO DE CALLES', tipo: 'ARBITRIOS' as const },
     { codigo: 'PARQUES', nombre: 'ARBITRIO PARQUES Y JARDINES', tipo: 'ARBITRIOS' as const },
     { codigo: 'SERENAZGO', nombre: 'ARBITRIO SERENAZGO', tipo: 'ARBITRIOS' as const },
+    { codigo: 'FRACCION', nombre: 'CUOTA DE FRACCIONAMIENTO', tipo: 'OTRO' as const },
   ];
   for (const t of tributos) {
     await prisma.tributo.upsert({ where: { codigo: t.codigo }, update: {}, create: t });

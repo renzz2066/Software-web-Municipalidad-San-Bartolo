@@ -66,7 +66,7 @@ $transaction -> Postgres (+ triggers de auditoría)`. Simular y ejecutar compart
 - Endpoints: `POST /rentas/valores/{simular|ejecutar}`, `GET /rentas/valores?contribuyenteId=`,
   `GET /rentas/valores/:id`, `PATCH /rentas/valores/:id/notificacion`, `POST /rentas/valores/:id/anular`,
   `POST /rentas/convenios/{simular|ejecutar}`, `GET /rentas/convenios/:id`, `POST /rentas/convenios/:id/anular`,
-  `POST /rentas/transferencias/{simular|ejecutar}`, `GET /rentas/transferencias`, `GET/PUT /rentas/maestros/feriados`,
+  `POST /rentas/transferencias/{simular|ejecutar}`, `GET /rentas/transferencias`, `GET/PUT /rentas/maestros/feriados/:anio`,
   `GET/PUT /rentas/maestros/fraccionamiento/:anio`.
 - Modelo: se usan `ValorCab/ValorDet`, `ConvenioCab/ConvenioDet`, `CuentaCorriente`. Faltan
   (ver Decisiones): campos de notificación/anulación/transferencia en `valores_cab`,
@@ -100,7 +100,9 @@ Decisiones (aprobadas 2026-10-23):
 
 ## 4. Tareas
 - [x] Rama `feat/rentas-valores` desde `main`; primer commit = esta spec (`docs(specs)`).
-- [ ] Fase A: migración (decisiones 1–4) + correlativos + feriados/parámetros en Maestros + tributo `FRACCION`.
+- [x] Fase A: migración (decisiones 1–4) + correlativos + feriados/parámetros en Maestros + tributo `FRACCION`.
+  `convenios` gana `interesMensual` y `motivoAnulacion`; `convenio_detalle`, `amortizacion` e `interes`.
+  Auditoría habilitada también en `valores_cab/det`, `convenios` y `convenio_detalle`.
 - [ ] Fase B: emisión OP/RD simular/ejecutar + imprimible + protección en cálculo (V1–V3, V8).
 - [ ] Fase C: notificación, exigibilidad y anulación (V4, V5).
 - [ ] Fase D: fraccionamiento con cronograma imprimible (V6).

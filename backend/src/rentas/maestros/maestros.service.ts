@@ -6,6 +6,8 @@ import {
   ArancelesDto,
   DepreciacionesDto,
   EscalaDto,
+  FeriadosDto,
+  ParametroFraccionamientoDto,
   TarifasArbitriosDto,
   TasasMoraDto,
   UitDto,
@@ -18,8 +20,15 @@ import { anioValido, indiceDuplicado, validarEscala } from './maestros.reglas.js
 
 type Tx = Prisma.TransactionClient;
 
-// Parámetros anuales que se copian al abrir un año (la UIT no: cambia cada año).
-const TABLAS_COPIABLES = ['escalaPredial', 'aranceles', 'valoresUnitarios', 'depreciaciones', 'tarifasArbitrios'] as const;
+// Parámetros anuales que se copian al abrir un año (la UIT no: cambia cada año; los feriados son fechas).
+const TABLAS_COPIABLES = [
+  'escalaPredial',
+  'aranceles',
+  'valoresUnitarios',
+  'depreciaciones',
+  'tarifasArbitrios',
+  'parametrosFraccionamiento',
+] as const;
 
 @Injectable()
 export class MaestrosService {
@@ -260,7 +269,57 @@ export class MaestrosService {
       case 'tarifasArbitrios':
         if (await tx.tarifaArbitrio.count({ where: { anio: hacia } })) return 0;
         return (await tx.tarifaArbitrio.createMany({ data: sinMeta(await tx.tarifaArbitrio.findMany({ where: { anio: desde } })) })).count;
+      case 'parametrosFraccionamiento':
+        if (await tx.parametroFraccionamiento.count({ where: { anio: hacia } })) return 0;
+        return (
+          await tx.parametroFraccionamiento.createMany({
+            data: sinMeta(await tx.parametroFraccionamiento.findMany({ where: { anio: desde } })),
+          })
+        ).count;
     }
+  }
+
+  // ---- Feriados (plazos en días hábiles; no dependen de la deuda del año) ----
+
+  listarFeriados(anio: number) {
+    this.validarAnio(anio);
+    return this.prisma.feriado.findMany({ where: { fecha: this.rangoAnio(anio) }, orderBy: { fecha: 'asc' } });
+  }
+
+  async guardarFeriados(anio: number, dto: FeriadosDto) {
+    this.validarAnio(anio);
+    const items = dto.items.map((f) => ({ fecha: f.fecha.slice(0, 10), descripcion: f.descripcion.trim() }));
+    const fuera = items.findIndex((f) => !f.fecha.startsWith(`${anio}-`));
+    if (fuera >= 0) {
+      throw new BadRequestException(`La fecha de la fila ${fuera + 1} no es del año ${anio}`);
+    }
+    this.sinDuplicados(items, (f) => f.fecha, 'Hay una fecha de feriado repetida');
+    return this.prisma.$transaction(async (tx) => {
+      await tx.feriado.deleteMany({ where: { fecha: this.rangoAnio(anio) } });
+      await tx.feriado.createMany({ data: items.map((f) => ({ fecha: new Date(f.fecha), descripcion: f.descripcion })) });
+      return tx.feriado.findMany({ where: { fecha: this.rangoAnio(anio) }, orderBy: { fecha: 'asc' } });
+    });
+  }
+
+  // ---- Parámetros de fraccionamiento (una fila por año) ----
+
+  async obtenerFraccionamiento(anio: number) {
+    this.validarAnio(anio);
+    // Envuelto para no responder un cuerpo vacío cuando el año aún no tiene parámetros.
+    const parametros = await this.prisma.parametroFraccionamiento.findUnique({ where: { anio } });
+    return { anio, parametros };
+  }
+
+  guardarFraccionamiento(anio: number, dto: ParametroFraccionamientoDto) {
+    this.validarAnio(anio);
+    const data = {
+      cuotaInicialMinPct: dto.cuotaInicialMinPct,
+      cuotasMax: dto.cuotasMax,
+      montoMinimo: dto.montoMinimo,
+      interesMensual: dto.interesMensual,
+      ordenanza: this.texto(dto.ordenanza),
+    };
+    return this.prisma.parametroFraccionamiento.upsert({ where: { anio }, update: data, create: { anio, ...data } });
   }
 
   // ---- Catálogos de ubicación ----
@@ -327,6 +386,10 @@ export class MaestrosService {
     if (await this.anioConDeuda(tx, anio)) {
       throw new ConflictException(`El año ${anio} ya tiene deuda calculada; sus parámetros no se pueden modificar`);
     }
+  }
+
+  private rangoAnio(anio: number) {
+    return { gte: new Date(`${anio}-01-01`), lte: new Date(`${anio}-12-31`) };
   }
 
   private validarAnio(anio: number) {

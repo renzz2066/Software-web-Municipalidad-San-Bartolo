@@ -64,6 +64,20 @@ enum EstadoValor {
   ANULADO
 }
 
+// Código Tributario art. 104
+enum ModalidadNotificacion {
+  PERSONAL
+  NEGATIVA
+  CEDULON
+  PUBLICACION
+}
+
+enum EstadoTransferencia {
+  ENVIADA
+  RECIBIDA
+  DEVUELTA
+}
+
 enum MotivoDeclaracion {
   INSCRIPCION
   COMPRA
@@ -601,6 +615,40 @@ model TasaMora {
   @@map("tasas_mora")
 }
 
+// Días no hábiles para plazos (RD: 20 días hábiles para reclamar). Sábado y domingo no se registran.
+model Feriado {
+  id          Int      @id @default(autoincrement())
+  fecha       DateTime @unique @db.Date
+  descripcion String   @db.VarChar(100)
+  createdAt   DateTime @default(now())
+
+  @@map("feriados")
+}
+
+// Límites del fraccionamiento por año (ordenanza municipal, Código Tributario art. 36)
+model ParametroFraccionamiento {
+  id                 Int      @id @default(autoincrement())
+  anio               Int      @unique
+  cuotaInicialMinPct Decimal  @db.Decimal(5, 2) // % mínimo del total
+  cuotasMax          Int
+  montoMinimo        Decimal  @db.Decimal(12, 2)
+  interesMensual     Decimal  @db.Decimal(7, 4) // % mensual sobre saldo
+  ordenanza          String?  @db.VarChar(60)
+  createdAt          DateTime @default(now())
+
+  @@map("parametros_fraccionamiento")
+}
+
+// Numeración correlativa por serie y año (OP, RD, CONV, MEMO; Caja la reusará)
+model Correlativo {
+  serie  String @db.VarChar(10)
+  anio   Int
+  ultimo Int    @default(0)
+
+  @@id([serie, anio])
+  @@map("correlativos")
+}
+
 // Declaración jurada versionada (reemplaza declaracion_j y copias a_*/f_*/h_* de SIMUN)
 model DeclaracionJurada {
   id              Int               @id @default(autoincrement())
@@ -672,6 +720,7 @@ model CuentaCorriente {
 
   pagos            Pago[]
   convenioDetalles ConvenioDet[]
+  convenioDeudas   ConvenioDeuda[] @relation("ConvenioDeudaOrigen")
   valorDetalles    ValorDet[]
   coactivoDetalles CoactivoDet[]
 
@@ -717,6 +766,8 @@ model ConvenioCab {
   montoTotal      Decimal       @db.Decimal(12, 2)
   cuotaInicial    Decimal       @default(0) @db.Decimal(12, 2)
   numCuotas       Int
+  interesMensual  Decimal       @default(0) @db.Decimal(7, 4)
+  motivoAnulacion String?       @db.VarChar(200)
   estado          EstadoCuenta  @default(FRACCIONADO)
   creadoPorId     Int?
   creadoPor       Usuario?      @relation("CreadorConvenio", fields: [creadoPorId], references: [id], onDelete: SetNull)
@@ -724,19 +775,23 @@ model ConvenioCab {
   modificadoPor   Usuario?      @relation("ConvenioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
   createdAt       DateTime      @default(now())
 
-  detalles ConvenioDet[]
+  detalles ConvenioDet[] // cronograma
+  deudas   ConvenioDeuda[]
 
   @@index([contribuyenteId])
   @@map("convenios")
 }
 
+// Cronograma: cada cuota del convenio es una fila nueva en cuenta_corriente (tributo FRACCION)
 model ConvenioDet {
   id                Int             @id @default(autoincrement())
   convenioId        Int
   convenio          ConvenioCab     @relation(fields: [convenioId], references: [id], onDelete: Cascade)
   cuentaCorrienteId Int
   cuentaCorriente   CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
-  cuotaNumero       Int
+  cuotaNumero       Int // 0 = cuota inicial
+  amortizacion      Decimal         @default(0) @db.Decimal(12, 2)
+  interes           Decimal         @default(0) @db.Decimal(12, 2)
   monto             Decimal         @db.Decimal(12, 2)
   fechaVencimiento  DateTime        @db.Date
   estado            EstadoCuenta    @default(PENDIENTE)
@@ -746,6 +801,23 @@ model ConvenioDet {
   @@map("convenio_detalle")
 }
 
+// Deudas originales incluidas en el convenio (pasan a FRACCIONADO), con su liquidación a la fecha
+model ConvenioDeuda {
+  id                Int             @id @default(autoincrement())
+  convenioId        Int
+  convenio          ConvenioCab     @relation(fields: [convenioId], references: [id], onDelete: Restrict)
+  cuentaCorrienteId Int
+  cuentaCorriente   CuentaCorriente @relation("ConvenioDeudaOrigen", fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
+  insoluto          Decimal         @db.Decimal(12, 2)
+  reajuste          Decimal         @default(0) @db.Decimal(12, 2)
+  mora              Decimal         @default(0) @db.Decimal(12, 2)
+  subtotal          Decimal         @db.Decimal(12, 2)
+
+  @@unique([convenioId, cuentaCorrienteId])
+  @@index([cuentaCorrienteId])
+  @@map("convenio_deudas")
+}
+
 // ============================================================
 // G. COBRANZA ORDINARIA (OP/RD) Y COACTIVA
 // Ref SIMUN: valores_cobranza_cab/det + coactivo_cab/det +
@@ -753,30 +825,56 @@ model ConvenioDet {
 // ============================================================
 
 model ValorCab {
-  id                Int           @id @default(autoincrement())
-  tipo              TipoValor
-  anio              Int
-  numero            String        @db.VarChar(15) // NUM_VAL
-  contribuyenteId   Int
-  contribuyente     Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
-  predioId          Int?
-  predio            Predio?       @relation(fields: [predioId], references: [id], onDelete: Restrict)
-  totalDeuda        Decimal       @db.Decimal(12, 2)
-  fechaEmision      DateTime      @default(now()) @db.Date
-  fechaNotificacion DateTime?     @db.Date
-  estado            EstadoValor   @default(EMITIDO)
-  createdAt         DateTime      @default(now())
-  creadoPorId       Int?
-  creadoPor         Usuario?      @relation("ValorCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  modificadoPorId   Int?
-  modificadoPor     Usuario?      @relation("ValorModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+  id                    Int                    @id @default(autoincrement())
+  tipo                  TipoValor
+  anio                  Int
+  numero                String                 @db.VarChar(15) // NUM_VAL
+  contribuyenteId       Int
+  contribuyente         Contribuyente          @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  predioId              Int?
+  predio                Predio?                @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  baseImponible         Decimal?               @db.Decimal(12, 2)
+  totalDeuda            Decimal                @db.Decimal(12, 2)
+  fechaEmision          DateTime               @default(now()) @db.Date
+  fechaNotificacion     DateTime?              @db.Date
+  modalidadNotificacion ModalidadNotificacion?
+  notificadoDni         String?                @db.VarChar(15)
+  notificadoNombre      String?                @db.VarChar(100)
+  fechaExigible         DateTime?              @db.Date
+  motivoAnulacion       String?                @db.VarChar(200)
+  transferenciaId       Int?
+  transferencia         TransferenciaCoactivo? @relation(fields: [transferenciaId], references: [id], onDelete: Restrict)
+  estado                EstadoValor            @default(EMITIDO)
+  createdAt             DateTime               @default(now())
+  creadoPorId           Int?
+  creadoPor             Usuario?               @relation("ValorCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId       Int?
+  modificadoPor         Usuario?               @relation("ValorModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   detalles    ValorDet[]
   expedientes CoactivoExp[]
 
   @@unique([tipo, anio, numero])
   @@index([contribuyenteId])
+  @@index([estado])
   @@map("valores_cab")
+}
+
+// Memorándum de transferencia de valores exigibles a Cobranza Coactiva (SIMUN: memo_coactivo)
+model TransferenciaCoactivo {
+  id        Int                 @id @default(autoincrement())
+  anio      Int
+  numero    String              @db.VarChar(15)
+  fecha     DateTime            @default(now()) @db.Date
+  cantidad  Int
+  monto     Decimal             @db.Decimal(12, 2)
+  estado    EstadoTransferencia @default(ENVIADA)
+  createdAt DateTime            @default(now())
+
+  valores ValorCab[]
+
+  @@unique([anio, numero])
+  @@map("transferencias_coactivo")
 }
 
 model ValorDet {
