@@ -108,7 +108,7 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
   `/caja/cierre` (resumen en vivo → arqueo → cerrar; también un día anterior abierto) y `/caja/cierres/:id`
   imprimible; `Caja → Reportes`: cierres del día (con quién falta cerrar) y recibos. El resumen omite medios y
   tributos que netean cero. Con la caja cerrada, la pantalla de cobro avisa y oculta el cobro.
-- [ ] PR de `feat/caja-v1` hacia `main` (cuando el usuario lo pida).
+- [x] PR de `feat/caja-v1` hacia `main` (cuando el usuario lo pida): #13.
 
 ## 5. Verificación
 `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` ·
