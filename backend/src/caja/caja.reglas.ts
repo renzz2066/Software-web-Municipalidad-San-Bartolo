@@ -135,6 +135,24 @@ export function errorExtorno(r: ReciboExtornable, ctx: ContextoExtorno): string 
   return null;
 }
 
+// El orden del convenio también rige al extornar: no se devuelve a pendiente una cuota si una
+// posterior del mismo convenio sigue pagada por otro recibo (habría que extornar ese primero).
+export function errorExtornoConvenio(
+  delRecibo: { convenioId: number; cuotaNumero: number }[],
+  cronogramas: Map<number, CuotaCronogramaEstado[]>,
+): string | null {
+  for (const [convenioId, cronograma] of cronogramas) {
+    const propias = new Set(delRecibo.filter((c) => c.convenioId === convenioId).map((c) => c.cuotaNumero));
+    if (propias.size === 0) continue;
+    const menor = Math.min(...propias);
+    const posterior = cronograma.find((x) => x.cuotaNumero > menor && x.estado === EstadoCuenta.CANCELADO && !propias.has(x.cuotaNumero));
+    if (posterior) {
+      return `La cuota ${posterior.cuotaNumero} del convenio está pagada en otro recibo: extorna ese recibo primero`;
+    }
+  }
+  return null;
+}
+
 export interface ReciboResumen {
   medioPago: MedioPago;
   total: Num;

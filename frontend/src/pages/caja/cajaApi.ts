@@ -1,9 +1,14 @@
+import { useEffect, useState } from 'react'
+import { api } from '../../lib/api'
 import type { LineaEstado } from '../rentas/estado-cuenta/estadoCuentaApi'
+import { mensajeError } from '../rentas/maestros/maestrosApi'
 
-// Caja (specs/caja-v1.md): POST /caja/cobros/liquidar, POST /caja/cobros, GET /caja/recibos/:id.
+// Caja (specs/caja-v1.md): POST /caja/cobros/liquidar, POST /caja/cobros, GET /caja/recibos(/:id),
+// POST /caja/recibos/:id/extornar.
 
 export const RUTA_COBRO = '/caja/cancelaciones'
 export const RUTA_RECIBOS = '/caja/recibos'
+export const MOTIVO_EXTORNO_MIN = 5
 
 export type MedioPago = 'EFECTIVO' | 'TARJETA' | 'TRANSFERENCIA' | 'DEPOSITO'
 
@@ -50,7 +55,7 @@ export interface Recibo {
   total: string
   totalEnLetras: string
   contribuyente: { id: number; tipoDoc: string; numDoc: string; nombreCompleto: string; direccionFiscal: string | null; codigoLegacy: string | null }
-  cajero: { usuario: string; nombre: string | null }
+  cajero: { id: number; usuario: string; nombre: string | null }
   extorno: { motivo: string | null; fecha: string | null; por: string | null } | null
   lineas: LineaCobro[]
 }
@@ -58,4 +63,53 @@ export interface Recibo {
 export function descripcionCuota(l: Pick<LineaCobro, 'cuota' | 'convenio'>) {
   if (l.convenio) return `Conv. ${l.convenio.numero} · ${l.convenio.cuotaNumero === 0 ? 'inicial' : `cuota ${l.convenio.cuotaNumero}`}`
   return l.cuota ? `Cuota ${l.cuota}` : 'Anual'
+}
+
+export interface ReciboListado {
+  id: number
+  numero: string
+  fecha: string
+  fechaCaja: string
+  total: string
+  medioPago: MedioPago
+  estado: 'CANCELADO' | 'EXTORNADO'
+  cajeroId: number
+  cajero: string
+  cuotas: number
+  contribuyente: { id: number; tipoDoc: string; numDoc: string; nombreCompleto: string }
+}
+
+export const horaLima = (fecha: string) =>
+  new Date(fecha).toLocaleTimeString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' })
+
+// GET /caja/recibos: sin caja.reportes ni caja.extornos el backend devuelve solo los recibos propios.
+
+export interface FiltrosRecibos {
+  fecha?: string
+  numero?: string
+}
+
+export function useRecibos(filtros: FiltrosRecibos, recarga = 0) {
+  const [recibos, setRecibos] = useState<ReciboListado[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { fecha, numero } = filtros
+
+  useEffect(() => {
+    let cancelled = false
+    async function cargar() {
+      setError(null)
+      try {
+        const { data } = await api.get<ReciboListado[]>('/caja/recibos', { params: { fecha: fecha || undefined, numero: numero || undefined } })
+        if (!cancelled) setRecibos(data)
+      } catch (err) {
+        if (!cancelled) setError(mensajeError(err))
+      }
+    }
+    void cargar()
+    return () => {
+      cancelled = true
+    }
+  }, [fecha, numero, recarga])
+
+  return { recibos, error }
 }

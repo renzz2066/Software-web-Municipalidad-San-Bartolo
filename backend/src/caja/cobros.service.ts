@@ -29,6 +29,17 @@ export interface SeleccionCobro {
   cuentaIds: number[];
 }
 
+export interface FiltrosRecibos {
+  fecha?: string; // día de caja AAAA-MM-DD (por defecto hoy, salvo que se busque por número o contribuyente)
+  numero?: string; // "2026-000004" o "4"
+  contribuyenteId?: number;
+  cajeroId?: number;
+}
+
+// Ver recibos de otros cajeros exige reportes o extornos; si no, solo los propios (K6, decisión 7).
+const NIVELES_VER_TODOS = ['caja.reportes', 'caja.extornos'];
+const MAX_RECIBOS = 200;
+
 export interface EntradaCobro extends SeleccionCobro {
   medioPago: MedioPago;
   numOperacion?: string;
@@ -144,7 +155,7 @@ export class CobrosService {
       where: { id },
       include: {
         contribuyente: { select: { id: true, tipoDoc: true, numDoc: true, nombreCompleto: true, direccionFiscal: true, codigoLegacy: true } },
-        cajero: { select: { usuario: true, nombres: true, apellidos: true } },
+        cajero: { select: { id: true, usuario: true, nombres: true, apellidos: true } },
         extornadoPor: { select: { usuario: true, nombres: true, apellidos: true } },
         pagos: {
           select: {
@@ -175,7 +186,7 @@ export class CobrosService {
       total: n2(r.total),
       totalEnLetras: montoEnLetras(r.total),
       contribuyente: r.contribuyente,
-      cajero: { usuario: r.cajero.usuario, nombre: nombre(r.cajero) },
+      cajero: { id: r.cajero.id, usuario: r.cajero.usuario, nombre: nombre(r.cajero) },
       extorno:
         r.estado === EstadoCuenta.EXTORNADO
           ? { motivo: r.motivoExtorno, fecha: r.fechaExtorno?.toISOString() ?? null, por: nombre(r.extornadoPor) }
@@ -200,6 +211,58 @@ export class CobrosService {
         })
         .sort((a, b) => a.anio - b.anio || a.tributo.codigo.localeCompare(b.tributo.codigo) || a.cuota - b.cuota),
     };
+  }
+
+  async listar(f: FiltrosRecibos, usuario: AuthenticatedUser) {
+    const where: Prisma.ReciboWhereInput = {};
+    if (f.numero) {
+      const [a, n] = f.numero.includes('-') ? f.numero.split('-') : [null, f.numero];
+      if (!/^\d{1,7}$/.test(n) || (a !== null && !/^\d{4}$/.test(a))) {
+        throw new BadRequestException('El número de recibo debe tener la forma 2026-000123 o 123');
+      }
+      where.numero = n.padStart(6, '0');
+      if (a) where.anio = Number(a);
+    }
+    if (f.contribuyenteId) where.contribuyenteId = f.contribuyenteId;
+    if (f.fecha || (!f.numero && !f.contribuyenteId)) {
+      const fecha = f.fecha ?? hoyLima();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || Number.isNaN(Date.parse(fecha))) {
+        throw new BadRequestException('La fecha debe tener formato AAAA-MM-DD');
+      }
+      where.fechaCaja = new Date(fecha);
+    }
+    const verTodos = usuario.niveles.some((n) => NIVELES_VER_TODOS.includes(n));
+    if (!verTodos) where.cajeroId = usuario.id;
+    else if (f.cajeroId) where.cajeroId = f.cajeroId;
+
+    const recibos = await this.prisma.recibo.findMany({
+      where,
+      select: {
+        id: true,
+        anio: true,
+        numero: true,
+        fecha: true,
+        fechaCaja: true,
+        total: true,
+        medioPago: true,
+        estado: true,
+        cajeroId: true,
+        cajero: { select: { usuario: true } },
+        contribuyente: { select: { id: true, tipoDoc: true, numDoc: true, nombreCompleto: true } },
+        _count: { select: { pagos: true } },
+      },
+      orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
+      take: MAX_RECIBOS,
+    });
+    return recibos.map(({ anio, numero, fecha, fechaCaja, total, cajero, _count, ...r }) => ({
+      ...r,
+      numero: `${anio}-${numero}`,
+      fecha: fecha.toISOString(),
+      fechaCaja: iso(fechaCaja),
+      total: n2(total),
+      cajero: cajero.usuario,
+      cuotas: _count.pagos,
+    }));
   }
 
   private async cerroHoy(db: Db, cajeroId: number, hoy: string) {

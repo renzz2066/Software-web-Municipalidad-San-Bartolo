@@ -5,6 +5,7 @@ import {
   errorCobro,
   errorEstadoCuotas,
   errorExtorno,
+  errorExtornoConvenio,
   errorOrdenConvenio,
   estadoValorRestaurado,
   lineasPago,
@@ -129,6 +130,24 @@ describe('errorExtorno', () => {
     expect(errorExtorno(recibo, { ...ctx, motivo: '  ab ' })).toMatch(/motivo/);
     expect(errorExtorno({ ...recibo, estado: EstadoCuenta.EXTORNADO }, ctx)).toMatch(/ya está extornado/);
     expect(errorExtorno(recibo, { ...ctx, cerroHoy: true, puedeExtornarAjenos: true })).toMatch(/cerraste/);
+  });
+});
+
+describe('errorExtornoConvenio', () => {
+  const cronograma = (pagadas: number[]) =>
+    new Map([[7, [0, 1, 2].map((n) => ({ cuotaNumero: n, estado: pagadas.includes(n) ? CANCELADO : PENDIENTE }))]]);
+
+  it('se extorna la última cuota pagada, o varias juntas desde el final', () => {
+    expect(errorExtornoConvenio([{ convenioId: 7, cuotaNumero: 1 }], cronograma([0, 1]))).toBeNull();
+    expect(errorExtornoConvenio([1, 2].map((n) => ({ convenioId: 7, cuotaNumero: n })), cronograma([0, 1, 2]))).toBeNull();
+  });
+
+  it('no deja una cuota posterior pagada sobre una anterior pendiente', () => {
+    expect(errorExtornoConvenio([{ convenioId: 7, cuotaNumero: 0 }], cronograma([0, 1]))).toMatch(/cuota 1/);
+  });
+
+  it('recibos sin cuotas de convenio no tienen restricción', () => {
+    expect(errorExtornoConvenio([], cronograma([0, 1]))).toBeNull();
   });
 });
 

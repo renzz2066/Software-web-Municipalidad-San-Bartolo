@@ -5,14 +5,17 @@ import { soles } from '../rentas/contribuyentes/tipos'
 import { mensajeError } from '../rentas/maestros/maestrosApi'
 import { direccionPredio } from '../rentas/valores/valoresApi'
 import { descripcionCuota, etiquetaMedio, type Recibo, RUTA_COBRO } from './cajaApi'
+import { PanelExtorno } from './PanelExtorno'
 
 // Recibo de caja para imprimir en media hoja A5 o guardar como PDF (specs/caja-v1.md, K2).
 // Solo la vista que sigue al cobro es el original; toda otra apertura imprime "COPIA".
+// Desde aquí se extorna (K4); `state.volverA` lleva de regreso a la lista desde la que se abrió.
 
 export function ReciboImprimible() {
   const { id } = useParams()
   const location = useLocation()
-  const original = (location.state as { original?: boolean } | null)?.original === true
+  const estado = location.state as { original?: boolean; volverA?: string } | null
+  const original = estado?.original === true
   const [recibo, setRecibo] = useState<Recibo | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,11 +43,11 @@ export function ReciboImprimible() {
       <div className="mx-auto max-w-2xl">
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <Link
-            to={r ? `${RUTA_COBRO}?contribuyente=${r.contribuyente.id}` : RUTA_COBRO}
+            to={estado?.volverA ?? (r ? `${RUTA_COBRO}?contribuyente=${r.contribuyente.id}` : RUTA_COBRO)}
             className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
           >
             <i aria-hidden="true" className="bi bi-arrow-left" />
-            Volver al cobro
+            {estado?.volverA ? 'Volver a la lista' : 'Volver al cobro'}
           </Link>
           <div className="flex gap-2">
             <Link
@@ -65,7 +68,7 @@ export function ReciboImprimible() {
           </div>
         </div>
 
-        {original && r && (
+        {original && r?.estado === 'CANCELADO' && (
           <p role="status" className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 print:hidden">
             Cobro registrado: recibo {r.numero}.
           </p>
@@ -177,6 +180,7 @@ export function ReciboImprimible() {
             </>
           )}
         </main>
+        {r && <PanelExtorno recibo={r} alExtornar={setRecibo} />}
       </div>
     </div>
   )

@@ -101,7 +101,9 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
 - [x] Fase B: cobro + recibo imprimible + efectos en valor/convenio (K1–K3). Pantalla en `Caja → Cancelaciones
   del Día` (`?contribuyente=` en la URL); recibo en `/caja/recibos/:id`, "COPIA" salvo la vista que sigue al cobro.
   Al cancelarse un convenio, la OP/RD de sus deudas originales también se cancela si queda pagada.
-- [ ] Fase C: extorno (K4).
+- [x] Fase C: extorno (K4). Desde el detalle del recibo; listas en "Mis recibos de hoy" (cobro) y `Caja → Extorno`
+  (por día o número; adelanta `GET /caja/recibos` de K6). Una cuota de convenio no se extorna si una posterior
+  sigue pagada en otro recibo (orden de la decisión 4 al revés).
 - [ ] Fase D: cierre diario y consultas (K5, K6) + niveles (K7). `lint` + `build` + `test` en cada fase.
 - [ ] PR de `feat/caja-v1` hacia `main` (cuando el usuario lo pida).
 

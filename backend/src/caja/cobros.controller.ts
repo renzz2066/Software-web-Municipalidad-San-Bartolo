@@ -1,5 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { MedioPago } from '@prisma/client';
+import { Type } from 'class-transformer';
 import { ArrayMaxSize, ArrayNotEmpty, ArrayUnique, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { RequireNivel } from '../auth/decorators/nivel.decorator.js';
@@ -8,6 +9,7 @@ import { NivelGuard } from '../auth/guards/nivel.guard.js';
 import type { AuthenticatedUser } from '../auth/types/jwt-payload.type.js';
 import { MAX_CUOTAS_POR_RECIBO } from './caja.reglas.js';
 import { CobrosService } from './cobros.service.js';
+import { ExtornosService } from './extornos.service.js';
 
 export class SeleccionCobroDto {
   @IsInt({ message: 'Indica el contribuyente' })
@@ -35,11 +37,41 @@ export class CobroDto extends SeleccionCobroDto {
   totalEsperado: number;
 }
 
-// Cobro en ventanilla y recibo (specs/caja-v1.md, K1–K3).
+export class FiltrosRecibosDto {
+  @IsOptional()
+  @IsString()
+  fecha?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(12)
+  numero?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  contribuyenteId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  cajeroId?: number;
+}
+
+export class ExtornoDto {
+  @IsString({ message: 'Indica el motivo del extorno' })
+  @MaxLength(200, { message: 'El motivo debe tener máximo 200 caracteres' })
+  motivo: string;
+}
+
+// Cobro en ventanilla, recibos y extorno (specs/caja-v1.md, K1–K4).
 @UseGuards(JwtAuthGuard, NivelGuard)
 @Controller('caja')
 export class CobrosController {
-  constructor(private readonly cobros: CobrosService) {}
+  constructor(
+    private readonly cobros: CobrosService,
+    private readonly extornos: ExtornosService,
+  ) {}
 
   @Post('cobros/liquidar')
   @HttpCode(HttpStatus.OK)
@@ -52,6 +84,20 @@ export class CobrosController {
   @RequireNivel('caja.cancelaciones')
   cobrar(@Body() dto: CobroDto, @CurrentUser() usuario: AuthenticatedUser) {
     return this.cobros.cobrar(dto, usuario);
+  }
+
+  @Get('recibos')
+  @RequireNivel('caja.cancelaciones', 'caja.extornos', 'caja.reportes')
+  listar(@Query() filtros: FiltrosRecibosDto, @CurrentUser() usuario: AuthenticatedUser) {
+    return this.cobros.listar(filtros, usuario);
+  }
+
+  // El cajero extorna sus recibos del día; el resto exige caja.extornos (lo decide errorExtorno).
+  @Post('recibos/:id/extornar')
+  @HttpCode(HttpStatus.OK)
+  @RequireNivel('caja.cancelaciones', 'caja.extornos')
+  extornar(@Param('id', ParseIntPipe) id: number, @Body() dto: ExtornoDto, @CurrentUser() usuario: AuthenticatedUser) {
+    return this.extornos.extornar(id, dto.motivo, usuario);
   }
 
   @Get('recibos/:id')

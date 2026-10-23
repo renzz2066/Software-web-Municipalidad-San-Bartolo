@@ -7,10 +7,12 @@ import { soles } from '../rentas/contribuyentes/tipos'
 import { hoyIso, useEstadoCuenta } from '../rentas/estado-cuenta/estadoCuentaApi'
 import { TablaEstadoCuenta } from '../rentas/estado-cuenta/TablaEstadoCuenta'
 import { mensajeError } from '../rentas/maestros/maestrosApi'
-import { descripcionCuota, type Liquidacion, MEDIOS_PAGO, type MedioPago, type Recibo, RUTA_RECIBOS } from './cajaApi'
+import { descripcionCuota, type Liquidacion, MEDIOS_PAGO, type MedioPago, type Recibo, RUTA_COBRO, RUTA_RECIBOS, useRecibos } from './cajaApi'
+import { ListaRecibos } from './ListaRecibos'
 
 // Caja → Cancelaciones del Día (specs/caja-v1.md, K1–K3): contribuyente → cuotas del estado de
-// cuenta a hoy → el servidor liquida → medio de pago → cobrar → recibo imprimible.
+// cuenta a hoy → el servidor liquida → medio de pago → cobrar → recibo imprimible. Abajo, los recibos
+// del día del cajero (desde cada uno se reimprime o se extorna).
 
 const ESTILO_CAMPO =
   'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa'
@@ -22,6 +24,7 @@ export function Cobro() {
   const contribuyenteId = params.get('contribuyente') ?? undefined
   const [recarga, setRecarga] = useState(0)
   const { datos, error, isLoading } = useEstadoCuenta(contribuyenteId, hoyIso(), recarga)
+  const { recibos, error: errorRecibos } = useRecibos({ fecha: hoyIso() }, recarga)
   const [elegidas, setElegidas] = useState<Set<number>>(new Set())
   const [liquidacion, setLiquidacion] = useState<Liquidacion | null>(null)
   const [medio, setMedio] = useState<MedioPago>('EFECTIVO')
@@ -328,6 +331,25 @@ export function Cobro() {
             </div>
           </section>
         )}
+
+        <section aria-labelledby="cobro-recibos" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+          <h2 id="cobro-recibos" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
+            Mis recibos de hoy
+          </h2>
+          <div className="mt-3">
+            {errorRecibos ? (
+              <p role="alert" className="text-sm font-medium text-red-700">
+                {errorRecibos}
+              </p>
+            ) : !recibos ? (
+              <p role="status" className="text-sm text-slate-500">
+                Cargando recibos…
+              </p>
+            ) : (
+              <ListaRecibos recibos={recibos} volverA={contribuyenteId ? `${RUTA_COBRO}?contribuyente=${contribuyenteId}` : RUTA_COBRO} />
+            )}
+          </div>
+        </section>
       </div>
     </div>
   )

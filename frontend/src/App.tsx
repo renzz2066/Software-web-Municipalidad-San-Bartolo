@@ -29,6 +29,7 @@ import { ConvenioImprimible } from './pages/rentas/fraccionamiento/ConvenioImpri
 import { MemorandumImprimible } from './pages/rentas/transferencias/MemorandumImprimible'
 import { Cobro } from './pages/caja/Cobro'
 import { ReciboImprimible } from './pages/caja/ReciboImprimible'
+import { Extornos } from './pages/caja/Extornos'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -39,6 +40,7 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.calculo-masivo': <CalculoMasivo />,
   'rentas.control-recaudacion': <ControlRecaudacion />,
   'caja.cancelaciones': <Cobro />,
+  'caja.extornos': <Extornos />,
 }
 
 function App() {
