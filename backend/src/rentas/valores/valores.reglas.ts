@@ -112,3 +112,35 @@ export function planEmision(cuotas: CuotaEmitible[], op: OpcionesEmision): { val
   );
   return { valores, excluidas };
 }
+
+// ---- Notificación y anulación (V4, V5) ----
+
+export interface DatosNotificacion {
+  fecha: string; // AAAA-MM-DD
+  modalidad: 'PERSONAL' | 'NEGATIVA' | 'CEDULON' | 'PUBLICACION';
+  dni?: string | null;
+  nombre?: string | null;
+}
+
+// Se puede notificar un valor emitido o corregir la notificación de uno ya notificado.
+export function errorNotificacion(estado: EstadoValor, fechaEmision: string, n: DatosNotificacion, hoy: string): string | null {
+  if (!ESTADOS_VALOR_VIGENTE.includes(estado)) {
+    return `No se puede notificar un valor ${estado.toLowerCase()}`;
+  }
+  if (n.fecha < fechaEmision) return 'La notificación no puede ser anterior a la emisión';
+  if (n.fecha > hoy) return 'La fecha de notificación no puede ser futura';
+  if (n.modalidad === 'PERSONAL') {
+    if (!n.nombre?.trim()) return 'Registra el nombre de quien recibió el valor';
+    if (!/^[0-9A-Z]{8,12}$/.test(n.dni?.trim().toUpperCase() ?? '')) return 'Registra el DNI (8 dígitos) o CE de quien recibió el valor';
+  }
+  return null;
+}
+
+export const MOTIVO_ANULACION_MIN = 10;
+
+export function errorAnulacion(estado: EstadoValor, motivo: string): string | null {
+  if (estado === EstadoValor.COACTIVO) return 'Un valor en cobranza coactiva no se anula desde Rentas';
+  if (!ESTADOS_VALOR_VIGENTE.includes(estado)) return `El valor ya está ${estado.toLowerCase()}`;
+  if (motivo.trim().length < MOTIVO_ANULACION_MIN) return `Explica el motivo de la anulación (mínimo ${MOTIVO_ANULACION_MIN} caracteres)`;
+  return null;
+}

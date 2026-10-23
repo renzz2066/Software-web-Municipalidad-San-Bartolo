@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { RUTA_BASE, soles } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
-import { ESTILO_VALOR, NOMBRE_VALOR, direccionPredio, numeroValor, type Valor } from './valoresApi'
+import { AccionesValor } from './AccionesValor'
+import { ESTILO_VALOR, MODALIDADES, NOMBRE_VALOR, direccionPredio, numeroValor, type Valor } from './valoresApi'
 
 // OP/RD para imprimir o guardar como PDF (specs/rentas-valores-v1.md, V3): montos a la fecha de
 // emisión (lo que se notifica) y, aparte, la deuda actualizada a hoy.
@@ -185,6 +186,25 @@ export function ValorImprimible() {
                 ))}
               </section>
 
+              {v.fechaNotificacion && (
+                <section aria-label="Notificación" className="mt-4 rounded-md border border-slate-200 px-3 py-2">
+                  <p>
+                    Notificado el <strong>{v.fechaNotificacion}</strong> ·{' '}
+                    {MODALIDADES.find((m) => m.value === v.modalidadNotificacion)?.label ?? v.modalidadNotificacion}
+                    {v.notificadoNombre && ` · ${v.notificadoNombre}`}
+                    {v.notificadoDni && ` (${v.notificadoDni})`}
+                  </p>
+                  {v.fechaExigible && (
+                    <p className="text-slate-600">
+                      {v.tipo === 'RD'
+                        ? 'Plazo de reclamo: 20 días hábiles. Si no se reclama, será exigible en cobranza coactiva desde el'
+                        : 'Exigible en cobranza coactiva desde el'}{' '}
+                      <strong>{v.fechaExigible}</strong>.
+                    </p>
+                  )}
+                </section>
+              )}
+
               {v.estado === 'ANULADO' && v.motivoAnulacion && (
                 <p className="mt-3 font-medium text-red-700">Anulado: {v.motivoAnulacion}</p>
               )}
@@ -196,6 +216,7 @@ export function ValorImprimible() {
             </>
           )}
         </main>
+        {v && <AccionesValor key={v.id} valor={v} alCambiar={setValor} />}
       </div>
     </div>
   )

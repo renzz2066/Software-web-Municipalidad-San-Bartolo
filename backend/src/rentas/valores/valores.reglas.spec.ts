@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { planEmision, type CuotaEmitible, type OpcionesEmision } from './valores.reglas.js';
+import { errorAnulacion, errorNotificacion, planEmision, type CuotaEmitible, type OpcionesEmision } from './valores.reglas.js';
 
 const D = Prisma.Decimal;
 
@@ -83,5 +83,47 @@ describe('planEmision', () => {
     });
     expect(r.valores.map((v) => v.tipo)).toEqual(['RD']);
     expect(r.excluidas.recalculoPendiente).toBe(1);
+  });
+});
+
+describe('errorNotificacion', () => {
+  const ok = { fecha: '2026-10-23', modalidad: 'CEDULON' as const };
+
+  it('acepta un cedulón sin datos del receptor', () => {
+    expect(errorNotificacion('EMITIDO', '2026-10-20', ok, '2026-10-23')).toBeNull();
+  });
+
+  it('permite corregir la notificación de un valor ya notificado', () => {
+    expect(errorNotificacion('NOTIFICADO', '2026-10-20', ok, '2026-10-23')).toBeNull();
+  });
+
+  it('rechaza valores anulados o en coactivo', () => {
+    expect(errorNotificacion('ANULADO', '2026-10-20', ok, '2026-10-23')).toMatch(/anulado/);
+    expect(errorNotificacion('COACTIVO', '2026-10-20', ok, '2026-10-23')).toMatch(/coactivo/);
+  });
+
+  it('rechaza fechas anteriores a la emisión o futuras', () => {
+    expect(errorNotificacion('EMITIDO', '2026-10-24', ok, '2026-10-25')).toMatch(/anterior a la emisión/);
+    expect(errorNotificacion('EMITIDO', '2026-10-20', ok, '2026-10-22')).toMatch(/futura/);
+  });
+
+  it('la notificación personal exige nombre y DNI', () => {
+    const personal = { fecha: '2026-10-23', modalidad: 'PERSONAL' as const };
+    expect(errorNotificacion('EMITIDO', '2026-10-20', personal, '2026-10-23')).toMatch(/nombre/);
+    expect(errorNotificacion('EMITIDO', '2026-10-20', { ...personal, nombre: 'Ana', dni: '123' }, '2026-10-23')).toMatch(/DNI/);
+    expect(errorNotificacion('EMITIDO', '2026-10-20', { ...personal, nombre: 'Ana', dni: '12345678' }, '2026-10-23')).toBeNull();
+  });
+});
+
+describe('errorAnulacion', () => {
+  it('exige un motivo explicado', () => {
+    expect(errorAnulacion('EMITIDO', 'error')).toMatch(/mínimo 10/);
+    expect(errorAnulacion('NOTIFICADO', 'Error en el área de terreno')).toBeNull();
+  });
+
+  it('no anula valores en coactivo, cancelados ni ya anulados', () => {
+    expect(errorAnulacion('COACTIVO', 'Error en el área de terreno')).toMatch(/coactiva/);
+    expect(errorAnulacion('CANCELADO', 'Error en el área de terreno')).toMatch(/cancelado/);
+    expect(errorAnulacion('ANULADO', 'Error en el área de terreno')).toMatch(/anulado/);
   });
 });

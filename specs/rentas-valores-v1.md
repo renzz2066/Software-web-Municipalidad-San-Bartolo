@@ -22,8 +22,8 @@ del fraccionamiento (necesita pagos), recepción y expedientes coactivos (spec d
   la fecha de emisión, total y base legal. Montos guardados al emitir; la pantalla muestra
   además la deuda actualizada a hoy con `liquidar()`.
 - [ ] V4 Notificación: fecha, modalidad (`PERSONAL`, `NEGATIVA`, `CEDULON`, `PUBLICACION`, art. 104),
-  DNI y nombre de quien recibe. Calcula la fecha de exigibilidad: OP = día siguiente a la
-  notificación; RD = vencido el plazo de reclamo de 20 días hábiles (art. 137).
+  DNI y nombre de quien recibe. Calcula la fecha de exigibilidad: OP = día hábil siguiente a la
+  notificación (art. 106); RD = hábil siguiente al vencimiento del plazo de reclamo de 20 días hábiles (art. 137).
 - [ ] V5 Anulación de valor con motivo obligatorio: `estado: ANULADO`, nunca `DELETE`; las cuotas
   vuelven a quedar libres para otro valor. No se anula un valor en `COACTIVO`.
 - [ ] V6 Fraccionamiento: simular convenio (deudas elegidas, cuota inicial, n.° de cuotas,
@@ -106,7 +106,8 @@ Decisiones (aprobadas 2026-10-23):
 - [x] Fase B: emisión OP/RD simular/ejecutar + imprimible + protección en cálculo (V1–V3, V8).
   `valores_cab.anio` = año de emisión (numeración `OP 2026-000001`); el ejercicio sale del detalle.
   `GET /rentas/maestros/zonas` también acepta `rentas.control-recaudacion` (filtro por zona).
-- [ ] Fase C: notificación, exigibilidad y anulación (V4, V5).
+- [x] Fase C: notificación, exigibilidad y anulación (V4, V5). La notificación se puede corregir mientras el
+  valor siga vigente. Un contribuyente cuyo predial no se puede calcular (datos incompletos) tampoco recibe OP.
 - [ ] Fase D: fraccionamiento con cronograma imprimible (V6).
 - [ ] Fase E: transferencia a coactivo + situación en estado de cuenta (V7, V9).
   `lint` + `build` + `test` en cada fase.

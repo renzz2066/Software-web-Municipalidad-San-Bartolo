@@ -2,6 +2,15 @@
 
 export type TipoValor = 'OP' | 'RD'
 export type EstadoValor = 'EMITIDO' | 'NOTIFICADO' | 'COACTIVO' | 'CANCELADO' | 'ANULADO'
+export type Modalidad = 'PERSONAL' | 'NEGATIVA' | 'CEDULON' | 'PUBLICACION'
+
+// Código Tributario art. 104.
+export const MODALIDADES: { value: Modalidad; label: string }[] = [
+  { value: 'PERSONAL', label: 'Personal (acuse de recibo)' },
+  { value: 'NEGATIVA', label: 'Negativa a la recepción' },
+  { value: 'CEDULON', label: 'Cedulón' },
+  { value: 'PUBLICACION', label: 'Publicación' },
+]
 
 export const RUTA_VALORES = '/rentas/control-recaudacion/valores'
 
@@ -88,7 +97,9 @@ export interface Valor {
   fechaEmision: string
   fechaNotificacion: string | null
   fechaExigible: string | null
-  modalidadNotificacion: string | null
+  modalidadNotificacion: Modalidad | null
+  notificadoDni: string | null
+  notificadoNombre: string | null
   motivoAnulacion: string | null
   baseImponible: string | null
   totalDeuda: string

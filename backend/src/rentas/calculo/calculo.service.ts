@@ -101,9 +101,10 @@ export class CalculoService {
   }
 
   // Para emitir valores (specs/rentas-valores-v1.md, V8): contribuyentes cuya deuda del año cambiaría
-  // al recalcular (no se les emite hasta recalcular) y la base imponible predial de cada uno.
+  // al recalcular o cuyo predial no se puede calcular (datos incompletos: no se sabe si su deuda está
+  // al día); a ellos no se les emite. Devuelve también la base imponible predial de cada uno.
   async revisarParaEmision(tx: Tx, anio: number, tipos: TipoCalculo[], contribuyenteId?: number) {
-    const { plan, existentes, bases, tributos } = await this.preparar(tx, { anio, contribuyenteId, tributos: tipos });
+    const { plan, existentes, bases, tributos, fallidos } = await this.preparar(tx, { anio, contribuyenteId, tributos: tipos });
     const idPredial = tributos.get('PREDIAL');
     const pendientes = new Map<number, Set<TipoCalculo>>();
     const marcar = (cid: number, tributoId: number) => {
@@ -117,6 +118,7 @@ export class CalculoService {
       const e = porId.get(id);
       if (e) marcar(e.contribuyenteId, e.tributoId);
     }
+    if (idPredial) for (const cid of fallidos) marcar(cid, idPredial);
     return { pendientes, bases };
   }
 
@@ -280,7 +282,7 @@ export class CalculoService {
       detalle,
       ejecutado: false,
     };
-    return { respuesta, plan, valorizados, existentes, bases, tributos };
+    return { respuesta, plan, valorizados, existentes, bases, tributos, fallidos };
   }
 
   private async cargarParametros(tx: Tx, anio: number, tipos: TipoCalculo[]): Promise<ParametrosAnio> {

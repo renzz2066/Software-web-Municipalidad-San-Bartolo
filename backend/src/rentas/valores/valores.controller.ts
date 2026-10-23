@@ -1,6 +1,19 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
-import { TipoValor } from '@prisma/client';
-import { ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, Min } from 'class-validator';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ModalidadNotificacion, TipoValor } from '@prisma/client';
+import {
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
 import { NivelGuard } from '../../auth/guards/nivel.guard.js';
 import { RequireNivel } from '../../auth/decorators/nivel.decorator.js';
@@ -35,7 +48,31 @@ export class EmisionDto {
   montoMinimo?: number;
 }
 
-// Emisión de OP/RD (specs/rentas-valores-v1.md, V1-V3 y V9).
+export class NotificacionDto {
+  @IsDateString({}, { message: 'La fecha de notificación debe ser AAAA-MM-DD' })
+  fecha: string;
+
+  @IsEnum(ModalidadNotificacion, { message: 'Modalidad no válida (PERSONAL, NEGATIVA, CEDULON, PUBLICACION)' })
+  modalidad: ModalidadNotificacion;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(15)
+  dni?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  nombre?: string;
+}
+
+export class AnulacionDto {
+  @IsString({ message: 'Indica el motivo de la anulación' })
+  @MaxLength(200, { message: 'El motivo debe tener máximo 200 caracteres' })
+  motivo: string;
+}
+
+// Emisión de OP/RD, notificación y anulación (specs/rentas-valores-v1.md, V1-V5 y V9).
 @UseGuards(JwtAuthGuard, NivelGuard)
 @RequireNivel('rentas.control-recaudacion')
 @Controller('rentas/valores')
@@ -62,5 +99,16 @@ export class ValoresController {
   @Get(':id')
   obtener(@Param('id', ParseIntPipe) id: number) {
     return this.valores.obtener(id);
+  }
+
+  @Patch(':id/notificacion')
+  notificar(@Param('id', ParseIntPipe) id: number, @Body() dto: NotificacionDto) {
+    return this.valores.notificar(id, dto);
+  }
+
+  @Post(':id/anular')
+  @HttpCode(HttpStatus.OK)
+  anular(@Param('id', ParseIntPipe) id: number, @Body() dto: AnulacionDto) {
+    return this.valores.anular(id, dto.motivo);
   }
 }

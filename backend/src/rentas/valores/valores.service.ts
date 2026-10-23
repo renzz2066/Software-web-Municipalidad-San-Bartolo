@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoCuenta, Prisma, TipoTributo, TipoValor } from '@prisma/client';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { EstadoCuenta, EstadoValor, ModalidadNotificacion, Prisma, TipoTributo, TipoValor } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CalculoService, type TipoCalculo } from '../calculo/calculo.service.js';
 import { vencimientos } from '../calculo/motor.js';
@@ -8,10 +8,26 @@ import { liquidar } from '../estado-cuenta/liquidacion.js';
 import { cargarTasas, iso } from '../estado-cuenta/tasas.js';
 import { hoyLima } from '../fechas.js';
 import { anioValido } from '../maestros/maestros.reglas.js';
-import { ESTADOS_VALOR_VIGENTE, planEmision, type CuotaEmitible, type Exclusiones, type ValorPlan } from './valores.reglas.js';
+import { fechaExigible, masDias } from './plazos.js';
+import {
+  ESTADOS_VALOR_VIGENTE,
+  errorAnulacion,
+  errorNotificacion,
+  planEmision,
+  type CuotaEmitible,
+  type Exclusiones,
+  type ValorPlan,
+} from './valores.reglas.js';
 
 const D = Prisma.Decimal;
 type Tx = Prisma.TransactionClient;
+
+export interface NotificacionEntrada {
+  fecha: string;
+  modalidad: ModalidadNotificacion;
+  dni?: string;
+  nombre?: string;
+}
 
 export interface EmisionEntrada {
   anio: number;
@@ -97,6 +113,62 @@ export class ValoresService {
       }
       return { ...respuesta, ejecutado: true, emitidos };
     }, OPCIONES_TX);
+  }
+
+  // Registra (o corrige) la notificación y fija la fecha de exigibilidad (V4).
+  async notificar(id: number, entrada: NotificacionEntrada) {
+    await this.prisma.$transaction(async (tx) => {
+      const valor = await this.buscar(tx, id);
+      const fecha = entrada.fecha.slice(0, 10);
+      const error = errorNotificacion(valor.estado, iso(valor.fechaEmision), { ...entrada, fecha }, hoyLima());
+      if (error) {
+        throw new BadRequestException(error);
+      }
+      // 20 días hábiles caben holgados en 60 calendario aun con feriados largos.
+      const feriados = await tx.feriado.findMany({
+        where: { fecha: { gte: new Date(fecha), lte: new Date(masDias(fecha, 60)) } },
+        select: { fecha: true },
+      });
+      const exigible = fechaExigible(valor.tipo, fecha, new Set(feriados.map((f) => iso(f.fecha))));
+      await this.actualizarVigente(tx, id, {
+        estado: EstadoValor.NOTIFICADO,
+        fechaNotificacion: new Date(fecha),
+        modalidadNotificacion: entrada.modalidad,
+        notificadoDni: entrada.dni?.trim().toUpperCase() || null,
+        notificadoNombre: entrada.nombre?.trim() || null,
+        fechaExigible: new Date(exigible),
+      });
+    });
+    return this.obtener(id);
+  }
+
+  // Anula con motivo (V5): sus cuotas quedan libres para otro valor y para el recálculo.
+  async anular(id: number, motivo: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const valor = await this.buscar(tx, id);
+      const error = errorAnulacion(valor.estado, motivo);
+      if (error) {
+        throw new BadRequestException(error);
+      }
+      await this.actualizarVigente(tx, id, { estado: EstadoValor.ANULADO, motivoAnulacion: motivo.trim() });
+    });
+    return this.obtener(id);
+  }
+
+  private async buscar(tx: Tx, id: number) {
+    const valor = await tx.valorCab.findUnique({ where: { id }, select: { tipo: true, estado: true, fechaEmision: true } });
+    if (!valor) {
+      throw new NotFoundException('El valor no existe');
+    }
+    return valor;
+  }
+
+  // Solo si sigue vigente: otro usuario pudo anularlo o transferirlo entre la lectura y la escritura.
+  private async actualizarVigente(tx: Tx, id: number, data: Prisma.ValorCabUpdateManyMutationInput) {
+    const { count } = await tx.valorCab.updateMany({ where: { id, estado: { in: ESTADOS_VALOR_VIGENTE } }, data });
+    if (count === 0) {
+      throw new ConflictException('El valor cambió de estado mientras lo editabas; recarga la página');
+    }
   }
 
   async listar(contribuyenteId: number) {
@@ -217,6 +289,8 @@ export class ValoresService {
       fechaNotificacion: valor.fechaNotificacion ? iso(valor.fechaNotificacion) : null,
       fechaExigible: valor.fechaExigible ? iso(valor.fechaExigible) : null,
       modalidadNotificacion: valor.modalidadNotificacion,
+      notificadoDni: valor.notificadoDni,
+      notificadoNombre: valor.notificadoNombre,
       motivoAnulacion: valor.motivoAnulacion,
       baseImponible: valor.baseImponible?.toFixed(2) ?? null,
       totalDeuda: valor.totalDeuda.toFixed(2),

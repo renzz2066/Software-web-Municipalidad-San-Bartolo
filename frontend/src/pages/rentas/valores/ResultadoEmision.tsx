@@ -53,8 +53,8 @@ export function ResultadoEmision({ r }: { r: Resultado }) {
       {r.totalRecalcular > 0 && (
         <div role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <p className="font-medium">
-            {r.totalRecalcular} contribuyente(s) tienen deuda que cambiaría al recalcular: no se les emite hasta ejecutar el
-            cálculo del año.
+            {r.totalRecalcular} contribuyente(s) tienen deuda que cambiaría al recalcular o predios con datos incompletos: no se
+            les emite hasta corregir y ejecutar el cálculo del año.
           </p>
           <ul className="mt-1 list-disc pl-5">
             {r.recalcular.map((c) => (
