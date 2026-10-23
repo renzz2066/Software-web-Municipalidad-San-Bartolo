@@ -103,7 +103,9 @@ Decisiones (aprobadas 2026-10-23):
 - [x] Fase A: migración (decisiones 1–4) + correlativos + feriados/parámetros en Maestros + tributo `FRACCION`.
   `convenios` gana `interesMensual` y `motivoAnulacion`; `convenio_detalle`, `amortizacion` e `interes`.
   Auditoría habilitada también en `valores_cab/det`, `convenios` y `convenio_detalle`.
-- [ ] Fase B: emisión OP/RD simular/ejecutar + imprimible + protección en cálculo (V1–V3, V8).
+- [x] Fase B: emisión OP/RD simular/ejecutar + imprimible + protección en cálculo (V1–V3, V8).
+  `valores_cab.anio` = año de emisión (numeración `OP 2026-000001`); el ejercicio sale del detalle.
+  `GET /rentas/maestros/zonas` también acepta `rentas.control-recaudacion` (filtro por zona).
 - [ ] Fase C: notificación, exigibilidad y anulación (V4, V5).
 - [ ] Fase D: fraccionamiento con cronograma imprimible (V6).
 - [ ] Fase E: transferencia a coactivo + situación en estado de cuenta (V7, V9).

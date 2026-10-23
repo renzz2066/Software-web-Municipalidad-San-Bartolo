@@ -187,6 +187,7 @@ export interface CuentaExistente {
   importe: Num;
   derechoEmision: Num;
   estado: string;
+  enValor?: boolean; // incluida en una OP/RD vigente (EMITIDO/NOTIFICADO)
 }
 
 export const claveCuenta = (c: { contribuyenteId: number; predioId: number | null; tributoId: number; cuota: number }) =>
@@ -194,6 +195,8 @@ export const claveCuenta = (c: { contribuyenteId: number; predioId: number | nul
 
 // Solo se tocan cuotas PENDIENTE (o ANULADO que vuelve a corresponder). Las CANCELADO,
 // FRACCIONADO, COACTIVO o EXTORNADO quedan intactas: ya tienen pagos o trámites encima.
+// Una PENDIENTE dentro de un valor vigente tampoco cambia ni se anula: hay que anular el valor
+// antes (specs/rentas-valores-v1.md, V8).
 export function planificar(nuevas: LineaCuenta[], existentes: CuentaExistente[]) {
   const porClave = new Map(existentes.map((e) => [claveCuenta(e), e]));
   const crear: LineaCuenta[] = [];
@@ -211,11 +214,12 @@ export function planificar(nuevas: LineaCuenta[], existentes: CuentaExistente[])
     } else if (e.estado === 'PENDIENTE' || e.estado === 'ANULADO') {
       const igual = e.estado === 'PENDIENTE' && new D(e.importe).eq(n.importe) && new D(e.derechoEmision).eq(n.derechoEmision);
       if (igual) sinCambio++;
+      else if (e.enValor) protegidas++;
       else actualizar.push({ ...n, id: e.id });
     } else {
       protegidas++;
     }
   }
-  const anular = existentes.filter((e) => e.estado === 'PENDIENTE' && !vistas.has(claveCuenta(e))).map((e) => e.id);
+  const anular = existentes.filter((e) => e.estado === 'PENDIENTE' && !e.enValor && !vistas.has(claveCuenta(e))).map((e) => e.id);
   return { crear, actualizar, anular, sinCambio, protegidas };
 }

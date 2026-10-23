@@ -23,6 +23,8 @@ import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuy
 import { Predio } from './pages/rentas/predios/Predio'
 import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
+import { ControlRecaudacion } from './pages/rentas/valores/ControlRecaudacion'
+import { ValorImprimible } from './pages/rentas/valores/ValorImprimible'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -31,6 +33,7 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.maestros': <Maestros />,
   'rentas.registro-tributario': <Contribuyentes />,
   'rentas.calculo-masivo': <CalculoMasivo />,
+  'rentas.control-recaudacion': <ControlRecaudacion />,
 }
 
 function App() {
@@ -211,6 +214,16 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="rentas.registro-tributario">
               <DeclaracionForm key="declaracion" />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/control-recaudacion/valores/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.control-recaudacion">
+              <ValorImprimible />
             </RequireNivel>
           </ProtectedRoute>
         }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
+import { useAccesos } from '../../../context/AccesosContext'
 import { PanelCalculo } from '../calculo/PanelCalculo'
+import { ValoresContribuyente } from '../valores/ValoresContribuyente'
 import { hoyIso, useEstadoCuenta } from '../estado-cuenta/estadoCuentaApi'
 import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
 import { mensajeError } from '../maestros/maestrosApi'
@@ -62,6 +64,7 @@ const PESTANAS = [
   { id: 'deuda', titulo: 'Deuda' },
   { id: 'ddjj', titulo: 'Declaraciones juradas' },
   { id: 'calculo', titulo: 'Calcular deuda' },
+  { id: 'valores', titulo: 'Valores', nivel: 'rentas.control-recaudacion' },
 ] as const
 
 function direccionPredio(p: PredioFicha['predio']): string {
@@ -82,6 +85,7 @@ export function FichaContribuyente() {
   const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['id']>('predios')
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const { tiene } = useAccesos()
 
   useEffect(() => {
     let cancelled = false
@@ -165,7 +169,7 @@ export function FichaContribuyente() {
             </header>
 
             <nav aria-label="Secciones de la ficha" role="tablist" className="mt-6 flex gap-1 overflow-x-auto">
-              {PESTANAS.map((p) => (
+              {PESTANAS.filter((p) => !('nivel' in p) || tiene(p.nivel)).map((p) => (
                 <button
                   key={p.id}
                   type="button"
@@ -177,7 +181,7 @@ export function FichaContribuyente() {
                   }`}
                 >
                   {p.titulo}
-                  {p.id !== 'calculo' && (
+                  {(p.id === 'predios' || p.id === 'deuda' || p.id === 'ddjj') && (
                     <span className="ml-1 text-xs text-slate-400">
                       ({p.id === 'predios' ? datos.predios.length : p.id === 'deuda' ? datos.deuda.length : datos.declaraciones.length})
                     </span>
@@ -261,6 +265,7 @@ export function FichaContribuyente() {
                   <PanelCalculo contribuyenteId={c.id} alEjecutar={() => setRefreshKey((k) => k + 1)} />
                 </div>
               )}
+              {pestana === 'valores' && <ValoresContribuyente contribuyenteId={c.id} />}
             </main>
           </>
         )}

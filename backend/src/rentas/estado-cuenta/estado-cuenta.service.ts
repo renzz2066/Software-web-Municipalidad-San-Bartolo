@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoCuenta, Prisma, TipoTasaMora, TipoTributo } from '@prisma/client';
+import { EstadoCuenta, Prisma, TipoTributo } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { vencimientos } from '../calculo/motor.js';
 import { hoyLima } from '../fechas.js';
-import { liquidar, type Tasa } from './liquidacion.js';
+import { liquidar } from './liquidacion.js';
+import { cargarTasas, iso } from './tasas.js';
 
 const D = Prisma.Decimal;
 const ESTADOS: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.COACTIVO, EstadoCuenta.FRACCIONADO];
-const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 // Estado de cuenta a una fecha (C6): la mora y el reajuste se calculan al vuelo, no se guardan.
 // Lo consumen la ficha, la impresión y, más adelante, Caja y Coactiva.
@@ -29,7 +29,7 @@ export class EstadoCuentaService {
       throw new NotFoundException('El contribuyente no existe');
     }
 
-    const [cuentas, tasas] = await Promise.all([
+    const [cuentas, { ipm, tim }] = await Promise.all([
       this.prisma.cuentaCorriente.findMany({
         where: { contribuyenteId, estado: { in: ESTADOS } },
         select: {
@@ -47,12 +47,8 @@ export class EstadoCuentaService {
         },
         orderBy: [{ anioFiscal: 'asc' }, { tributoId: 'asc' }, { predioId: 'asc' }, { cuota: 'asc' }],
       }),
-      this.prisma.tasaMora.findMany({ orderBy: { vigenciaDesde: 'asc' } }),
+      cargarTasas(this.prisma),
     ]);
-    const serie = (tipo: TipoTasaMora): Tasa[] =>
-      tasas.filter((t) => t.tipo === tipo).map((t) => ({ vigenciaDesde: iso(t.vigenciaDesde), valor: t.valor }));
-    const ipm = serie(TipoTasaMora.IPM);
-    const tim = serie(TipoTasaMora.TIM);
 
     let totales = { insoluto: new D(0), reajuste: new D(0), mora: new D(0), derechoEmision: new D(0), total: new D(0) };
     const porAnio = new Map<number, Prisma.Decimal>();

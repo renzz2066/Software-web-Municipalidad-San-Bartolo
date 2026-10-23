@@ -122,7 +122,9 @@ export class MaestrosController {
     return this.maestros.guardarFraccionamiento(anio, dto);
   }
 
+  // Solo lectura: también lo usa el filtro por zona de la emisión de valores.
   @Get('zonas')
+  @RequireNivel('rentas.maestros', 'rentas.control-recaudacion')
   listarZonas() {
     return this.maestros.listarZonas();
   }
