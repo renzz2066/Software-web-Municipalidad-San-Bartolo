@@ -94,7 +94,10 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
 
 ## 4. Tareas
 - [x] Rama `feat/caja-v1` desde `main`; primer commit = esta spec (`docs(specs)`).
-- [ ] Fase A: migración (decisión 1) + serie `REC` + reglas puras con tests.
+- [x] Fase A: migración `20261024120000_caja` (decisión 1) + serie `REC` + `caja/caja.reglas.ts` con tests.
+  `recibos` gana `fechaCaja` y `fechaCajaExtorno` (día de caja en hora Lima, para el cierre);
+  `cierres_caja` gana `totalesPorTributo` (la foto no depende de extornos posteriores); `pagos`
+  conserva `contribuyenteId`/`fechaPago` y `cuentaCorrienteId` pasa a obligatorio (todo pago tiene su deuda).
 - [ ] Fase B: cobro + recibo imprimible + efectos en valor/convenio (K1–K3).
 - [ ] Fase C: extorno (K4).
 - [ ] Fase D: cierre diario y consultas (K5, K6) + niveles (K7). `lint` + `build` + `test` en cada fase.

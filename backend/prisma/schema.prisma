@@ -210,9 +210,11 @@ model Usuario {
   modificadoPorId Int?
   modificadoPor   Usuario? @relation("UsuarioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
-  pagosCobrados    Pago[]        @relation("CajeroPagos")
-  conveniosCreados ConvenioCab[] @relation("CreadorConvenio")
-  auditorias       Auditoria[]
+  recibosCobrados   Recibo[]      @relation("CajeroRecibos")
+  recibosExtornados Recibo[]      @relation("ReciboExtornadoPor")
+  cierresCaja       CierreCaja[]
+  conveniosCreados  ConvenioCab[] @relation("CreadorConvenio")
+  auditorias        Auditoria[]
 
   // Autoría (creadoPor/modificadoPor) de las tablas principales
   usuariosCreados           Usuario[]           @relation("UsuarioCreadoPor")
@@ -300,6 +302,7 @@ model Contribuyente {
   vehiculos     Vehiculo[]
   cuentas       CuentaCorriente[]
   pagos         Pago[]                @relation("PagadorContribuyente")
+  recibos       Recibo[]
   valores       ValorCab[]
   convenios     ConvenioCab[]
   coactivoExps  CoactivoExp[]
@@ -731,30 +734,89 @@ model CuentaCorriente {
   @@map("cuenta_corriente")
 }
 
-model Pago {
-  id                Int              @id @default(autoincrement())
-  cuentaCorrienteId Int?
-  cuentaCorriente   CuentaCorriente? @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
-  contribuyenteId   Int
-  contribuyente     Contribuyente    @relation("PagadorContribuyente", fields: [contribuyenteId], references: [id], onDelete: Restrict)
-  cajeroId          Int
-  cajero            Usuario          @relation("CajeroPagos", fields: [cajeroId], references: [id], onDelete: Restrict)
-  numRecibo         String           @unique @db.VarChar(20) // NROMOV SIMUN
-  fechaPago         DateTime         @default(now()) @db.Timestamptz(6)
-  importe           Decimal          @db.Decimal(12, 2)
-  moraPagada        Decimal          @default(0) @db.Decimal(12, 2)
-  descuentoAplicado Decimal          @default(0) @db.Decimal(12, 2)
-  medioPago         MedioPago        @default(EFECTIVO)
-  numOperacion      String?          @db.VarChar(30) // voucher / cheque / deposito
-  estado            EstadoCuenta     @default(CANCELADO)
-  createdAt         DateTime         @default(now())
-  modificadoPorId   Int? // autor = cajeroId; esto registra extornos/anulaciones
-  modificadoPor     Usuario?         @relation("PagoModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+// Caja (specs/caja-v1.md, decisión 1). Ref SIMUN: pagos.dbf (una fila por cuota, NROMOV agrupa),
+// recibos.dbf y cierre_de_caja.dbf.
+// Un cobro en ventanilla de un contribuyente: N cuotas, un medio de pago, un número correlativo.
+model Recibo {
+  id               Int           @id @default(autoincrement())
+  anio             Int
+  numero           String        @db.VarChar(15) // REC 2026-000001
+  contribuyenteId  Int
+  contribuyente    Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  cajeroId         Int
+  cajero           Usuario       @relation("CajeroRecibos", fields: [cajeroId], references: [id], onDelete: Restrict)
+  fecha            DateTime      @default(now()) @db.Timestamptz(6)
+  fechaCaja        DateTime      @db.Date // día de caja (hora Lima) al que pertenece el cobro
+  total            Decimal       @db.Decimal(12, 2)
+  medioPago        MedioPago     @default(EFECTIVO)
+  numOperacion     String?       @db.VarChar(30) // voucher / transferencia / depósito
+  estado           EstadoCuenta  @default(CANCELADO) // CANCELADO | EXTORNADO
+  motivoExtorno    String?       @db.VarChar(200)
+  extornadoPorId   Int?
+  extornadoPor     Usuario?      @relation("ReciboExtornadoPor", fields: [extornadoPorId], references: [id], onDelete: Restrict)
+  fechaExtorno     DateTime?     @db.Timestamptz(6)
+  fechaCajaExtorno DateTime?     @db.Date // el extorno cuenta en el día de caja en que se hace (decisión 7)
+  cierreId         Int?
+  cierre           CierreCaja?   @relation(fields: [cierreId], references: [id], onDelete: Restrict)
+  createdAt        DateTime      @default(now())
 
+  pagos Pago[]
+
+  @@unique([anio, numero])
+  @@index([cajeroId, fechaCaja])
+  @@index([extornadoPorId, fechaCajaExtorno])
   @@index([contribuyenteId])
-  @@index([cajeroId])
+  @@index([fechaCaja])
+  @@map("recibos")
+}
+
+// Detalle del recibo: una fila por cuota cobrada, con la liquidación a la fecha del cobro.
+model Pago {
+  id                Int             @id @default(autoincrement())
+  reciboId          Int
+  recibo            Recibo          @relation(fields: [reciboId], references: [id], onDelete: Restrict)
+  cuentaCorrienteId Int
+  cuentaCorriente   CuentaCorriente @relation(fields: [cuentaCorrienteId], references: [id], onDelete: Restrict)
+  contribuyenteId   Int
+  contribuyente     Contribuyente   @relation("PagadorContribuyente", fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  fechaPago         DateTime        @default(now()) @db.Timestamptz(6)
+  importe           Decimal         @db.Decimal(12, 2) // insoluto
+  reajuste          Decimal         @default(0) @db.Decimal(12, 2)
+  moraPagada        Decimal         @default(0) @db.Decimal(12, 2)
+  derechoEmision    Decimal         @default(0) @db.Decimal(12, 2)
+  subtotal          Decimal         @db.Decimal(12, 2)
+  estadoAnterior    EstadoCuenta // estado de la cuota antes del cobro: el extorno la devuelve ahí
+  estado            EstadoCuenta    @default(CANCELADO) // CANCELADO | EXTORNADO
+  createdAt         DateTime        @default(now())
+  modificadoPorId   Int? // lo fija el trigger auditoria_autor
+  modificadoPor     Usuario?        @relation("PagoModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([reciboId])
+  @@index([cuentaCorrienteId])
+  @@index([contribuyenteId])
   @@index([fechaPago])
   @@map("pagos")
+}
+
+// Cierre diario por cajero: foto inmutable de lo cobrado y extornado ese día de caja.
+model CierreCaja {
+  id                Int      @id @default(autoincrement())
+  cajeroId          Int
+  cajero            Usuario  @relation(fields: [cajeroId], references: [id], onDelete: Restrict)
+  fecha             DateTime @db.Date
+  cantidadRecibos   Int
+  cantidadExtornos  Int
+  total             Decimal  @db.Decimal(12, 2) // cobrado − extornado en el día
+  totalesPorMedio   Json // { EFECTIVO: "120.00", ... }
+  totalesPorTributo Json // [{ codigo, nombre, total }]
+  efectivoDeclarado Decimal? @db.Decimal(12, 2) // arqueo opcional
+  diferencia        Decimal? @db.Decimal(12, 2) // declarado − efectivo esperado (+ sobrante / − faltante)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+
+  recibos Recibo[]
+
+  @@unique([cajeroId, fecha])
+  @@map("cierres_caja")
 }
 
 model ConvenioCab {

@@ -1,11 +1,11 @@
 import { Prisma } from '@prisma/client';
 
-// Numeración correlativa por serie y año (specs/rentas-valores-v1.md, decisión 1).
+// Numeración correlativa por serie y año (specs/rentas-valores-v1.md, decisión 1; caja-v1.md, K2).
 // INSERT ... ON CONFLICT DO UPDATE bloquea la fila (serie, anio) hasta el commit: dos
 // emisiones simultáneas nunca reciben el mismo número, y si la transacción se revierte
 // el número vuelve a quedar libre (sin huecos).
 
-export type SerieCorrelativo = 'OP' | 'RD' | 'CONV' | 'MEMO';
+export type SerieCorrelativo = 'OP' | 'RD' | 'CONV' | 'MEMO' | 'REC'; // REC = recibos de caja
 
 const DIGITOS = 6;
 
