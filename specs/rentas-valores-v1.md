@@ -11,34 +11,34 @@ del fraccionamiento (necesita pagos), recepción y expedientes coactivos (spec d
 - Como SUPERVISOR/ADMIN de Rentas, quiero emitir OP/RD sobre la deuda vencida, registrar su
   notificación, fraccionar deuda y transferir a coactivo los valores exigibles; como CAJERO,
   quiero ver en el estado de cuenta qué cuotas están en valor, fraccionadas o en coactivo.
-- [ ] V1 Emisión: OP para predial (Código Tributario art. 78), RD para arbitrios (art. 76).
+- [x] V1 Emisión: OP para predial (Código Tributario art. 78), RD para arbitrios (art. 76).
   Individual (desde la ficha) y masiva por filtro (año, tributo, solo vencidas, monto mínimo,
   zona). Primero **simular** (contribuyentes, valores, montos), luego **ejecutar**. Una cuota no
   puede estar en dos valores vigentes (`EMITIDO/NOTIFICADO`); re-ejecutar no duplica.
-- [ ] V2 Agrupación: OP = contribuyente + año (predial va por contribuyente); RD = contribuyente
+- [x] V2 Agrupación: OP = contribuyente + año (predial va por contribuyente); RD = contribuyente
   + predio + año (arbitrios van por predio). Numeración correlativa por tipo y año (`OP 2026-000123`).
-- [ ] V3 Contenido legal imprimible (PDF desde el navegador, como el estado de cuenta): deudor,
+- [x] V3 Contenido legal imprimible (PDF desde el navegador, como el estado de cuenta): deudor,
   domicilio fiscal, tributo, periodo/cuotas, base imponible, tasa, insoluto, reajuste, interés a
   la fecha de emisión, total y base legal. Montos guardados al emitir; la pantalla muestra
   además la deuda actualizada a hoy con `liquidar()`.
-- [ ] V4 Notificación: fecha, modalidad (`PERSONAL`, `NEGATIVA`, `CEDULON`, `PUBLICACION`, art. 104),
+- [x] V4 Notificación: fecha, modalidad (`PERSONAL`, `NEGATIVA`, `CEDULON`, `PUBLICACION`, art. 104),
   DNI y nombre de quien recibe. Calcula la fecha de exigibilidad: OP = día hábil siguiente a la
   notificación (art. 106); RD = hábil siguiente al vencimiento del plazo de reclamo de 20 días hábiles (art. 137).
-- [ ] V5 Anulación de valor con motivo obligatorio: `estado: ANULADO`, nunca `DELETE`; las cuotas
+- [x] V5 Anulación de valor con motivo obligatorio: `estado: ANULADO`, nunca `DELETE`; las cuotas
   vuelven a quedar libres para otro valor. No se anula un valor en `COACTIVO`.
-- [ ] V6 Fraccionamiento: simular convenio (deudas elegidas, cuota inicial, n.° de cuotas,
+- [x] V6 Fraccionamiento: simular convenio (deudas elegidas, cuota inicial, n.° de cuotas,
   cronograma con interés) → grabar. Deudas originales → `FRACCIONADO`; las cuotas del convenio
   nacen como deuda nueva en `cuenta_corriente` (tributo `FRACCION`) para que Caja las cobre
   igual que cualquier deuda. Valida los límites del año (decisión 2). Anular convenio (solo sin
   pagos) restaura las deudas a `PENDIENTE` y anula sus cuotas.
-- [ ] V7 Transferencia a coactivo: lista de valores exigibles no pagados → simular → generar
+- [x] V7 Transferencia a coactivo: lista de valores exigibles no pagados → simular → generar
   memorándum de transferencia (correlativo por año, cantidad y monto). Valor → `COACTIVO` y sus
   cuotas → `COACTIVO`. La recepción la registra Cobranza Coactiva (otra spec).
-- [ ] V8 Protección: el cálculo predial/arbitrios trata como protegidas las cuotas que estén en
+- [x] V8 Protección: el cálculo predial/arbitrios trata como protegidas las cuotas que estén en
   un valor vigente (hoy solo protege `CANCELADO/FRACCIONADO/COACTIVO`). Para corregirlas hay que
   anular el valor. La emisión se bloquea si la simulación del cálculo de ese contribuyente
   cambiaría sus cuotas ("recalcula primero").
-- [ ] V9 Accesos: nivel existente `rentas.control-recaudacion` (V1–V7; masivos incluidos).
+- [x] V9 Accesos: nivel existente `rentas.control-recaudacion` (V1–V7; masivos incluidos).
   Estado de cuenta muestra columna "Situación" (valor N.°, convenio N.°, coactivo). Sin nivel → 403.
 
 ## 2. Archivos afectados
@@ -112,7 +112,8 @@ Decisiones (aprobadas 2026-10-23):
   siguiente al convenio; el interés es el del año (Maestros), no lo elige el usuario. La deuda FRACCIONADO
   ya no se suma en ficha ni estado de cuenta (la reemplazan las cuotas FRACCION; también toca
   `backend/src/contribuyentes/contribuyentes.service.ts`).
-- [ ] Fase E: transferencia a coactivo + situación en estado de cuenta (V7, V9).
+- [x] Fase E: transferencia a coactivo + situación en estado de cuenta (V7, V9). Se puede elegir qué
+  valores exigibles entran en el memorándum; Control y Recaudación tiene pestañas Emisión / Transferencia.
   `lint` + `build` + `test` en cada fase.
 - [ ] PR de `feat/rentas-valores` hacia `main` (cuando el usuario lo pida).
 

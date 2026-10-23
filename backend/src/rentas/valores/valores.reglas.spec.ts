@@ -1,6 +1,13 @@
 import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { errorAnulacion, errorNotificacion, planEmision, type CuotaEmitible, type OpcionesEmision } from './valores.reglas.js';
+import {
+  errorAnulacion,
+  errorNotificacion,
+  motivoNoTransferible,
+  planEmision,
+  type CuotaEmitible,
+  type OpcionesEmision,
+} from './valores.reglas.js';
 
 const D = Prisma.Decimal;
 
@@ -125,5 +132,27 @@ describe('errorAnulacion', () => {
     expect(errorAnulacion('COACTIVO', 'Error en el área de terreno')).toMatch(/coactiva/);
     expect(errorAnulacion('CANCELADO', 'Error en el área de terreno')).toMatch(/cancelado/);
     expect(errorAnulacion('ANULADO', 'Error en el área de terreno')).toMatch(/anulado/);
+  });
+});
+
+describe('motivoNoTransferible', () => {
+  const hoy = '2026-11-23';
+  const notificado = { estado: 'NOTIFICADO' as const, fechaExigible: '2026-11-23' };
+
+  it('transfiere un valor notificado, exigible desde hoy y con deuda pendiente', () => {
+    expect(motivoNoTransferible(notificado, 3, hoy)).toBeNull();
+  });
+
+  it('no transfiere valores sin notificar ni otros estados', () => {
+    expect(motivoNoTransferible({ estado: 'EMITIDO', fechaExigible: null }, 3, hoy)).toBe('noNotificado');
+    expect(motivoNoTransferible({ estado: 'COACTIVO', fechaExigible: '2026-11-01' }, 3, hoy)).toBe('noNotificado');
+  });
+
+  it('respeta el plazo hasta la fecha de exigibilidad', () => {
+    expect(motivoNoTransferible({ ...notificado, fechaExigible: '2026-11-24' }, 3, hoy)).toBe('plazoVigente');
+  });
+
+  it('no transfiere si toda su deuda está fraccionada o pagada', () => {
+    expect(motivoNoTransferible(notificado, 0, hoy)).toBe('sinDeudaPendiente');
   });
 });

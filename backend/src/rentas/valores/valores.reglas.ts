@@ -144,3 +144,20 @@ export function errorAnulacion(estado: EstadoValor, motivo: string): string | nu
   if (motivo.trim().length < MOTIVO_ANULACION_MIN) return `Explica el motivo de la anulación (mínimo ${MOTIVO_ANULACION_MIN} caracteres)`;
   return null;
 }
+
+// ---- Transferencia a cobranza coactiva (V7) ----
+
+export type MotivoNoTransferible = 'noNotificado' | 'plazoVigente' | 'sinDeudaPendiente';
+
+// Solo valores notificados, ya exigibles y con alguna cuota todavía PENDIENTE (las fraccionadas
+// o pagadas no se cobran en coactivo).
+export function motivoNoTransferible(
+  v: { estado: EstadoValor; fechaExigible: string | null },
+  cuotasPendientes: number,
+  hoy: string,
+): MotivoNoTransferible | null {
+  if (v.estado !== EstadoValor.NOTIFICADO || !v.fechaExigible) return 'noNotificado';
+  if (v.fechaExigible > hoy) return 'plazoVigente';
+  if (cuotasPendientes === 0) return 'sinDeudaPendiente';
+  return null;
+}
