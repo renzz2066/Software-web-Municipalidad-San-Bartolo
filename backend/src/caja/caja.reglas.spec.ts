@@ -26,7 +26,7 @@ const cuota = (id: number, total: string, extra: Partial<CuotaACobrar> = {}): Cu
 });
 
 describe('errorCobro', () => {
-  const base = { cuotaIds: [1, 2], medioPago: MedioPago.EFECTIVO, cerroHoy: false };
+  const base = { cuentaIds: [1, 2], medioPago: MedioPago.EFECTIVO, cerroHoy: false };
 
   it('efectivo sin n.° de operación es válido', () => {
     expect(errorCobro(base)).toBeNull();
@@ -39,8 +39,8 @@ describe('errorCobro', () => {
 
   it('cheque deshabilitado, sin cuotas, repetidas o con la caja cerrada', () => {
     expect(errorCobro({ ...base, medioPago: MedioPago.CHEQUE, numOperacion: '1' })).toMatch(/no habilitado/);
-    expect(errorCobro({ ...base, cuotaIds: [] })).toMatch(/al menos una/);
-    expect(errorCobro({ ...base, cuotaIds: [1, 1] })).toMatch(/repetidas/);
+    expect(errorCobro({ ...base, cuentaIds: [] })).toMatch(/al menos una/);
+    expect(errorCobro({ ...base, cuentaIds: [1, 1] })).toMatch(/repetidas/);
     expect(errorCobro({ ...base, cerroHoy: true })).toMatch(/cerraste/);
   });
 });

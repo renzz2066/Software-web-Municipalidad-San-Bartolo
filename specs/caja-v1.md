@@ -98,7 +98,9 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
   `recibos` gana `fechaCaja` y `fechaCajaExtorno` (día de caja en hora Lima, para el cierre);
   `cierres_caja` gana `totalesPorTributo` (la foto no depende de extornos posteriores); `pagos`
   conserva `contribuyenteId`/`fechaPago` y `cuentaCorrienteId` pasa a obligatorio (todo pago tiene su deuda).
-- [ ] Fase B: cobro + recibo imprimible + efectos en valor/convenio (K1–K3).
+- [x] Fase B: cobro + recibo imprimible + efectos en valor/convenio (K1–K3). Pantalla en `Caja → Cancelaciones
+  del Día` (`?contribuyente=` en la URL); recibo en `/caja/recibos/:id`, "COPIA" salvo la vista que sigue al cobro.
+  Al cancelarse un convenio, la OP/RD de sus deudas originales también se cancela si queda pagada.
 - [ ] Fase C: extorno (K4).
 - [ ] Fase D: cierre diario y consultas (K5, K6) + niveles (K7). `lint` + `build` + `test` en cada fase.
 - [ ] PR de `feat/caja-v1` hacia `main` (cuando el usuario lo pida).

@@ -7,11 +7,19 @@ function ubicacion(p: LineaEstado['predio']) {
   return partes.filter(Boolean).join(' ') || `#${p.id}`
 }
 
-export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
+// Con `seleccion` (Caja) agrega una columna de casillas para elegir las cuotas a cobrar.
+export interface SeleccionCuotas {
+  ids: Set<number>
+  alCambiar: (ids: number[], marcar: boolean) => void
+}
+
+export function TablaEstadoCuenta({ datos, seleccion }: { datos: EstadoCuenta; seleccion?: SeleccionCuotas }) {
   if (datos.lineas.length === 0) {
     return <p className="p-6 text-center text-sm text-slate-500">Sin deuda pendiente al {datos.fecha}.</p>
   }
   const t = datos.totales
+  const todas = datos.lineas.map((l) => l.id)
+  const todasMarcadas = seleccion ? todas.every((id) => seleccion.ids.has(id)) : false
   return (
     <div className="space-y-3">
       {datos.avisos.map((a) => (
@@ -24,6 +32,17 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
           <caption className="sr-only">Estado de cuenta al {datos.fecha}</caption>
           <thead>
             <tr className="border-b border-slate-300 text-xs uppercase tracking-wider text-slate-500">
+              {seleccion && (
+                <th scope="col" className="px-2 py-2 print:hidden">
+                  <input
+                    type="checkbox"
+                    aria-label="Elegir todas las cuotas"
+                    checked={todasMarcadas}
+                    onChange={() => seleccion.alCambiar(todas, !todasMarcadas)}
+                    className="h-4 w-4 accent-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+                  />
+                </th>
+              )}
               <th scope="col" className="px-2 py-2">Año</th>
               <th scope="col" className="px-2 py-2">Tributo</th>
               <th scope="col" className="px-2 py-2">Cuota</th>
@@ -38,7 +57,18 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
           </thead>
           <tbody>
             {datos.lineas.map((l) => (
-              <tr key={l.id} className="border-b border-slate-100">
+              <tr key={l.id} className={`border-b border-slate-100 ${seleccion?.ids.has(l.id) ? 'bg-mar/5' : ''}`}>
+                {seleccion && (
+                  <td className="px-2 py-1.5 print:hidden">
+                    <input
+                      type="checkbox"
+                      aria-label={`Elegir ${l.tributo.nombre} ${l.anio} cuota ${l.cuota || 'anual'}`}
+                      checked={seleccion.ids.has(l.id)}
+                      onChange={(e) => seleccion.alCambiar([l.id], e.target.checked)}
+                      className="h-4 w-4 accent-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+                    />
+                  </td>
+                )}
                 <td className="px-2 py-1.5">{l.anio}</td>
                 <td className="px-2 py-1.5">
                   {l.tributo.nombre}
@@ -63,6 +93,7 @@ export function TablaEstadoCuenta({ datos }: { datos: EstadoCuenta }) {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-slate-300 font-semibold text-mar-profundo">
+              {seleccion && <td className="print:hidden" />}
               <th scope="row" colSpan={5} className="px-2 py-2 text-left">
                 Total al {datos.fecha}
               </th>

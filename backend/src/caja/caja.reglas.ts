@@ -17,7 +17,7 @@ export const MEDIOS_HABILITADOS: MedioPago[] = [MedioPago.EFECTIVO, MedioPago.TA
 export const MAX_CUOTAS_POR_RECIBO = 100;
 
 export interface DatosCobro {
-  cuotaIds: number[];
+  cuentaIds: number[];
   medioPago: MedioPago;
   numOperacion?: string | null;
   cerroHoy: boolean; // el cajero ya cerró su caja de hoy
@@ -25,9 +25,9 @@ export interface DatosCobro {
 
 export function errorCobro(d: DatosCobro): string | null {
   if (d.cerroHoy) return 'Ya cerraste tu caja de hoy: no puedes cobrar hasta mañana';
-  if (d.cuotaIds.length === 0) return 'Elige al menos una cuota';
-  if (d.cuotaIds.length > MAX_CUOTAS_POR_RECIBO) return `Un recibo admite hasta ${MAX_CUOTAS_POR_RECIBO} cuotas`;
-  if (new Set(d.cuotaIds).size !== d.cuotaIds.length) return 'Hay cuotas repetidas en el cobro';
+  if (d.cuentaIds.length === 0) return 'Elige al menos una cuota';
+  if (d.cuentaIds.length > MAX_CUOTAS_POR_RECIBO) return `Un recibo admite hasta ${MAX_CUOTAS_POR_RECIBO} cuotas`;
+  if (new Set(d.cuentaIds).size !== d.cuentaIds.length) return 'Hay cuotas repetidas en el cobro';
   if (!MEDIOS_HABILITADOS.includes(d.medioPago)) return 'Medio de pago no habilitado';
   if (d.medioPago !== MedioPago.EFECTIVO && !d.numOperacion?.trim()) return 'Indica el n.° de operación del pago';
   return null;

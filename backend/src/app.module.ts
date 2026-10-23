@@ -11,6 +11,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module.js';
 import { RentasModule } from './rentas/rentas.module.js';
 import { ContribuyentesModule } from './contribuyentes/contribuyentes.module.js';
 import { PrediosModule } from './predios/predios.module.js';
+import { CajaModule } from './caja/caja.module.js';
 import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.middleware.js';
 
 @Module({
@@ -25,6 +26,7 @@ import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.midd
     RentasModule,
     ContribuyentesModule,
     PrediosModule,
+    CajaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
