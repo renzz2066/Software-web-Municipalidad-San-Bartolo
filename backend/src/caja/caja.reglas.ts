@@ -169,7 +169,15 @@ export interface ResumenCierre {
   diferencia: Dec | null; // efectivo declarado − esperado: + sobrante, − faltante
 }
 
+// Se cierra hoy o un día anterior que quedó abierto (decisión 8), una sola vez por cajero y día.
+export function errorCierre(fecha: string, hoy: string, yaCerrado: boolean): string | null {
+  if (fecha > hoy) return 'No se puede cerrar un día que aún no llega';
+  if (yaCerrado) return 'Tu caja de ese día ya está cerrada';
+  return null;
+}
+
 // Cierre del día de un cajero (K5): lo que cobró menos lo que extornó ese día, por medio y por tributo.
+// Medios o tributos que suman cero (cobrados y extornados el mismo día) no se listan.
 export function resumenCierre(cobrados: ReciboResumen[], extornados: ReciboResumen[], efectivoDeclarado?: Num | null): ResumenCierre {
   const porMedio = new Map<string, Dec>();
   const porTributo = new Map<string, { codigo: string; nombre: string; total: Dec }>();
@@ -190,8 +198,11 @@ export function resumenCierre(cobrados: ReciboResumen[], extornados: ReciboResum
     cantidadRecibos: cobrados.length,
     cantidadExtornos: extornados.length,
     total,
-    totalesPorMedio: Object.fromEntries([...porMedio.entries()].sort().map(([m, v]) => [m, r2(v).toFixed(2)])),
+    totalesPorMedio: Object.fromEntries(
+      [...porMedio.entries()].filter(([, v]) => !r2(v).isZero()).sort().map(([m, v]) => [m, r2(v).toFixed(2)]),
+    ),
     totalesPorTributo: [...porTributo.values()]
+      .filter((t) => !r2(t.total).isZero())
       .sort((a, b) => a.codigo.localeCompare(b.codigo))
       .map((t) => ({ codigo: t.codigo, nombre: t.nombre, total: r2(t.total).toFixed(2) })),
     efectivoEsperado,

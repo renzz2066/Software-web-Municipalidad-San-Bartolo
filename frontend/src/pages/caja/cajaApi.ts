@@ -113,3 +113,64 @@ export function useRecibos(filtros: FiltrosRecibos, recarga = 0) {
 
   return { recibos, error }
 }
+
+export const RUTA_CIERRE = '/caja/cierre'
+export const RUTA_CIERRES = '/caja/cierres'
+
+// GET /caja/cierre (resumen propio; el cierre guardado si ya cerró), GET /caja/cierres/:id.
+export interface Cierre {
+  id: number | null
+  fecha: string
+  cerrado: boolean
+  cajero: { id: number; usuario: string; nombre?: string }
+  cantidadRecibos: number
+  cantidadExtornos: number
+  total: string
+  totalesPorMedio: Record<string, string>
+  totalesPorTributo: { codigo: string; nombre: string; total: string }[]
+  efectivoEsperado: string
+  efectivoDeclarado: string | null
+  diferencia: string | null
+  cerradoEn: string | null
+  diasSinCerrar?: string[]
+}
+
+// GET /caja/cierres?fecha= (caja.reportes)
+export interface CierresDia {
+  fecha: string
+  cierres: {
+    id: number
+    cajero: { id: number; usuario: string; nombre: string }
+    cantidadRecibos: number
+    cantidadExtornos: number
+    total: string
+    diferencia: string | null
+    cerradoEn: string
+  }[]
+  sinCerrar: { id: number; usuario: string; nombre: string }[]
+  total: string
+}
+
+export function useResumenCierre(fecha: string, recarga = 0) {
+  const [cierre, setCierre] = useState<Cierre | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function cargar() {
+      setError(null)
+      try {
+        const { data } = await api.get<Cierre>('/caja/cierre', { params: { fecha } })
+        if (!cancelled) setCierre(data)
+      } catch (err) {
+        if (!cancelled) setError(mensajeError(err))
+      }
+    }
+    void cargar()
+    return () => {
+      cancelled = true
+    }
+  }, [fecha, recarga])
+
+  return { cierre, error }
+}

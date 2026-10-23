@@ -7,7 +7,7 @@ import { soles } from '../rentas/contribuyentes/tipos'
 import { hoyIso, useEstadoCuenta } from '../rentas/estado-cuenta/estadoCuentaApi'
 import { TablaEstadoCuenta } from '../rentas/estado-cuenta/TablaEstadoCuenta'
 import { mensajeError } from '../rentas/maestros/maestrosApi'
-import { descripcionCuota, type Liquidacion, MEDIOS_PAGO, type MedioPago, type Recibo, RUTA_COBRO, RUTA_RECIBOS, useRecibos } from './cajaApi'
+import { descripcionCuota, type Liquidacion, MEDIOS_PAGO, type MedioPago, type Recibo, RUTA_CIERRE, RUTA_COBRO, RUTA_RECIBOS, useRecibos, useResumenCierre } from './cajaApi'
 import { ListaRecibos } from './ListaRecibos'
 
 // Caja → Cancelaciones del Día (specs/caja-v1.md, K1–K3): contribuyente → cuotas del estado de
@@ -25,6 +25,9 @@ export function Cobro() {
   const [recarga, setRecarga] = useState(0)
   const { datos, error, isLoading } = useEstadoCuenta(contribuyenteId, hoyIso(), recarga)
   const { recibos, error: errorRecibos } = useRecibos({ fecha: hoyIso() }, recarga)
+  // K5: con la caja de hoy cerrada no se cobra; días anteriores abiertos solo avisan (decisión 8).
+  const { cierre } = useResumenCierre(hoyIso(), recarga)
+  const cajaCerrada = cierre?.cerrado === true
   const [elegidas, setElegidas] = useState<Set<number>>(new Set())
   const [liquidacion, setLiquidacion] = useState<Liquidacion | null>(null)
   const [medio, setMedio] = useState<MedioPago>('EFECTIVO')
@@ -126,22 +129,43 @@ export function Cobro() {
         </Link>
 
         <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <span
               aria-hidden="true"
               className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
             >
               <i className="bi bi-cash-stack" />
             </span>
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className="text-lg font-bold text-mar-profundo">Cancelaciones del Día</h1>
               <p className="text-sm text-slate-500">
                 Elige las cuotas que paga el contribuyente. La mora y el reajuste se calculan a hoy; las cuotas de un convenio se
                 pagan en orden.
               </p>
             </div>
+            <Link
+              to={RUTA_CIERRE}
+              className="rounded-md border border-mar-profundo/30 px-4 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
+            >
+              <i aria-hidden="true" className="bi bi-lock mr-1" />
+              {cajaCerrada ? 'Ver mi cierre' : 'Cerrar mi caja'}
+            </Link>
           </div>
         </header>
+
+        {cajaCerrada && (
+          <p role="status" className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700">
+            Tu caja de hoy está cerrada: ya no puedes cobrar ni extornar hasta mañana.
+          </p>
+        )}
+        {!!cierre?.diasSinCerrar?.length && (
+          <p role="status" className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Tienes días con cobros sin cerrar ({cierre.diasSinCerrar.join(', ')}).{' '}
+            <Link to={`${RUTA_CIERRE}?fecha=${cierre.diasSinCerrar[0]}`} className="font-semibold underline focus-visible:outline-3 focus-visible:outline-turquesa">
+              Cerrarlos
+            </Link>
+          </p>
+        )}
 
         <section aria-labelledby="cobro-contribuyente" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
           <h2 id="cobro-contribuyente" className="sr-only">
@@ -198,7 +222,7 @@ export function Cobro() {
               </p>
             )}
 
-            {!liquidacion && datos && datos.lineas.length > 0 && (
+            {!liquidacion && !cajaCerrada && datos && datos.lineas.length > 0 && (
               <div className="sticky bottom-0 mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white pt-4">
                 <p className="text-sm text-slate-600" aria-live="polite">
                   {elegidas.size === 0 ? (

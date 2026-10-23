@@ -13,25 +13,25 @@ reportes mensuales y por clasificador presupuestal, pérdida automática del fra
 - Como CAJERO, quiero cobrar en ventanilla las cuotas que elija el contribuyente, entregar un
   recibo imprimible, extornar un cobro equivocado y cerrar mi caja al final del día; como
   SUPERVISOR, quiero ver los cierres y recibos de todos los cajeros.
-- [ ] K1 Cobro: buscar contribuyente → estado de cuenta a hoy (`GET /contribuyentes/:id/estado-cuenta`)
+- [x] K1 Cobro: buscar contribuyente → estado de cuenta a hoy (`GET /contribuyentes/:id/estado-cuenta`)
   → marcar cuotas (`PENDIENTE`, y `COACTIVO` según decisión 6) → ver insoluto + reajuste + mora +
   derecho de emisión y total → medio de pago → cobrar. El backend vuelve a liquidar a la fecha del
   servidor; si el total no coincide con el mostrado → 409 "la deuda cambió, vuelve a consultar".
-- [ ] K2 Recibo: número correlativo por año (`REC 2026-000001`, `correlativos.ts`), sin huecos ni
+- [x] K2 Recibo: número correlativo por año (`REC 2026-000001`, `correlativos.ts`), sin huecos ni
   duplicados; imprimible desde el navegador (A5/media hoja) con datos del contribuyente, detalle por
   cuota, total en letras, medio de pago, cajero, fecha y hora. Reimpresión marcada "COPIA".
-- [ ] K3 Efectos del cobro (en la misma `$transaction`): cuota → `CANCELADO`; si todas las cuotas de
+- [x] K3 Efectos del cobro (en la misma `$transaction`): cuota → `CANCELADO`; si todas las cuotas de
   una OP/RD quedan pagadas → valor `CANCELADO`; si es cuota de convenio → `convenio_detalle`
   `CANCELADO` y, con todo el cronograma pagado, convenio `CANCELADO` (decisión 9). Dos cajeros
   sobre la misma cuota: el segundo recibe 409.
-- [ ] K4 Extorno con motivo obligatorio: recibo y pagos → `EXTORNADO` (nunca `DELETE`), cada cuota
+- [x] K4 Extorno con motivo obligatorio: recibo y pagos → `EXTORNADO` (nunca `DELETE`), cada cuota
   vuelve a su estado previo (`PENDIENTE` o `COACTIVO`), y el valor/convenio que se había cancelado
   vuelve a vigente. Reglas de quién y cuándo en decisión 7.
-- [ ] K5 Cierre diario por cajero: resumen del día (recibos, extornos, total por medio de pago y por
+- [x] K5 Cierre diario por cajero: resumen del día (recibos, extornos, total por medio de pago y por
   tributo) → cerrar. Tras el cierre ese cajero no cobra ni extorna en esa fecha. El cierre es una
   foto inmutable e imprimible.
-- [ ] K6 Consulta: recibos por fecha, cajero, contribuyente o número; cierres por fecha.
-- [ ] K7 Accesos: niveles existentes `caja.cancelaciones` (K1–K3, K5 propio), `caja.extornos` (K4),
+- [x] K6 Consulta: recibos por fecha, cajero, contribuyente o número; cierres por fecha.
+- [x] K7 Accesos: niveles existentes `caja.cancelaciones` (K1–K3, K5 propio), `caja.extornos` (K4),
   `caja.reportes` (K6 de todos los cajeros). Sin nivel → 403.
 
 ## 2. Archivos afectados
@@ -104,7 +104,10 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
 - [x] Fase C: extorno (K4). Desde el detalle del recibo; listas en "Mis recibos de hoy" (cobro) y `Caja → Extorno`
   (por día o número; adelanta `GET /caja/recibos` de K6). Una cuota de convenio no se extorna si una posterior
   sigue pagada en otro recibo (orden de la decisión 4 al revés).
-- [ ] Fase D: cierre diario y consultas (K5, K6) + niveles (K7). `lint` + `build` + `test` en cada fase.
+- [x] Fase D: cierre diario y consultas (K5, K6) + niveles (K7). `lint` + `build` + `test` en cada fase.
+  `/caja/cierre` (resumen en vivo → arqueo → cerrar; también un día anterior abierto) y `/caja/cierres/:id`
+  imprimible; `Caja → Reportes`: cierres del día (con quién falta cerrar) y recibos. El resumen omite medios y
+  tributos que netean cero. Con la caja cerrada, la pantalla de cobro avisa y oculta el cobro.
 - [ ] PR de `feat/caja-v1` hacia `main` (cuando el usuario lo pida).
 
 ## 5. Verificación

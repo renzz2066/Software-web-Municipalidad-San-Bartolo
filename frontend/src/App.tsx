@@ -30,6 +30,8 @@ import { MemorandumImprimible } from './pages/rentas/transferencias/MemorandumIm
 import { Cobro } from './pages/caja/Cobro'
 import { ReciboImprimible } from './pages/caja/ReciboImprimible'
 import { Extornos } from './pages/caja/Extornos'
+import { Reportes } from './pages/caja/Reportes'
+import { CierreCaja, CierreImprimible } from './pages/caja/CierreCaja'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -41,6 +43,7 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.control-recaudacion': <ControlRecaudacion />,
   'caja.cancelaciones': <Cobro />,
   'caja.extornos': <Extornos />,
+  'caja.reportes': <Reportes />,
 }
 
 function App() {
@@ -251,6 +254,26 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="rentas.control-recaudacion">
               <MemorandumImprimible />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/caja/cierre"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="caja">
+              <CierreCaja />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/caja/cierres/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="caja">
+              <CierreImprimible />
             </RequireNivel>
           </ProtectedRoute>
         }

@@ -2,6 +2,7 @@ import { EstadoCuenta, EstadoValor, MedioPago, Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import {
   CuotaACobrar,
+  errorCierre,
   errorCobro,
   errorEstadoCuotas,
   errorExtorno,
@@ -151,6 +152,15 @@ describe('errorExtornoConvenio', () => {
   });
 });
 
+describe('errorCierre', () => {
+  it('hoy o un día anterior abierto; nunca futuro ni dos veces', () => {
+    expect(errorCierre('2026-10-24', '2026-10-24', false)).toBeNull();
+    expect(errorCierre('2026-10-20', '2026-10-24', false)).toBeNull();
+    expect(errorCierre('2026-10-25', '2026-10-24', false)).toMatch(/aún no llega/);
+    expect(errorCierre('2026-10-24', '2026-10-24', true)).toMatch(/ya está cerrada/);
+  });
+});
+
 describe('resumenCierre', () => {
   const predial = { codigo: '001', nombre: 'Predial' };
   const arbitrios = { codigo: '004', nombre: 'Arbitrios' };
@@ -175,6 +185,12 @@ describe('resumenCierre', () => {
   it('arqueo: sobrante positivo, faltante negativo', () => {
     expect(resumenCierre(cobrados, [], '131.50').diferencia?.toFixed(2)).toBe('1.50');
     expect(resumenCierre(cobrados, [], 129).diferencia?.toFixed(2)).toBe('-1.00');
+  });
+
+  it('lo cobrado y extornado el mismo día no deja líneas en cero', () => {
+    const r = resumenCierre(cobrados, [cobrados[1]]);
+    expect(r.totalesPorMedio).toEqual({ EFECTIVO: '130.00' });
+    expect(r.totalesPorTributo.map((t) => t.codigo)).toEqual(['001', '004']);
   });
 
   it('día sin movimientos', () => {
