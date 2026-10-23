@@ -115,7 +115,7 @@ Decisiones (aprobadas 2026-10-23):
 - [x] Fase E: transferencia a coactivo + situación en estado de cuenta (V7, V9). Se puede elegir qué
   valores exigibles entran en el memorándum; Control y Recaudación tiene pestañas Emisión / Transferencia.
   `lint` + `build` + `test` en cada fase.
-- [ ] PR de `feat/rentas-valores` hacia `main` (cuando el usuario lo pida).
+- [x] PR de `feat/rentas-valores` hacia `main` (cuando el usuario lo pida): #12.
 
 ## 5. Verificación
 `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` ·
