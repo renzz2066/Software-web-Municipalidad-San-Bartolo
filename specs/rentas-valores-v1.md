@@ -108,7 +108,10 @@ Decisiones (aprobadas 2026-10-23):
   `GET /rentas/maestros/zonas` también acepta `rentas.control-recaudacion` (filtro por zona).
 - [x] Fase C: notificación, exigibilidad y anulación (V4, V5). La notificación se puede corregir mientras el
   valor siga vigente. Un contribuyente cuyo predial no se puede calcular (datos incompletos) tampoco recibe OP.
-- [ ] Fase D: fraccionamiento con cronograma imprimible (V6).
+- [x] Fase D: fraccionamiento con cronograma imprimible (V6). Cuota k vence el último día del mes k
+  siguiente al convenio; el interés es el del año (Maestros), no lo elige el usuario. La deuda FRACCIONADO
+  ya no se suma en ficha ni estado de cuenta (la reemplazan las cuotas FRACCION; también toca
+  `backend/src/contribuyentes/contribuyentes.service.ts`).
 - [ ] Fase E: transferencia a coactivo + situación en estado de cuenta (V7, V9).
   `lint` + `build` + `test` en cada fase.
 - [ ] PR de `feat/rentas-valores` hacia `main` (cuando el usuario lo pida).

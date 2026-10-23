@@ -7,7 +7,8 @@ import { liquidar } from './liquidacion.js';
 import { cargarTasas, iso } from './tasas.js';
 
 const D = Prisma.Decimal;
-const ESTADOS: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.COACTIVO, EstadoCuenta.FRACCIONADO];
+// FRACCIONADO no: esa deuda la reemplazan las cuotas del convenio (tributo FRACCION); sumarla la duplicaría.
+const ESTADOS: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.COACTIVO];
 
 // Estado de cuenta a una fecha (C6): la mora y el reajuste se calculan al vuelo, no se guardan.
 // Lo consumen la ficha, la impresión y, más adelante, Caja y Coactiva.

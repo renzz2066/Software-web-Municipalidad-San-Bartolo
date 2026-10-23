@@ -25,6 +25,7 @@ import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
 import { ControlRecaudacion } from './pages/rentas/valores/ControlRecaudacion'
 import { ValorImprimible } from './pages/rentas/valores/ValorImprimible'
+import { ConvenioImprimible } from './pages/rentas/fraccionamiento/ConvenioImprimible'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -224,6 +225,16 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="rentas.control-recaudacion">
               <ValorImprimible />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/control-recaudacion/convenios/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.control-recaudacion">
+              <ConvenioImprimible />
             </RequireNivel>
           </ProtectedRoute>
         }
