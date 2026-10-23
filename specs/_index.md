@@ -8,4 +8,4 @@
 - `auditoria-pantalla-v1.md`: activa. Pantalla `/accesibilidad/auditoria` + logout real.
 - `rentas-nucleo-v1.md`: activa. Contribuyentes, predios/DJ, maestros, cálculo predial/arbitrios, estado de cuenta.
 - `rentas-valores-v1.md`: activa. OP/RD, notificación, fraccionamiento, transferencia a coactivo.
-- `caja-v1.md`: borrador. Cobros en ventanilla, recibo correlativo, extornos y cierre diario por cajero.
+- `caja-v1.md`: activa. Cobros en ventanilla, recibo correlativo, extornos y cierre diario por cajero.

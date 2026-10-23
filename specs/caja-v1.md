@@ -1,5 +1,5 @@
 # Spec: Caja — cobros en ventanilla, extornos y cierre diario (v1)
-<!-- Formato fijo 5 secciones. BORRADOR: pendiente de aprobación. Las `*-v1.md` cerradas no se editan. -->
+<!-- Formato fijo 5 secciones. Aprobada 2026-10-23. Las `*-v1.md` cerradas no se editan. -->
 
 Referencia SIMUN: `Programas/MENU_CAJA.MPR` (Cancelaciones del Día, Extorno, Reportes);
 `Formularios/frmcobros01`, `frmcajaextorno`, `frmcajaopen`/`frmclosecaja`; tablas `pagos`
@@ -64,7 +64,7 @@ Mejoras frente a SIMUN (incluidas en v1):
 Propuestas para v2: pérdida automática del convenio, descuentos por ordenanza, recaudación BCP,
 reporte por clasificador presupuestal, recibo con QR de verificación, arqueo con denominaciones.
 
-Decisiones (pendientes de aprobación; recomendación entre paréntesis):
+Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
 1. Modelo: `recibos (anio, numero, contribuyenteId, cajeroId, fecha, total, medioPago, numOperacion?,
    estado CANCELADO|EXTORNADO, motivoExtorno?, extornadoPorId?, fechaExtorno?, cierreId?)`, único
    `(anio, numero)`; `pagos` gana `reciboId`, `reajuste`, `derechoEmision`, `subtotal`, `estadoAnterior`
@@ -93,7 +93,7 @@ Decisiones (pendientes de aprobación; recomendación entre paréntesis):
     Recaudación que use los pagos de esta. (Fuera.)
 
 ## 4. Tareas
-- [ ] Rama `feat/caja-v1` desde `main`; primer commit = esta spec (`docs(specs)`).
+- [x] Rama `feat/caja-v1` desde `main`; primer commit = esta spec (`docs(specs)`).
 - [ ] Fase A: migración (decisión 1) + serie `REC` + reglas puras con tests.
 - [ ] Fase B: cobro + recibo imprimible + efectos en valor/convenio (K1–K3).
 - [ ] Fase C: extorno (K4).
