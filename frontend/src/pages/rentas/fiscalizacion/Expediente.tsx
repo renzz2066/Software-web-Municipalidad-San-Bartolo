@@ -42,6 +42,8 @@ function Requerimiento({ expediente: e, alGuardar }: { expediente: ExpedienteApi
   const [nombre, setNombre] = useState(e.notificacion?.nombre ?? '')
   const [error, setError] = useState<string | null>(null)
   const [procesando, setProcesando] = useState(false)
+  // Si el expediente se anula con el formulario abierto, este se cierra solo.
+  const enEdicion = editando && editable(e)
 
   async function guardar() {
     if (!fecha || !hora) return setError('Indica la fecha y la hora de la inspección')
@@ -83,7 +85,7 @@ function Requerimiento({ expediente: e, alGuardar }: { expediente: ExpedienteApi
         </div>
       </div>
 
-      {!editando ? (
+      {!enEdicion ? (
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
           <dt className="text-slate-500">Inspección</dt>
           <dd>{e.inspeccion ? `${e.inspeccion.fecha} a las ${e.inspeccion.hora}` : 'Sin programar'}</dd>

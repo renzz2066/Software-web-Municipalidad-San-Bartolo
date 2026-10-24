@@ -5,6 +5,7 @@ import { useAccesos } from '../../../context/AccesosContext'
 import { PanelCalculo } from '../calculo/PanelCalculo'
 import { ValoresContribuyente } from '../valores/ValoresContribuyente'
 import { ConveniosContribuyente } from '../fraccionamiento/ConveniosContribuyente'
+import { ExpedientesContribuyente } from '../fiscalizacion/ExpedientesContribuyente'
 import { hoyIso, useEstadoCuenta } from '../estado-cuenta/estadoCuentaApi'
 import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
 import { mensajeError } from '../maestros/maestrosApi'
@@ -67,6 +68,7 @@ const PESTANAS = [
   { id: 'calculo', titulo: 'Calcular deuda' },
   { id: 'valores', titulo: 'Valores', nivel: 'rentas.control-recaudacion' },
   { id: 'convenios', titulo: 'Convenios', nivel: 'rentas.control-recaudacion' },
+  { id: 'fiscalizacion', titulo: 'Fiscalización', nivel: 'rentas.fiscalizacion' },
 ] as const
 
 function direccionPredio(p: PredioFicha['predio']): string {
@@ -268,7 +270,8 @@ export function FichaContribuyente() {
                 </div>
               )}
               {pestana === 'valores' && <ValoresContribuyente contribuyenteId={c.id} />}
-              {pestana === 'convenios' && <ConveniosContribuyente contribuyenteId={c.id} alGrabar={() => setRefreshKey((k) => k + 1)} />}
+              {pestana === 'fiscalizacion' && <ExpedientesContribuyente contribuyenteId={c.id} />}
+              {pestana === 'convenios' &&<ConveniosContribuyente contribuyenteId={c.id} alGrabar={() => setRefreshKey((k) => k + 1)} />}
             </main>
           </>
         )}
