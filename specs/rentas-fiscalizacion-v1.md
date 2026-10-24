@@ -1,5 +1,5 @@
 # Spec: Rentas — fiscalización tributaria y multas (v1)
-<!-- Formato fijo 5 secciones. BORRADOR: pendiente de aprobación. Las `*-v1.md` cerradas no se editan. -->
+<!-- Formato fijo 5 secciones. Aprobada 2026-10-23. Las `*-v1.md` cerradas no se editan. -->
 
 Referencia SIMUN: `Programas/MENU01.MPR` → Fiscalización Tributaria (`frmfiscalizacion_prediosdeclarados`,
 `frmfiscalizacion_fichas`, `fis_requerimientos`, `frmfiscalizacion_calcular_autoavaluo/arbitrio`);
@@ -83,7 +83,7 @@ Mejoras frente a SIMUN (incluidas en v1):
 Propuestas para v2: gradualidad por ordenanza, fiscalización masiva por cruce con Catastro o
 licencias, inspección desde el celular con fotos y geolocalización, programación de inspecciones.
 
-Decisiones (pendientes de aprobación; recomendación entre paréntesis):
+Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
 1. Modelo: `fiscalizaciones (anio, numero, tipo, contribuyenteId, fiscalizadorId, anioDesde,
    anioHasta, estado, fechaInspeccion?, notificación como en valores, motivoAnulacion?)`,
    `fiscalizacion_predios (fiscalizacionId, predioId, ficha JSON, liquidacion JSON)`,
@@ -112,7 +112,7 @@ Decisiones (pendientes de aprobación; recomendación entre paréntesis):
    año actual, y solo años con parámetros cargados en Maestros. (Sí.)
 
 ## 4. Tareas
-- [ ] Rama `feat/rentas-fiscalizacion` desde `main`; primer commit = esta spec (`docs(specs)`).
+- [x] Rama `feat/rentas-fiscalizacion` desde `main`; primer commit = esta spec (`docs(specs)`).
 - [ ] Fase A: migración (decisiones 1, 5, 6) + series `FIS`/`RM` + tributo `MULTA` + Maestros
   (fiscalizadores, infracciones) + reglas puras con tests.
 - [ ] Fase B: expediente, requerimiento imprimible con notificación y ficha de inspección (F1–F3).
