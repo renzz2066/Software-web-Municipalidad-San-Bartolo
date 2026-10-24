@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ModalidadNotificacion, TipoValor } from '@prisma/client';
+import type { TipoValorEmision } from './valores.reglas.js';
 import {
   ArrayUnique,
   IsArray,
@@ -27,7 +28,7 @@ export class EmisionDto {
   @IsArray()
   @ArrayUnique()
   @IsIn([TipoValor.OP, TipoValor.RD], { each: true, message: 'Tipo de valor no válido (OP o RD)' })
-  tipos?: TipoValor[];
+  tipos?: TipoValorEmision[];
 
   // Sin contribuyente = emisión masiva.
   @IsOptional()

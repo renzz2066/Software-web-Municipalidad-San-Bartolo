@@ -113,8 +113,12 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
 
 ## 4. Tareas
 - [x] Rama `feat/rentas-fiscalizacion` desde `main`; primer commit = esta spec (`docs(specs)`).
-- [ ] Fase A: migración (decisiones 1, 5, 6) + series `FIS`/`RM` + tributo `MULTA` + Maestros
-  (fiscalizadores, infracciones) + reglas puras con tests.
+- [x] Fase A: migración (decisiones 1, 5, 6) + series `FIS`/`RM` + tributo `MULTA` + Maestros
+  (fiscalizadores, infracciones) + reglas puras con tests. Migración `20261025120000_rentas_fiscalizacion`
+  (también `ajusteDeId` y `fiscalizacionId` de las decisiones 3 y 4); `valores_cab` gana además `infraccionId`
+  y `declaracionId` para que la RM muestre su infracción y su DJ. Infracciones en Maestros → Fiscalización
+  (editables aunque el año tenga deuda; las usadas en una RM no se quitan) y se copian al abrir año. La DJ
+  manual no acepta el motivo `FISCALIZACION`; la emisión de Control y Recaudación sigue limitada a OP/RD.
 - [ ] Fase B: expediente, requerimiento imprimible con notificación y ficha de inspección (F1–F3).
 - [ ] Fase C: liquidación y resolución con RD de fiscalización y diferencias en cuenta corriente (F4, F5).
 - [ ] Fase D: multas 178.1 en el expediente y 176.1 en la DJ extemporánea, con RM imprimible (F6, F7) + niveles (F8).

@@ -17,6 +17,7 @@ import {
   type CuotaEmitible,
   type Exclusiones,
   type ValorPlan,
+  type TipoValorEmision,
 } from './valores.reglas.js';
 
 const D = Prisma.Decimal;
@@ -31,14 +32,14 @@ export interface NotificacionEntrada {
 
 export interface EmisionEntrada {
   anio: number;
-  tipos?: TipoValor[];
+  tipos?: TipoValorEmision[];
   contribuyenteId?: number;
   zonaId?: number;
   soloVencidas?: boolean;
   montoMinimo?: number;
 }
 
-const TRIBUTO_DE: Record<TipoValor, TipoCalculo> = { OP: 'PREDIAL', RD: 'ARBITRIOS' };
+const TRIBUTO_DE: Record<TipoValorEmision, TipoCalculo> = { OP: 'PREDIAL', RD: 'ARBITRIOS' };
 // Mismo margen que el cálculo masivo: miles de filas con la latencia a Supabase.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 120_000 };
 const LOTE = 500;

@@ -7,6 +7,8 @@ import {
   DepreciacionesDto,
   EscalaDto,
   FeriadosDto,
+  FiscalizadorDto,
+  InfraccionesDto,
   ParametroFraccionamientoDto,
   TarifasArbitriosDto,
   TasasMoraDto,
@@ -28,6 +30,7 @@ const TABLAS_COPIABLES = [
   'depreciaciones',
   'tarifasArbitrios',
   'parametrosFraccionamiento',
+  'infracciones',
 ] as const;
 
 @Injectable()
@@ -276,6 +279,9 @@ export class MaestrosService {
             data: sinMeta(await tx.parametroFraccionamiento.findMany({ where: { anio: desde } })),
           })
         ).count;
+      case 'infracciones':
+        if (await tx.infraccion.count({ where: { anio: hacia } })) return 0;
+        return (await tx.infraccion.createMany({ data: sinMeta(await tx.infraccion.findMany({ where: { anio: desde } })) })).count;
     }
   }
 
@@ -320,6 +326,64 @@ export class MaestrosService {
       ordenanza: this.texto(dto.ordenanza),
     };
     return this.prisma.parametroFraccionamiento.upsert({ where: { anio }, update: data, create: { anio, ...data } });
+  }
+
+  // ---- Fiscalización: fiscalizadores e infracciones (specs/rentas-fiscalizacion-v1.md) ----
+
+  listarFiscalizadores() {
+    return this.prisma.fiscalizador.findMany({ orderBy: [{ activo: 'desc' }, { nombre: 'asc' }] });
+  }
+
+  crearFiscalizador(dto: FiscalizadorDto) {
+    return this.unico(() => this.prisma.fiscalizador.create({ data: this.limpiarFiscalizador(dto) }), 'Ya existe un fiscalizador con ese documento');
+  }
+
+  actualizarFiscalizador(id: number, dto: FiscalizadorDto) {
+    return this.unico(
+      () => this.prisma.fiscalizador.update({ where: { id }, data: this.limpiarFiscalizador(dto) }),
+      'Ya existe un fiscalizador con ese documento o ese usuario ya está asignado',
+    );
+  }
+
+  listarInfracciones(anio: number) {
+    this.validarAnio(anio);
+    return this.prisma.infraccion.findMany({ where: { anio }, orderBy: { codigo: 'asc' } });
+  }
+
+  // Reemplaza el conjunto del año, pero una infracción ya usada en una RM no se puede quitar
+  // (la RM la referencia); sí se puede corregir su texto o sus % para multas futuras.
+  async guardarInfracciones(anio: number, dto: InfraccionesDto) {
+    this.validarAnio(anio);
+    const ordenanza = this.texto(dto.ordenanza);
+    const items = dto.items.map((i) => {
+      const [articulo, numeral] = i.codigo.split('.');
+      return {
+        codigo: i.codigo,
+        articulo,
+        numeral,
+        descripcion: i.descripcion.trim(),
+        base: i.base,
+        porcentajeNatural: i.porcentajeNatural,
+        porcentajeJuridica: i.porcentajeJuridica,
+        ordenanza,
+      };
+    });
+    this.sinDuplicados(items, (i) => i.codigo, 'Hay un código de infracción repetido');
+    return this.prisma.$transaction(async (tx) => {
+      const quitadas = await tx.infraccion.findMany({
+        where: { anio, codigo: { notIn: items.map((i) => i.codigo) } },
+        select: { id: true, codigo: true, _count: { select: { valores: true } } },
+      });
+      const usada = quitadas.find((i) => i._count.valores > 0);
+      if (usada) {
+        throw new ConflictException(`La infracción ${usada.codigo} ya se usó en una resolución de multa; no se puede quitar`);
+      }
+      await tx.infraccion.deleteMany({ where: { id: { in: quitadas.map((i) => i.id) } } });
+      for (const i of items) {
+        await tx.infraccion.upsert({ where: { anio_codigo: { anio, codigo: i.codigo } }, update: i, create: { anio, ...i } });
+      }
+      return tx.infraccion.findMany({ where: { anio }, orderBy: { codigo: 'asc' } });
+    });
   }
 
   // ---- Catálogos de ubicación ----
@@ -412,6 +476,15 @@ export class MaestrosService {
 
   private limpiarCatalogo(dto: { codigo: string; nombre: string }) {
     return { codigo: dto.codigo.trim().toUpperCase(), nombre: dto.nombre.trim().toUpperCase() };
+  }
+
+  private limpiarFiscalizador(dto: FiscalizadorDto) {
+    return {
+      nombre: dto.nombre.trim().toUpperCase(),
+      dni: dto.dni.trim().toUpperCase(),
+      ...(dto.activo !== undefined && { activo: dto.activo }),
+      ...(dto.usuarioId !== undefined && { usuarioId: dto.usuarioId }),
+    };
   }
 
   private limpiarVia(dto: ViaDto) {

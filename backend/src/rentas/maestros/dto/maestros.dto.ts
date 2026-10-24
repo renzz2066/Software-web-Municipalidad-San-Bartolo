@@ -1,7 +1,8 @@
-import { ComponenteConstruccion } from '@prisma/client';
+import { BaseMulta, ComponenteConstruccion } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsIn,
@@ -214,6 +215,57 @@ export class ParametroFraccionamientoDto extends ConOrdenanzaDto {
   @Min(0)
   @Max(100, { message: 'El interés es un porcentaje mensual (0-100)' })
   interesMensual: number;
+}
+
+// Fiscalización (specs/rentas-fiscalizacion-v1.md, decisiones 2 y 5).
+export class FiscalizadorDto {
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  @MaxLength(100)
+  nombre: string;
+
+  @IsString()
+  @Matches(/^[0-9A-Za-z]{8,12}$/, { message: 'El documento debe tener de 8 a 12 caracteres (DNI o CE)' })
+  dni: string;
+
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  usuarioId?: number | null;
+}
+
+export class InfraccionDto {
+  @IsString()
+  @Matches(/^\d{3}\.\d{1,2}$/, { message: 'El código es artículo.numeral, por ejemplo 176.1' })
+  codigo: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Describe la infracción' })
+  @MaxLength(250)
+  descripcion: string;
+
+  @IsEnum(BaseMulta, { message: 'La base es UIT o TRIBUTO_OMITIDO' })
+  base: BaseMulta;
+
+  @IsNumber(DOS_DECIMALES, { message: 'El % para persona natural admite 2 decimales' })
+  @Min(0)
+  @Max(500)
+  porcentajeNatural: number;
+
+  @IsNumber(DOS_DECIMALES, { message: 'El % para persona jurídica admite 2 decimales' })
+  @Min(0)
+  @Max(500)
+  porcentajeJuridica: number;
+}
+
+export class InfraccionesDto extends ConOrdenanzaDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InfraccionDto)
+  items: InfraccionDto[];
 }
 
 export class AbrirAnioDto {

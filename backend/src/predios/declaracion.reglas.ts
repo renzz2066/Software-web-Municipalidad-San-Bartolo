@@ -1,6 +1,7 @@
 // Reglas puras de la declaración jurada de predios (specs/rentas-nucleo-v1.md, C3).
 
-export type Motivo = 'INSCRIPCION' | 'COMPRA' | 'VENTA' | 'RECTIFICACION' | 'BAJA';
+export const MOTIVOS_DJ = ['INSCRIPCION', 'COMPRA', 'VENTA', 'RECTIFICACION', 'BAJA'] as const;
+export type Motivo = (typeof MOTIVOS_DJ)[number];
 
 export interface CondominoDJ {
   contribuyenteId: number;

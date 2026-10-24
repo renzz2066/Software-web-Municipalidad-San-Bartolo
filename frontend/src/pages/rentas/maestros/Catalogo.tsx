@@ -2,8 +2,8 @@ import { Fragment, useEffect, useState } from 'react'
 import { api } from '../../../lib/api'
 import { mensajeError } from './maestrosApi'
 
-// Catálogo de ubicación (zonas, urbanizaciones, vías): alta y edición por fila.
-// Sin borrado: los predios y aranceles los referencian (FK Restrict).
+// Catálogo de Maestros (zonas, urbanizaciones, vías, fiscalizadores): alta y edición por fila.
+// Sin borrado: otros registros los referencian (FK Restrict); `interruptor` activa o desactiva.
 
 interface Campo {
   key: string
@@ -15,16 +15,18 @@ interface Props {
   titulo: string
   url: string
   campos: Campo[]
+  interruptor?: { key: string; label: string } // campo booleano (p. ej. activo)
   alCambiar?: () => void
 }
 
-type Registro = { id: number } & Record<string, string | number>
+type Registro = { id: number } & Record<string, string | number | boolean | null>
 
-export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
+export function Catalogo({ titulo, url, campos, interruptor, alCambiar }: Props) {
   const vacio = () => Object.fromEntries(campos.map((c) => [c.key, ''])) as Record<string, string>
   const [registros, setRegistros] = useState<Registro[]>([])
   const [editandoId, setEditandoId] = useState<number | 'nuevo' | null>(null)
   const [form, setForm] = useState<Record<string, string>>(vacio)
+  const [encendido, setEncendido] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +55,7 @@ export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
     setError(null)
     setEditandoId(r ? r.id : 'nuevo')
     setForm(r ? Object.fromEntries(campos.map((c) => [c.key, String(r[c.key] ?? '')])) : vacio())
+    setEncendido(r && interruptor ? r[interruptor.key] !== false : true)
   }
 
   async function guardar() {
@@ -63,9 +66,10 @@ export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
     }
     setIsSaving(true)
     setError(null)
+    const cuerpo = interruptor ? { ...form, [interruptor.key]: encendido } : form
     try {
-      if (editandoId === 'nuevo') await api.post(url, form)
-      else await api.patch(`${url}/${editandoId}`, form)
+      if (editandoId === 'nuevo') await api.post(url, cuerpo)
+      else await api.patch(`${url}/${editandoId}`, cuerpo)
       setEditandoId(null)
       setRefreshKey((k) => k + 1)
       alCambiar?.()
@@ -96,6 +100,17 @@ export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
           />
         </td>
       ))}
+      {interruptor && (
+        <td className="px-2 py-1 text-center">
+          <input
+            type="checkbox"
+            aria-label={interruptor.label}
+            checked={encendido}
+            onChange={(e) => setEncendido(e.target.checked)}
+            className="h-4 w-4 accent-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+          />
+        </td>
+      )}
       <td className="whitespace-nowrap px-2 py-1 text-right">
         <button
           type="button"
@@ -151,6 +166,11 @@ export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
                     {c.label}
                   </th>
                 ))}
+                {interruptor && (
+                  <th scope="col" className="px-2 py-2 text-center">
+                    {interruptor.label}
+                  </th>
+                )}
                 <th scope="col" className="px-2 py-2">
                   <span className="sr-only">Acciones</span>
                 </th>
@@ -160,7 +180,7 @@ export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
               {editandoId === 'nuevo' && filaEdicion}
               {registros.length === 0 && editandoId !== 'nuevo' && (
                 <tr>
-                  <td colSpan={campos.length + 1} className="px-2 py-4 text-center text-slate-500">
+                  <td colSpan={campos.length + (interruptor ? 2 : 1)} className="px-2 py-4 text-center text-slate-500">
                     Sin registros.
                   </td>
                 </tr>
@@ -175,6 +195,15 @@ export function Catalogo({ titulo, url, campos, alCambiar }: Props) {
                         {r[c.key]}
                       </td>
                     ))}
+                    {interruptor && (
+                      <td className="px-2 py-2 text-center">
+                        {r[interruptor.key] === false ? (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-500">No</span>
+                        ) : (
+                          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700">Sí</span>
+                        )}
+                      </td>
+                    )}
                     <td className="px-2 py-2 text-right">
                       <button
                         type="button"

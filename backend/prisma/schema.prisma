@@ -54,6 +54,7 @@ enum TipoTributo {
 enum TipoValor {
   OP // Orden de Pago
   RD // Resolucion de Determinacion
+  RM // Resolucion de Multa (Codigo Tributario art. 77)
 }
 
 enum EstadoValor {
@@ -84,6 +85,25 @@ enum MotivoDeclaracion {
   VENTA
   RECTIFICACION
   BAJA
+  FISCALIZACION // la aplica la resolución de un expediente de fiscalización
+}
+
+enum TipoFiscalizacion {
+  ORDINARIA
+  A_SOLICITUD
+}
+
+enum EstadoFiscalizacion {
+  ABIERTO
+  INSPECCIONADO
+  RESUELTO
+  SIN_DIFERENCIAS
+  ANULADO
+}
+
+enum BaseMulta {
+  UIT // % de la UIT del año de la infracción
+  TRIBUTO_OMITIDO // % del tributo omitido
 }
 
 enum ComponenteConstruccion {
@@ -217,30 +237,33 @@ model Usuario {
   auditorias        Auditoria[]
 
   // Autoría (creadoPor/modificadoPor) de las tablas principales
-  usuariosCreados           Usuario[]           @relation("UsuarioCreadoPor")
-  usuariosModificados       Usuario[]           @relation("UsuarioModificadoPor")
-  rolesCreados              Rol[]               @relation("RolCreadoPor")
-  rolesModificados          Rol[]               @relation("RolModificadoPor")
-  oficinasCreadas           Oficina[]           @relation("OficinaCreadoPor")
-  oficinasModificadas       Oficina[]           @relation("OficinaModificadoPor")
-  contribuyentesCreados     Contribuyente[]     @relation("ContribuyenteCreadoPor")
-  contribuyentesModificados Contribuyente[]     @relation("ContribuyenteModificadoPor")
-  prediosCreados            Predio[]            @relation("PredioCreadoPor")
-  prediosModificados        Predio[]            @relation("PredioModificadoPor")
-  vehiculosCreados          Vehiculo[]          @relation("VehiculoCreadoPor")
-  vehiculosModificados      Vehiculo[]          @relation("VehiculoModificadoPor")
-  cuentasCreadas            CuentaCorriente[]   @relation("CuentaCreadoPor")
-  cuentasModificadas        CuentaCorriente[]   @relation("CuentaModificadoPor")
-  pagosModificados          Pago[]              @relation("PagoModificadoPor")
-  conveniosModificados      ConvenioCab[]       @relation("ConvenioModificadoPor")
-  valoresCreados            ValorCab[]          @relation("ValorCreadoPor")
-  valoresModificados        ValorCab[]          @relation("ValorModificadoPor")
-  expedientesCreados        CoactivoExp[]       @relation("ExpedienteCreadoPor")
-  expedientesModificados    CoactivoExp[]       @relation("ExpedienteModificadoPor")
-  licenciasCreadas          Licencia[]          @relation("LicenciaCreadoPor")
-  licenciasModificadas      Licencia[]          @relation("LicenciaModificadoPor")
-  declaracionesCreadas      DeclaracionJurada[] @relation("DeclaracionCreadoPor")
-  declaracionesModificadas  DeclaracionJurada[] @relation("DeclaracionModificadoPor")
+  usuariosCreados            Usuario[]           @relation("UsuarioCreadoPor")
+  usuariosModificados        Usuario[]           @relation("UsuarioModificadoPor")
+  rolesCreados               Rol[]               @relation("RolCreadoPor")
+  rolesModificados           Rol[]               @relation("RolModificadoPor")
+  oficinasCreadas            Oficina[]           @relation("OficinaCreadoPor")
+  oficinasModificadas        Oficina[]           @relation("OficinaModificadoPor")
+  contribuyentesCreados      Contribuyente[]     @relation("ContribuyenteCreadoPor")
+  contribuyentesModificados  Contribuyente[]     @relation("ContribuyenteModificadoPor")
+  prediosCreados             Predio[]            @relation("PredioCreadoPor")
+  prediosModificados         Predio[]            @relation("PredioModificadoPor")
+  vehiculosCreados           Vehiculo[]          @relation("VehiculoCreadoPor")
+  vehiculosModificados       Vehiculo[]          @relation("VehiculoModificadoPor")
+  cuentasCreadas             CuentaCorriente[]   @relation("CuentaCreadoPor")
+  cuentasModificadas         CuentaCorriente[]   @relation("CuentaModificadoPor")
+  pagosModificados           Pago[]              @relation("PagoModificadoPor")
+  conveniosModificados       ConvenioCab[]       @relation("ConvenioModificadoPor")
+  valoresCreados             ValorCab[]          @relation("ValorCreadoPor")
+  valoresModificados         ValorCab[]          @relation("ValorModificadoPor")
+  expedientesCreados         CoactivoExp[]       @relation("ExpedienteCreadoPor")
+  expedientesModificados     CoactivoExp[]       @relation("ExpedienteModificadoPor")
+  licenciasCreadas           Licencia[]          @relation("LicenciaCreadoPor")
+  licenciasModificadas       Licencia[]          @relation("LicenciaModificadoPor")
+  declaracionesCreadas       DeclaracionJurada[] @relation("DeclaracionCreadoPor")
+  declaracionesModificadas   DeclaracionJurada[] @relation("DeclaracionModificadoPor")
+  fiscalizacionesCreadas     Fiscalizacion[]     @relation("FiscalizacionCreadoPor")
+  fiscalizacionesModificadas Fiscalizacion[]     @relation("FiscalizacionModificadoPor")
+  fiscalizador               Fiscalizador?
 
   @@index([rolId])
   @@index([oficinaId])
@@ -298,16 +321,17 @@ model Contribuyente {
   modificadoPorId Int?
   modificadoPor   Usuario?       @relation("ContribuyenteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
-  predios       PredioContribuyente[]
-  vehiculos     Vehiculo[]
-  cuentas       CuentaCorriente[]
-  pagos         Pago[]                @relation("PagadorContribuyente")
-  recibos       Recibo[]
-  valores       ValorCab[]
-  convenios     ConvenioCab[]
-  coactivoExps  CoactivoExp[]
-  licencias     Licencia[]
-  declaraciones DeclaracionJurada[]
+  predios         PredioContribuyente[]
+  vehiculos       Vehiculo[]
+  cuentas         CuentaCorriente[]
+  pagos           Pago[]                @relation("PagadorContribuyente")
+  recibos         Recibo[]
+  fiscalizaciones Fiscalizacion[]
+  valores         ValorCab[]
+  convenios       ConvenioCab[]
+  coactivoExps    CoactivoExp[]
+  licencias       Licencia[]
+  declaraciones   DeclaracionJurada[]
 
   @@index([nombreCompleto])
   @@index([estado])
@@ -392,6 +416,7 @@ model Predio {
   valores            ValorCab[]
   licencias          Licencia[]
   declaraciones      DeclaracionJurada[]
+  fiscalizaciones    FiscalizacionPredio[]
 
   @@index([zonaId])
   @@index([urbanizacionId])
@@ -662,6 +687,7 @@ model DeclaracionJurada {
   anio            Int
   motivo          MotivoDeclaracion
   fecha           DateTime          @db.Date
+  fechaHecho      DateTime?         @db.Date // adquisición o inscripción: inicia el plazo de la DJ (D.L. 776 art. 14)
   snapshot        Json // predio + pisos + condóminos al momento de la DJ
   observacion     String?           @db.VarChar(250)
   createdAt       DateTime          @default(now())
@@ -670,6 +696,9 @@ model DeclaracionJurada {
   creadoPor       Usuario?          @relation("DeclaracionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
   modificadoPorId Int?
   modificadoPor   Usuario?          @relation("DeclaracionModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  multas              ValorCab[]
+  fiscalizacionPredio FiscalizacionPredio[]
 
   @@index([predioId, anio])
   @@index([contribuyenteId, anio])
@@ -696,38 +725,43 @@ model Tupa {
 // ============================================================
 
 model CuentaCorriente {
-  id               Int           @id @default(autoincrement())
+  id               Int              @id @default(autoincrement())
   contribuyenteId  Int
-  contribuyente    Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  contribuyente    Contribuyente    @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
   predioId         Int?
-  predio           Predio?       @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  predio           Predio?          @relation(fields: [predioId], references: [id], onDelete: Restrict)
   vehiculoId       Int?
-  vehiculo         Vehiculo?     @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  vehiculo         Vehiculo?        @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
   tributoId        Int
-  tributo          Tributo       @relation(fields: [tributoId], references: [id], onDelete: Restrict)
+  tributo          Tributo          @relation(fields: [tributoId], references: [id], onDelete: Restrict)
   anioFiscal       Int
-  cuota            Int           @default(0) // 0 = anual, 1-4 trimestral, 1-12 mensual
-  importe          Decimal       @db.Decimal(12, 2)
-  descuento        Decimal       @default(0) @db.Decimal(12, 2)
-  reajuste         Decimal       @default(0) @db.Decimal(12, 2)
-  mora             Decimal       @default(0) @db.Decimal(12, 2)
-  derechoEmision   Decimal       @default(0) @db.Decimal(12, 2)
-  fechaVencimiento DateTime?     @db.Date
-  estado           EstadoCuenta  @default(PENDIENTE)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  cuota            Int              @default(0) // 0 = anual, 1-4 trimestral, 1-12 mensual
+  importe          Decimal          @db.Decimal(12, 2)
+  descuento        Decimal          @default(0) @db.Decimal(12, 2)
+  reajuste         Decimal          @default(0) @db.Decimal(12, 2)
+  mora             Decimal          @default(0) @db.Decimal(12, 2)
+  derechoEmision   Decimal          @default(0) @db.Decimal(12, 2)
+  fechaVencimiento DateTime?        @db.Date
+  estado           EstadoCuenta     @default(PENDIENTE)
+  // Diferencia de fiscalización sobre una cuota protegida (specs/rentas-fiscalizacion-v1.md, decisión 3)
+  ajusteDeId       Int?
+  ajusteDe         CuentaCorriente? @relation("AjusteCuenta", fields: [ajusteDeId], references: [id], onDelete: Restrict)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   creadoPorId      Int?
-  creadoPor        Usuario?      @relation("CuentaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  creadoPor        Usuario?         @relation("CuentaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
   modificadoPorId  Int?
-  modificadoPor    Usuario?      @relation("CuentaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+  modificadoPor    Usuario?         @relation("CuentaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   pagos            Pago[]
   convenioDetalles ConvenioDet[]
-  convenioDeudas   ConvenioDeuda[] @relation("ConvenioDeudaOrigen")
+  convenioDeudas   ConvenioDeuda[]   @relation("ConvenioDeudaOrigen")
   valorDetalles    ValorDet[]
   coactivoDetalles CoactivoDet[]
+  ajustes          CuentaCorriente[] @relation("AjusteCuenta")
 
   @@index([contribuyenteId, anioFiscal])
+  @@index([ajusteDeId])
   @@index([predioId, anioFiscal])
   @@index([tributoId, anioFiscal])
   @@index([estado])
@@ -906,6 +940,13 @@ model ValorCab {
   motivoAnulacion       String?                @db.VarChar(200)
   transferenciaId       Int?
   transferencia         TransferenciaCoactivo? @relation(fields: [transferenciaId], references: [id], onDelete: Restrict)
+  // Origen fiscalización (RD por diferencias y RM): specs/rentas-fiscalizacion-v1.md, decisiones 4-6
+  fiscalizacionId       Int?
+  fiscalizacion         Fiscalizacion?         @relation(fields: [fiscalizacionId], references: [id], onDelete: Restrict)
+  infraccionId          Int? // solo RM
+  infraccion            Infraccion?            @relation(fields: [infraccionId], references: [id], onDelete: Restrict)
+  declaracionId         Int? // RM por DJ extemporánea (F7)
+  declaracion           DeclaracionJurada?     @relation(fields: [declaracionId], references: [id], onDelete: Restrict)
   estado                EstadoValor            @default(EMITIDO)
   createdAt             DateTime               @default(now())
   creadoPorId           Int?
@@ -919,7 +960,103 @@ model ValorCab {
   @@unique([tipo, anio, numero])
   @@index([contribuyenteId])
   @@index([estado])
+  @@index([fiscalizacionId])
   @@map("valores_cab")
+}
+
+// ============================================================
+// Fiscalización tributaria (specs/rentas-fiscalizacion-v1.md, decisiones 1, 2 y 5)
+// Ref SIMUN: requerimiento.dbf + Fichas_Fiscalizacion.dbf + tabla_tecnico_fisca.dbf +
+//   INFRACCIONES_MULTATRIBUTARIA.dbf + Multas_tributarias.dbf
+// ============================================================
+
+// Inspectores de campo: no siempre son usuarios del sistema (usuarioId opcional).
+model Fiscalizador {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @db.VarChar(100)
+  dni       String   @unique @db.VarChar(15)
+  activo    Boolean  @default(true)
+  usuarioId Int?     @unique
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  fiscalizaciones Fiscalizacion[]
+
+  @@map("fiscalizadores")
+}
+
+model Fiscalizacion {
+  id                    Int                    @id @default(autoincrement())
+  anio                  Int
+  numero                String                 @db.VarChar(15) // FIS 2026-000001
+  tipo                  TipoFiscalizacion
+  contribuyenteId       Int
+  contribuyente         Contribuyente          @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  fiscalizadorId        Int
+  fiscalizador          Fiscalizador           @relation(fields: [fiscalizadorId], references: [id], onDelete: Restrict)
+  anioDesde             Int
+  anioHasta             Int
+  estado                EstadoFiscalizacion    @default(ABIERTO)
+  fechaInspeccion       DateTime?              @db.Timestamptz(6) // fecha y hora de la visita (requerimiento)
+  fechaNotificacion     DateTime?              @db.Date
+  modalidadNotificacion ModalidadNotificacion?
+  notificadoDni         String?                @db.VarChar(15)
+  notificadoNombre      String?                @db.VarChar(100)
+  observacion           String?                @db.VarChar(500)
+  motivoAnulacion       String?                @db.VarChar(200)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  creadoPorId           Int?
+  creadoPor             Usuario?               @relation("FiscalizacionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId       Int?
+  modificadoPor         Usuario?               @relation("FiscalizacionModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  predios FiscalizacionPredio[]
+  valores ValorCab[]
+
+  @@unique([anio, numero])
+  @@index([contribuyenteId])
+  @@index([estado])
+  @@map("fiscalizaciones")
+}
+
+// Un predio del expediente: lo verificado en la inspección (ficha) y su liquidación contra lo declarado.
+model FiscalizacionPredio {
+  id              Int                @id @default(autoincrement())
+  fiscalizacionId Int
+  fiscalizacion   Fiscalizacion      @relation(fields: [fiscalizacionId], references: [id], onDelete: Restrict)
+  predioId        Int
+  predio          Predio             @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  ficha           Json? // mismos datos que la DJ: terreno, pisos, instalaciones, uso, zona
+  liquidacion     Json? // por año y tributo: declarado, fiscalizado, diferencia (al resolver)
+  declaracionId   Int? // DJ de motivo FISCALIZACION con la que se aplicó la ficha al predio
+  declaracion     DeclaracionJurada? @relation(fields: [declaracionId], references: [id], onDelete: Restrict)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([fiscalizacionId, predioId])
+  @@index([predioId])
+  @@map("fiscalizacion_predios")
+}
+
+// Infracciones y sanciones por año (Código Tributario arts. 176 y 178, tablas de infracciones).
+model Infraccion {
+  id                 Int       @id @default(autoincrement())
+  anio               Int
+  codigo             String    @db.VarChar(10) // 176.1, 176.2, 178.1
+  articulo           String    @db.VarChar(5)
+  numeral            String    @db.VarChar(5)
+  descripcion        String    @db.VarChar(250)
+  base               BaseMulta
+  porcentajeNatural  Decimal   @db.Decimal(7, 2) // persona natural y sucesión
+  porcentajeJuridica Decimal   @db.Decimal(7, 2)
+  ordenanza          String?   @db.VarChar(60)
+  createdAt          DateTime  @default(now())
+
+  valores ValorCab[]
+
+  @@unique([anio, codigo])
+  @@map("infracciones")
 }
 
 // Memorándum de transferencia de valores exigibles a Cobranza Coactiva (SIMUN: memo_coactivo)
