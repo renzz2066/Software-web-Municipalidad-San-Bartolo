@@ -119,7 +119,11 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
   y `declaracionId` para que la RM muestre su infracción y su DJ. Infracciones en Maestros → Fiscalización
   (editables aunque el año tenga deuda; las usadas en una RM no se quitan) y se copian al abrir año. La DJ
   manual no acepta el motivo `FISCALIZACION`; la emisión de Control y Recaudación sigue limitada a OP/RD.
-- [ ] Fase B: expediente, requerimiento imprimible con notificación y ficha de inspección (F1–F3).
+- [x] Fase B: expediente, requerimiento imprimible con notificación y ficha de inspección (F1–F3).
+  `GET /rentas/fiscalizacion/opciones` arma la apertura (predios del contribuyente, años no prescritos con UIT y
+  escala). La ficha reusa el formulario de la DJ (`predios/DatosPredioCampos.tsx` + `predioForm.ts`, extraídos de
+  `DeclaracionForm`); `GET /predios/catalogos` acepta también `rentas.fiscalizacion`. Guardar una ficha borra la
+  liquidación previa del predio.
 - [ ] Fase C: liquidación y resolución con RD de fiscalización y diferencias en cuenta corriente (F4, F5).
 - [ ] Fase D: multas 178.1 en el expediente y 176.1 en la DJ extemporánea, con RM imprimible (F6, F7) + niveles (F8).
   `lint` + `build` + `test` en cada fase.
