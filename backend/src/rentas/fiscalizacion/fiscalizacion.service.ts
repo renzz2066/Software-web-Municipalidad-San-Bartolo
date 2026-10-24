@@ -1,16 +1,41 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoFiscalizacion, EstadoRegistro, ModalidadNotificacion, Prisma, TipoFiscalizacion } from '@prisma/client';
+import {
+  EstadoCuenta,
+  EstadoFiscalizacion,
+  EstadoRegistro,
+  ModalidadNotificacion,
+  Prisma,
+  TipoFiscalizacion,
+  TipoValor,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import type { DatosPredioDto, OtraInstalacionDto, PisoDto } from '../../predios/dto/declaracion.dto.js';
-import { INCLUDE_PREDIO } from '../../predios/predios.service.js';
+import { INCLUDE_PREDIO, PrediosService } from '../../predios/predios.service.js';
+import { CalculoService, type DatosPredioCalculo } from '../calculo/calculo.service.js';
+import { vencimientos } from '../calculo/motor.js';
 import { reservarCorrelativos } from '../correlativos.js';
-import { iso } from '../estado-cuenta/tasas.js';
+import { cargarTasas, iso, liquidarCuenta } from '../estado-cuenta/tasas.js';
 import { hoyLima } from '../fechas.js';
-import { type AccionExpediente, errorAccion, errorExpediente, errorRequerimiento, estadoTrasFichas, rangoFiscalizable } from './fiscalizacion.reglas.js';
+import { ESTADOS_VALOR_VIGENTE } from '../valores/valores.reglas.js';
+import {
+  type AccionExpediente,
+  type CuotaDeclarada,
+  type ResumenDiferencias,
+  diferencias,
+  errorAccion,
+  errorExpediente,
+  errorRequerimiento,
+  estadoTrasFichas,
+  planAjustes,
+  rangoFiscalizable,
+} from './fiscalizacion.reglas.js';
 
 type Tx = Prisma.TransactionClient;
 
 const OPCIONES_TX = { maxWait: 10_000, timeout: 20_000 };
+// Liquidar recalcula cada año del expediente; con la latencia a Supabase necesita margen.
+const OPCIONES_TX_LIQUIDACION = { maxWait: 10_000, timeout: 120_000 };
+const D = Prisma.Decimal;
 const ZONA_LIMA = '-05:00';
 
 export interface AperturaEntrada {
@@ -37,6 +62,45 @@ export interface FichaEntrada {
   observacion?: string;
 }
 
+// La ficha como la usa el motor de cálculo (mismos campos que lee cargarPredios).
+function datosCalculo(f: FichaEntrada): DatosPredioCalculo {
+  return {
+    viaId: f.predio.viaId,
+    urbanizacionId: f.predio.urbanizacionId ?? null,
+    zonaId: f.predio.zonaId ?? null,
+    usoPredio: f.predio.usoPredio.trim().toUpperCase(),
+    areaTerreno: f.predio.areaTerreno,
+    pisos: f.pisos.map((p) => ({
+      nivel: p.nivel,
+      anioConstruccion: p.anioConstruccion ?? null,
+      clasificacion: p.clasificacion,
+      material: p.material,
+      estadoConservacion: p.estadoConservacion,
+      categorias: p.categorias,
+      areaConstruida: p.areaConstruida,
+    })),
+    otrasInstalaciones: f.otrasInstalaciones.map((o) => ({ valor: o.valor ?? null })),
+  };
+}
+
+const n2 = (x: Prisma.Decimal) => x.toFixed(2);
+
+// Liquidación serializable (se guarda en fiscalizacion_predios.liquidacion y la ve la pantalla).
+function serializar(anios: { anio: number; base: Prisma.Decimal | null; r: ResumenDiferencias }[]) {
+  const total = anios.reduce((t, a) => t.plus(a.r.totalOmitido), new D(0));
+  return {
+    totalOmitido: n2(total),
+    sinDiferencias: total.isZero(),
+    anios: anios.map(({ anio, base, r }) => ({
+      anio,
+      baseFiscalizada: base ? n2(base) : null,
+      porTributo: r.porAnio.map((x) => ({ tributo: x.tributo, declarado: n2(x.declarado), fiscalizado: n2(x.fiscalizado), omitido: n2(x.omitido) })),
+      aumentos: r.aumentos.map((x) => ({ ...x, declarado: n2(x.declarado), fiscalizado: n2(x.fiscalizado), diferencia: n2(x.diferencia) })),
+      disminuciones: r.disminuciones.map((x) => ({ ...x, declarado: n2(x.declarado), fiscalizado: n2(x.fiscalizado), diferencia: n2(x.diferencia) })),
+    })),
+  };
+}
+
 const SELECT_CONTRIBUYENTE = {
   id: true,
   tipoPersona: true,
@@ -54,10 +118,15 @@ const limaFechaHora = (d: Date) => {
 
 // Expedientes de fiscalización (specs/rentas-fiscalizacion-v1.md, F1–F3): apertura con número FIS,
 // requerimiento de inspección con su notificación y ficha por predio. La ficha no cambia el predio:
-// eso lo hace la resolución (fase C) con una DJ de motivo FISCALIZACION.
+// eso lo hace la resolución (F4–F5) con una DJ de motivo FISCALIZACION, junto con las diferencias en
+// cuenta corriente y la RD de fiscalización.
 @Injectable()
 export class FiscalizacionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly calculo: CalculoService,
+    private readonly predios: PrediosService,
+  ) {}
 
   // Datos para abrir un expediente: predios activos del contribuyente, si declaró, años permitidos.
   async opciones(contribuyenteId: number) {
@@ -173,6 +242,7 @@ export class FiscalizacionService {
         fiscalizador: { select: { id: true, nombre: true, dni: true } },
         creadoPor: { select: { nombres: true, apellidos: true } },
         predios: { include: { predio: { include: INCLUDE_PREDIO } }, orderBy: { predioId: 'asc' } },
+        valores: { select: { id: true, tipo: true, anio: true, numero: true, estado: true, totalDeuda: true, predioId: true }, orderBy: { id: 'asc' } },
       },
     });
     if (!f) {
@@ -196,6 +266,8 @@ export class FiscalizacionService {
         ? { fecha: iso(f.fechaNotificacion), modalidad: f.modalidadNotificacion, dni: f.notificadoDni, nombre: f.notificadoNombre }
         : null,
       predios: f.predios.map((p) => ({ predioId: p.predioId, ficha: p.ficha, liquidacion: p.liquidacion, predio: p.predio })),
+      liquidacion: f.predios[0]?.liquidacion ?? null,
+      valores: f.valores.map((v) => ({ ...v, numero: `${v.anio}-${v.numero}`, totalDeuda: n2(v.totalDeuda) })),
     };
   }
 
@@ -270,6 +342,222 @@ export class FiscalizacionService {
       }
     }, OPCIONES_TX);
     return this.obtener(id);
+  }
+
+  // F4: diferencia por año, tributo y cuota entre lo fiscalizado y lo declarado. No escribe.
+  async liquidar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.paraAccion(tx, id, 'LIQUIDAR');
+      const { anios } = await this.plan(tx, id);
+      return serializar(anios);
+    }, OPCIONES_TX_LIQUIDACION);
+  }
+
+  // F5 (decisiones 3 y 4), en una transacción: sin aumentos el expediente se cierra SIN_DIFERENCIAS y
+  // el predio no cambia. Con aumentos: la ficha pasa al predio como DJ FISCALIZACION, cada aumento
+  // entra a la cuenta corriente (sube la cuota libre, o fila de diferencia sobre la protegida, o cuota
+  // nueva) y se emite una RD por año y predio con lo determinado, ligada al expediente.
+  async resolver(id: number) {
+    await this.prisma.$transaction(async (tx) => {
+      await this.paraAccion(tx, id, 'RESOLVER');
+      const { f, anios } = await this.plan(tx, id);
+      const liquidacion = serializar(anios) as unknown as Prisma.InputJsonValue;
+      const hoy = hoyLima();
+      const anioActual = Number(hoy.slice(0, 4));
+
+      if (anios.every((a) => a.r.aumentos.length === 0)) {
+        await tx.fiscalizacionPredio.updateMany({ where: { fiscalizacionId: id }, data: { liquidacion } });
+        await this.cambiarEstado(tx, id, EstadoFiscalizacion.INSPECCIONADO, EstadoFiscalizacion.SIN_DIFERENCIAS);
+        return;
+      }
+
+      const referencia = `Fiscalización FIS ${f.anio}-${f.numero}`;
+      for (const p of f.predios) {
+        const declaracionId = await this.predios.aplicarFicha(tx, {
+          predioId: p.predioId,
+          contribuyenteId: f.contribuyenteId,
+          anio: anioActual,
+          fecha: hoy,
+          ficha: p.ficha,
+          observacion: referencia,
+        });
+        await tx.fiscalizacionPredio.update({ where: { id: p.id }, data: { declaracionId, liquidacion } });
+      }
+
+      const tocadas: { id: number; anio: number; predioId: number | null }[] = [];
+      for (const { anio, r, declaradas, tributos } of anios) {
+        const plan = planAjustes(r.aumentos, declaradas);
+        const porId = new Map(declaradas.map((c) => [c.id, c]));
+        for (const a of plan.actualizar) {
+          const { count } = await tx.cuentaCorriente.updateMany({
+            where: { id: a.id, estado: EstadoCuenta.PENDIENTE },
+            data: { importe: a.importe },
+          });
+          if (count === 0) {
+            throw new ConflictException('Alguna cuota cambió de estado mientras se resolvía; vuelve a liquidar');
+          }
+          tocadas.push({ id: a.id, anio, predioId: porId.get(a.id)!.predioId });
+        }
+        const nuevas = [
+          ...plan.ajustes.map((a) => ({ ...a, vence: porId.get(a.ajusteDeId)!.fechaVencimiento })),
+          ...plan.crear.map((c) => ({ ...c, ajusteDeId: null, vence: new Date(vencimientos(anio)[c.cuota - 1] ?? `${anio}-12-31`) })),
+        ];
+        for (const n of nuevas) {
+          const fila = await tx.cuentaCorriente.create({
+            data: {
+              contribuyenteId: f.contribuyenteId,
+              predioId: n.predioId,
+              tributoId: tributos.get(n.tributo)!,
+              anioFiscal: anio,
+              cuota: n.cuota,
+              importe: n.importe,
+              fechaVencimiento: n.vence,
+              ajusteDeId: n.ajusteDeId,
+            },
+            select: { id: true },
+          });
+          tocadas.push({ id: fila.id, anio, predioId: n.predioId });
+        }
+      }
+      await this.emitirRD(tx, f, anios, tocadas, hoy);
+      await this.cambiarEstado(tx, id, EstadoFiscalizacion.INSPECCIONADO, EstadoFiscalizacion.RESUELTO);
+    }, OPCIONES_TX_LIQUIDACION);
+    return this.obtener(id);
+  }
+
+  // RD de fiscalización (decisión 4): misma serie RD que Control y Recaudación, una por año y predio.
+  // El predial va por contribuyente: con un solo predio fiscalizado se liga a ese predio; con varios,
+  // va en una RD del año sin predio. Detalle = cada cuota determinada, liquidada a la fecha de emisión.
+  private async emitirRD(
+    tx: Tx,
+    f: { id: number; contribuyenteId: number; predios: { predioId: number }[] },
+    anios: { anio: number; base: Prisma.Decimal | null }[],
+    tocadas: { id: number; anio: number; predioId: number | null }[],
+    hoy: string,
+  ) {
+    const predioUnico = f.predios.length === 1 ? f.predios[0].predioId : null;
+    const grupos = new Map<string, { anio: number; predioId: number | null; ids: number[]; conPredial: boolean }>();
+    for (const t of tocadas) {
+      const predioId = t.predioId ?? predioUnico;
+      const k = `${t.anio}|${predioId ?? '-'}`;
+      const g = grupos.get(k) ?? { anio: t.anio, predioId, ids: [], conPredial: false };
+      g.ids.push(t.id);
+      if (t.predioId === null) g.conPredial = true;
+      grupos.set(k, g);
+    }
+    const cuentas = await tx.cuentaCorriente.findMany({
+      where: { id: { in: tocadas.map((t) => t.id) } },
+      select: {
+        id: true,
+        anioFiscal: true,
+        cuota: true,
+        importe: true,
+        derechoEmision: true,
+        fechaVencimiento: true,
+        estado: true,
+        tributo: { select: { tipo: true } },
+      },
+    });
+    const porId = new Map(cuentas.map((c) => [c.id, c]));
+    const { ipm, tim } = await cargarTasas(tx);
+    const lista = [...grupos.values()].sort((a, b) => a.anio - b.anio || (a.predioId ?? 0) - (b.predioId ?? 0));
+    const anioEmision = Number(hoy.slice(0, 4));
+    const numeros = await reservarCorrelativos(tx, 'RD', anioEmision, lista.length);
+    const bases = new Map(anios.map((a) => [a.anio, a.base]));
+    for (const [i, g] of lista.entries()) {
+      const detalles = g.ids.map((cid) => {
+        const c = porId.get(cid)!;
+        const l = liquidarCuenta(c, hoy, ipm, tim);
+        return { cuentaCorrienteId: cid, importe: l.insoluto, reajuste: l.reajuste, mora: l.mora, subtotal: l.total };
+      });
+      await tx.valorCab.create({
+        data: {
+          tipo: TipoValor.RD,
+          anio: anioEmision,
+          numero: numeros[i],
+          contribuyenteId: f.contribuyenteId,
+          predioId: g.predioId,
+          baseImponible: g.conPredial ? (bases.get(g.anio) ?? null) : null,
+          totalDeuda: detalles.reduce((t, d) => t.plus(d.subtotal), new D(0)),
+          fechaEmision: new Date(hoy),
+          fiscalizacionId: f.id,
+          detalles: { create: detalles },
+        },
+      });
+    }
+  }
+
+  // Lo fiscalizado (motor con la ficha) contra lo declarado (cuenta corriente), por cada año del expediente.
+  private async plan(tx: Tx, id: number) {
+    const f = await tx.fiscalizacion.findUniqueOrThrow({
+      where: { id },
+      select: {
+        id: true,
+        anio: true,
+        numero: true,
+        contribuyenteId: true,
+        anioDesde: true,
+        anioHasta: true,
+        predios: { select: { id: true, predioId: true, ficha: true }, orderBy: { predioId: 'asc' } },
+      },
+    });
+    const predios = f.predios.map((p) => ({ ...p, ficha: p.ficha as unknown as FichaEntrada }));
+    if (predios.some((p) => !p.ficha)) {
+      throw new BadRequestException('Falta la ficha de inspección de algún predio');
+    }
+    const predioIds = predios.map((p) => p.predioId);
+    const sustituir = new Map(predios.map((p) => [p.predioId, datosCalculo(p.ficha)]));
+
+    const anios = [];
+    for (let anio = f.anioDesde; anio <= f.anioHasta; anio++) {
+      const { lineas, tributos, base } = await this.calculo.lineasFiscalizacion(tx, anio, f.contribuyenteId, sustituir);
+      const codigo = new Map([...tributos].map(([c, tid]) => [tid, c]));
+      const delExpediente = (predioId: number | null) => predioId === null || predioIds.includes(predioId);
+      const fiscalizado = lineas
+        .filter((l) => delExpediente(l.predioId))
+        .map((l) => ({ anio, tributo: codigo.get(l.tributoId)!, predioId: l.predioId, cuota: l.cuota, importe: l.importe }));
+      const cuentas = await tx.cuentaCorriente.findMany({
+        where: {
+          contribuyenteId: f.contribuyenteId,
+          anioFiscal: anio,
+          tributoId: { in: [...tributos.values()] },
+          OR: [{ predioId: null }, { predioId: { in: predioIds } }],
+        },
+        select: {
+          id: true,
+          predioId: true,
+          tributoId: true,
+          cuota: true,
+          importe: true,
+          estado: true,
+          ajusteDeId: true,
+          fechaVencimiento: true,
+          valorDetalles: { where: { valor: { estado: { in: ESTADOS_VALOR_VIGENTE } } }, select: { id: true }, take: 1 },
+        },
+      });
+      const declaradas: (CuotaDeclarada & { fechaVencimiento: Date | null })[] = cuentas.map((c) => ({
+        id: c.id,
+        anio,
+        tributo: codigo.get(c.tributoId)!,
+        predioId: c.predioId,
+        cuota: c.cuota,
+        importe: c.importe,
+        estado: c.estado,
+        enValor: c.valorDetalles.length > 0,
+        ajusteDeId: c.ajusteDeId,
+        fechaVencimiento: c.fechaVencimiento,
+      }));
+      const declarado = declaradas.filter((c) => c.estado !== EstadoCuenta.ANULADO);
+      anios.push({ anio, base, r: diferencias(declarado, fiscalizado), declaradas, tributos });
+    }
+    return { f: { ...f, predios }, anios };
+  }
+
+  private async cambiarEstado(tx: Tx, id: number, desde: EstadoFiscalizacion, hacia: EstadoFiscalizacion) {
+    const { count } = await tx.fiscalizacion.updateMany({ where: { id, estado: desde }, data: { estado: hacia } });
+    if (count === 0) {
+      throw new ConflictException('El expediente cambió mientras se resolvía; recarga la página');
+    }
   }
 
   private async paraAccion(tx: Tx, id: number, accion: AccionExpediente) {

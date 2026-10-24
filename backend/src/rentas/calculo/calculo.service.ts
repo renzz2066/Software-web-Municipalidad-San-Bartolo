@@ -28,7 +28,12 @@ export interface CalculoEntrada {
   anio: number;
   contribuyenteId?: number;
   tributos?: TipoCalculo[];
+  // Datos de predio que reemplazan a los guardados, sin escribirlos: la ficha de una fiscalización
+  // (specs/rentas-fiscalizacion-v1.md, F4).
+  sustituir?: Map<number, Omit<PredioCalculo, 'id' | 'titulares'>>;
 }
+
+export type DatosPredioCalculo = Omit<PredioCalculo, 'id' | 'titulares'>;
 
 // El masivo escribe miles de filas por lotes; con la latencia a Supabase necesita margen.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 120_000 };
@@ -100,6 +105,16 @@ export class CalculoService {
     }
   }
 
+  // Lo que el cálculo determinaría para un contribuyente y año, con datos de predio sustitutos
+  // (la ficha de inspección). No escribe: lo usa la liquidación de una fiscalización.
+  async lineasFiscalizacion(tx: Tx, anio: number, contribuyenteId: number, sustituir: Map<number, DatosPredioCalculo>) {
+    const { lineas, tributos, bases, fallidos, respuesta } = await this.preparar(tx, { anio, contribuyenteId, sustituir });
+    if (fallidos.has(contribuyenteId)) {
+      throw new BadRequestException(`No se puede valorizar ${anio}: ${respuesta.errores[0] ?? 'faltan datos del predio'}`);
+    }
+    return { lineas, tributos, base: bases.get(contribuyenteId) ?? null };
+  }
+
   // Para emitir valores (specs/rentas-valores-v1.md, V8): contribuyentes cuya deuda del año cambiaría
   // al recalcular o cuyo predial no se puede calcular (datos incompletos: no se sabe si su deuda está
   // al día); a ellos no se les emite. Devuelve también la base imponible predial de cada uno.
@@ -127,7 +142,9 @@ export class CalculoService {
     const tipos = entrada.tributos?.length ? entrada.tributos : (['PREDIAL', 'ARBITRIOS'] as TipoCalculo[]);
     const params = await this.cargarParametros(tx, anio, tipos);
     const tributos = await this.cargarTributos(tx, tipos);
-    const predios = await this.cargarPredios(tx, contribuyenteId);
+    const predios = (await this.cargarPredios(tx, contribuyenteId)).map((p) =>
+      entrada.sustituir?.has(p.id) ? { ...p, ...entrada.sustituir.get(p.id)! } : p,
+    );
 
     const valorizados = new Map<number, Valorizacion>();
     if (tipos.includes('PREDIAL')) {
@@ -239,10 +256,16 @@ export class CalculoService {
     }
 
     // Existentes del alcance; las de contribuyentes con error no se anulan (se dejan como estaban).
+    // Las diferencias de una fiscalización (ajusteDeId) no son cuotas propias: se suman a la suya.
     const idPredial = tributos.get('PREDIAL');
     const existentes = (
       await tx.cuentaCorriente.findMany({
-        where: { anioFiscal: anio, tributoId: { in: [...tributos.values()] }, ...(contribuyenteId ? { contribuyenteId } : {}) },
+        where: {
+          anioFiscal: anio,
+          ajusteDeId: null,
+          tributoId: { in: [...tributos.values()] },
+          ...(contribuyenteId ? { contribuyenteId } : {}),
+        },
         select: {
           id: true,
           contribuyenteId: true,
@@ -253,11 +276,16 @@ export class CalculoService {
           derechoEmision: true,
           estado: true,
           valorDetalles: { where: { valor: { estado: { in: ESTADOS_VALOR_VIGENTE } } }, select: { id: true }, take: 1 },
+          ajustes: { where: { estado: { not: 'ANULADO' } }, select: { importe: true } },
         },
       })
     )
       .filter((e) => !(fallidos.has(e.contribuyenteId) && e.tributoId === idPredial))
-      .map(({ valorDetalles, ...e }) => ({ ...e, enValor: valorDetalles.length > 0 }));
+      .map(({ valorDetalles, ajustes, ...e }) => ({
+        ...e,
+        enValor: valorDetalles.length > 0,
+        ajustes: ajustes.reduce((t, a) => t.plus(a.importe), new D(0)),
+      }));
     const plan = planificar(lineas, existentes);
 
     const respuesta = {
@@ -282,7 +310,7 @@ export class CalculoService {
       detalle,
       ejecutado: false,
     };
-    return { respuesta, plan, valorizados, existentes, bases, tributos, fallidos };
+    return { respuesta, plan, lineas, valorizados, existentes, bases, tributos, fallidos };
   }
 
   private async cargarParametros(tx: Tx, anio: number, tipos: TipoCalculo[]): Promise<ParametrosAnio> {

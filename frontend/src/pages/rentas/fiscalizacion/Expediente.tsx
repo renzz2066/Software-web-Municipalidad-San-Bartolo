@@ -4,19 +4,23 @@ import { api } from '../../../lib/api'
 import { hoyLocal } from '../../../lib/fechas'
 import { mensajeError } from '../maestros/maestrosApi'
 import { direccion } from '../predios/tipos'
+import { soles } from '../contribuyentes/tipos'
 import { MODALIDADES, type Modalidad } from '../valores/valoresApi'
 import {
   ESTILO_ESTADO,
   ETIQUETA_ESTADO,
   type Expediente as ExpedienteApi,
+  type Liquidacion,
   RUTA_EXPEDIENTES,
   RUTA_FISCALIZACION,
+  RUTA_VALORES_FISCALIZACION,
   etiquetaTipo,
   useExpediente,
 } from './fiscalizacionApi'
 
-// Detalle del expediente (specs/rentas-fiscalizacion-v1.md, F1–F3): requerimiento de inspección con
-// su notificación, ficha por predio y anulación. Con todas las fichas pasa a INSPECCIONADO.
+// Detalle del expediente (specs/rentas-fiscalizacion-v1.md, F1–F5): requerimiento de inspección con
+// su notificación, ficha por predio y anulación. Con todas las fichas pasa a INSPECCIONADO; entonces
+// se liquida (simular) y se resuelve: diferencias en cuenta corriente y RD de fiscalización.
 
 const CAMPO = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa'
 const ETIQUETA = 'block text-xs font-semibold uppercase tracking-wider text-slate-500'
@@ -171,6 +175,173 @@ function Requerimiento({ expediente: e, alGuardar }: { expediente: ExpedienteApi
             </button>
           </div>
         </div>
+      )}
+    </section>
+  )
+}
+
+function TablaLiquidacion({ liquidacion: l }: { liquidacion: Liquidacion }) {
+  return (
+    <div className="space-y-4">
+      {l.anios.map((a) => (
+        <div key={a.anio} className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <caption className="pb-1 text-left text-xs font-bold uppercase tracking-wider text-mar-profundo">
+              Año {a.anio}
+              {a.baseFiscalizada && <span className="ml-2 font-normal normal-case text-slate-500">base imponible fiscalizada {soles(a.baseFiscalizada)}</span>}
+            </caption>
+            <thead>
+              <tr className="border-b border-slate-300 text-xs uppercase tracking-wider text-slate-500">
+                <th scope="col" className="px-2 py-1.5">Tributo</th>
+                <th scope="col" className="px-2 py-1.5 text-right">Declarado</th>
+                <th scope="col" className="px-2 py-1.5 text-right">Fiscalizado</th>
+                <th scope="col" className="px-2 py-1.5 text-right">Omitido</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a.porTributo.map((t) => (
+                <tr key={t.tributo} className="border-b border-slate-100">
+                  <td className="px-2 py-1.5">{t.tributo}</td>
+                  <td className="px-2 py-1.5 text-right">{soles(t.declarado)}</td>
+                  <td className="px-2 py-1.5 text-right">{soles(t.fiscalizado)}</td>
+                  <td className={`px-2 py-1.5 text-right font-semibold ${Number(t.omitido) > 0 ? 'text-red-700' : 'text-slate-500'}`}>
+                    {soles(t.omitido)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {a.disminuciones.length > 0 && (
+            <p className="mt-1 text-xs text-amber-800">
+              {a.disminuciones.length} {a.disminuciones.length === 1 ? 'cuota resulta' : 'cuotas resultan'} menor(es) que lo declarado: no se
+              rebaja aquí, se atiende por descargo.
+            </p>
+          )}
+        </div>
+      ))}
+      <p className="flex justify-between border-t-2 border-slate-300 pt-2 text-base font-bold text-mar-profundo">
+        <span>Tributo omitido</span>
+        <span>{soles(l.totalOmitido)}</span>
+      </p>
+    </div>
+  )
+}
+
+function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; alResolver: (x: ExpedienteApi) => void }) {
+  const [liquidacion, setLiquidacion] = useState<Liquidacion | null>(null)
+  const [confirmando, setConfirmando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [procesando, setProcesando] = useState(false)
+
+  async function liquidar() {
+    setProcesando(true)
+    setError(null)
+    setConfirmando(false)
+    try {
+      const { data } = await api.post<Liquidacion>(`/rentas/fiscalizacion/expedientes/${e.id}/liquidar`)
+      setLiquidacion(data)
+    } catch (err) {
+      setError(mensajeError(err))
+    } finally {
+      setProcesando(false)
+    }
+  }
+
+  async function resolver() {
+    setProcesando(true)
+    setError(null)
+    try {
+      const { data } = await api.post<ExpedienteApi>(`/rentas/fiscalizacion/expedientes/${e.id}/resolver`)
+      alResolver(data)
+    } catch (err) {
+      setError(mensajeError(err))
+      setConfirmando(false)
+      setProcesando(false)
+    }
+  }
+
+  return (
+    <section aria-labelledby="liq-titulo" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-2 ring-mar">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="liq-titulo" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
+          Liquidación de diferencias
+        </h2>
+        <button type="button" onClick={() => void liquidar()} disabled={procesando} className={liquidacion ? BOTON_SEC : BOTON}>
+          {procesando && !confirmando ? 'Liquidando…' : liquidacion ? 'Volver a liquidar' : 'Liquidar diferencias'}
+        </button>
+      </div>
+      <p className="mt-1 text-sm text-slate-600">
+        Compara lo que el cálculo determina con la ficha de inspección contra lo que ya está en la cuenta corriente, año por año. No graba
+        nada hasta resolver.
+      </p>
+      {liquidacion && (
+        <div className="mt-4">
+          <TablaLiquidacion liquidacion={liquidacion} />
+          <p className="mt-3 text-sm text-slate-600">
+            {liquidacion.sinDiferencias
+              ? 'No hay tributo omitido: al resolver, el expediente se cierra sin diferencias y el predio no cambia.'
+              : 'Al resolver: la ficha pasa al predio como declaración jurada de fiscalización, las cuotas pendientes suben, las ya pagadas o en trámite reciben una diferencia y se emite la Resolución de Determinación por año.'}
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            {confirmando && (
+              <button type="button" onClick={() => setConfirmando(false)} disabled={procesando} className={BOTON_SEC}>
+                Volver
+              </button>
+            )}
+            <button type="button" onClick={() => (confirmando ? void resolver() : setConfirmando(true))} disabled={procesando} className={BOTON}>
+              {procesando && confirmando
+                ? 'Resolviendo…'
+                : confirmando
+                  ? liquidacion.sinDiferencias
+                    ? 'Confirmar cierre sin diferencias'
+                    : `Confirmar y emitir RD por ${soles(liquidacion.totalOmitido)}`
+                  : 'Resolver expediente'}
+            </button>
+          </div>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+          {error}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function Resultado({ expediente: e }: { expediente: ExpedienteApi }) {
+  return (
+    <section aria-labelledby="res-titulo" className={TARJETA}>
+      <h2 id="res-titulo" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
+        {e.estado === 'RESUELTO' ? 'Resolución' : 'Cerrado sin diferencias'}
+      </h2>
+      {e.liquidacion && (
+        <div className="mt-3">
+          <TablaLiquidacion liquidacion={e.liquidacion} />
+        </div>
+      )}
+      {e.valores.length > 0 && (
+        <>
+          <h3 className="mt-4 text-xs font-bold uppercase tracking-wider text-slate-500">Valores emitidos</h3>
+          <ul className="mt-1 divide-y divide-slate-100 text-sm">
+            {e.valores.map((v) => (
+              <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+                <Link
+                  to={`${RUTA_VALORES_FISCALIZACION}/${v.id}`}
+                  className="font-mono font-medium text-mar hover:text-mar-profundo hover:underline focus-visible:outline-3 focus-visible:outline-turquesa"
+                >
+                  {v.tipo} N° {v.numero}
+                </Link>
+                <span className="text-slate-600">
+                  {soles(v.totalDeuda)} · {v.estado.toLowerCase()}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-slate-500">
+            La notificación, la exigibilidad y la transferencia a coactivo de estas RD siguen en Control y Recaudación, como cualquier valor.
+          </p>
+        </>
       )}
     </section>
   )
@@ -337,7 +508,13 @@ export function Expediente() {
                   Todas las fichas están registradas: el expediente queda listo para liquidar las diferencias.
                 </p>
               )}
+              {e.estado === 'RESUELTO' && (
+                <p className="mt-3 text-xs text-slate-500">La ficha ya se aplicó a cada predio como declaración jurada de fiscalización.</p>
+              )}
             </section>
+
+            {e.estado === 'INSPECCIONADO' && <Resolucion expediente={e} alResolver={setExpediente} />}
+            {(e.estado === 'RESUELTO' || e.estado === 'SIN_DIFERENCIAS') && <Resultado expediente={e} />}
 
             {editable(e) && <Anulacion expediente={e} alAnular={setExpediente} />}
           </>

@@ -1,6 +1,17 @@
-import { EstadoFiscalizacion, ModalidadNotificacion } from '@prisma/client';
+import { EstadoFiscalizacion, ModalidadNotificacion, Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { diferencias, errorAccion, errorExpediente, errorRequerimiento, estadoTrasFichas, rangoFiscalizable } from './fiscalizacion.reglas.js';
+import {
+  type CuotaDeclarada,
+  diferencias,
+  errorAccion,
+  errorExpediente,
+  errorRequerimiento,
+  estadoTrasFichas,
+  planAjustes,
+  rangoFiscalizable,
+} from './fiscalizacion.reglas.js';
+
+const D = Prisma.Decimal;
 
 const { ABIERTO, INSPECCIONADO, RESUELTO } = EstadoFiscalizacion;
 
@@ -86,7 +97,7 @@ describe('errorRequerimiento', () => {
 });
 
 describe('diferencias', () => {
-  const predial = (cuota: number, importe: string) => ({ anio: 2026, tributo: 'PREDIAL', cuota, importe });
+  const predial = (cuota: number, importe: string) => ({ anio: 2026, tributo: 'PREDIAL', predioId: null, cuota, importe });
 
   it('determina lo que sube por cuota; una diferencia anterior suma a lo declarado', () => {
     const declarado = [1, 2, 3, 4].map((c) => predial(c, '100.00')).concat(predial(1, '10.00'));
@@ -107,8 +118,8 @@ describe('diferencias', () => {
 
   it('lo que baja no se determina: queda para un descargo', () => {
     const r = diferencias(
-      [{ anio: 2026, tributo: 'RESIDUOS', cuota: 1, importe: 30 }],
-      [{ anio: 2026, tributo: 'RESIDUOS', cuota: 1, importe: 20 }],
+      [{ anio: 2026, tributo: 'RESIDUOS', predioId: 5, cuota: 1, importe: 30 }],
+      [{ anio: 2026, tributo: 'RESIDUOS', predioId: 5, cuota: 1, importe: 20 }],
     );
     expect(r.aumentos).toHaveLength(0);
     expect(r.disminuciones[0].diferencia.toFixed(2)).toBe('-10.00');
@@ -126,5 +137,60 @@ describe('diferencias', () => {
     const r = diferencias(filas, filas);
     expect(r.aumentos).toHaveLength(0);
     expect(r.disminuciones).toHaveLength(0);
+  });
+});
+
+describe('diferencias por predio en arbitrios', () => {
+  it('cada predio se compara por separado', () => {
+    const arb = (predioId: number, importe: number) => ({ anio: 2026, tributo: 'RESIDUOS', predioId, cuota: 1, importe });
+    const r = diferencias([arb(5, 30), arb(6, 30)], [arb(5, 30), arb(6, 45)]);
+    expect(r.aumentos.map((a) => [a.predioId, a.diferencia.toFixed(2)])).toEqual([[6, '15.00']]);
+    expect(r.porAnio[0].omitido.toFixed(2)).toBe('15.00');
+  });
+});
+
+describe('planAjustes', () => {
+  const aumento = (cuota: number, diferencia: number) => ({
+    anio: 2026,
+    tributo: 'PREDIAL',
+    predioId: null,
+    cuota,
+    declarado: new D(100),
+    fiscalizado: new D(100 + diferencia),
+    diferencia: new D(diferencia),
+  });
+  const cuota = (id: number, n: number, estado: string, extra: Partial<CuotaDeclarada> = {}): CuotaDeclarada => ({
+    id,
+    anio: 2026,
+    tributo: 'PREDIAL',
+    predioId: null,
+    cuota: n,
+    importe: 100,
+    estado,
+    enValor: false,
+    ajusteDeId: null,
+    ...extra,
+  });
+
+  it('pendiente libre sube; pagada, en coactivo o en un valor recibe una diferencia', () => {
+    const r = planAjustes(
+      [aumento(1, 25), aumento(2, 25), aumento(3, 25), aumento(4, 25)],
+      [cuota(1, 1, 'CANCELADO'), cuota(2, 2, 'PENDIENTE'), cuota(3, 3, 'PENDIENTE', { enValor: true }), cuota(4, 4, 'COACTIVO')],
+    );
+    expect(r.actualizar.map((a) => [a.id, a.importe.toFixed(2)])).toEqual([[2, '125.00']]);
+    expect(r.ajustes.map((a) => [a.ajusteDeId, a.importe.toFixed(2)])).toEqual([
+      [1, '25.00'],
+      [3, '25.00'],
+      [4, '25.00'],
+    ]);
+    expect(r.crear).toHaveLength(0);
+  });
+
+  it('una cuota que no existe o está anulada nace completa; una diferencia previa no es base', () => {
+    const r = planAjustes([aumento(1, 80), aumento(2, 80)], [cuota(9, 2, 'ANULADO'), cuota(10, 1, 'PENDIENTE', { ajusteDeId: 3 })]);
+    expect(r.crear.map((c) => [c.cuota, c.importe.toFixed(2)])).toEqual([
+      [1, '80.00'],
+      [2, '80.00'],
+    ]);
   });
 });

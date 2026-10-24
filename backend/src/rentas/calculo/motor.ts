@@ -188,6 +188,7 @@ export interface CuentaExistente {
   derechoEmision: Num;
   estado: string;
   enValor?: boolean; // incluida en una OP/RD vigente (EMITIDO/NOTIFICADO)
+  ajustes?: Num; // diferencias de fiscalización vigentes sobre esta cuota (filas con ajusteDeId)
 }
 
 export const claveCuenta = (c: { contribuyenteId: number; predioId: number | null; tributoId: number; cuota: number }) =>
@@ -196,7 +197,9 @@ export const claveCuenta = (c: { contribuyenteId: number; predioId: number | nul
 // Solo se tocan cuotas PENDIENTE (o ANULADO que vuelve a corresponder). Las CANCELADO,
 // FRACCIONADO, COACTIVO o EXTORNADO quedan intactas: ya tienen pagos o trámites encima.
 // Una PENDIENTE dentro de un valor vigente tampoco cambia ni se anula: hay que anular el valor
-// antes (specs/rentas-valores-v1.md, V8).
+// antes (specs/rentas-valores-v1.md, V8). Las diferencias de una fiscalización son parte de la cuota:
+// se suman al comparar y se descuentan al actualizar, para no cobrarlas dos veces
+// (specs/rentas-fiscalizacion-v1.md, decisión 3).
 export function planificar(nuevas: LineaCuenta[], existentes: CuentaExistente[]) {
   const porClave = new Map(existentes.map((e) => [claveCuenta(e), e]));
   const crear: LineaCuenta[] = [];
@@ -212,10 +215,12 @@ export function planificar(nuevas: LineaCuenta[], existentes: CuentaExistente[])
     if (!e) {
       crear.push(n);
     } else if (e.estado === 'PENDIENTE' || e.estado === 'ANULADO') {
-      const igual = e.estado === 'PENDIENTE' && new D(e.importe).eq(n.importe) && new D(e.derechoEmision).eq(n.derechoEmision);
+      const ajustes = new D(e.ajustes ?? 0);
+      const igual =
+        e.estado === 'PENDIENTE' && new D(e.importe).plus(ajustes).eq(n.importe) && new D(e.derechoEmision).eq(n.derechoEmision);
       if (igual) sinCambio++;
       else if (e.enValor) protegidas++;
-      else actualizar.push({ ...n, id: e.id });
+      else actualizar.push({ ...n, importe: n.importe.minus(ajustes), id: e.id });
     } else {
       protegidas++;
     }

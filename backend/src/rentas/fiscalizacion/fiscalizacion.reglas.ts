@@ -110,6 +110,7 @@ export const estadoTrasFichas = (conFicha: number, total: number): EstadoFiscali
 export interface ImporteCuota {
   anio: number;
   tributo: string; // código del tributo (PREDIAL, RESIDUOS…)
+  predioId: number | null; // null en el predial (va por contribuyente); el predio en arbitrios
   cuota: number;
   importe: Num;
 }
@@ -117,6 +118,7 @@ export interface ImporteCuota {
 export interface DiferenciaCuota {
   anio: number;
   tributo: string;
+  predioId: number | null;
   cuota: number;
   declarado: Dec;
   fiscalizado: Dec;
@@ -130,16 +132,17 @@ export interface ResumenDiferencias {
   totalOmitido: Dec;
 }
 
-const clave = (c: { anio: number; tributo: string; cuota: number }) => `${c.anio}|${c.tributo}|${c.cuota}`;
+const clave = (c: { anio: number; tributo: string; predioId: number | null; cuota: number }) =>
+  `${c.anio}|${c.tributo}|${c.predioId ?? '-'}|${c.cuota}`;
 
 // `declarado`: lo que hay en cuenta corriente (incluidas diferencias anteriores, que se suman a su cuota).
 // `fiscalizado`: lo que resulta de valorizar el predio con la ficha.
 export function diferencias(declarado: ImporteCuota[], fiscalizado: ImporteCuota[]): ResumenDiferencias {
   const sumar = (filas: ImporteCuota[]) => {
-    const m = new Map<string, { anio: number; tributo: string; cuota: number; total: Dec }>();
+    const m = new Map<string, { anio: number; tributo: string; predioId: number | null; cuota: number; total: Dec }>();
     for (const f of filas) {
       const k = clave(f);
-      const actual = m.get(k) ?? { anio: f.anio, tributo: f.tributo, cuota: f.cuota, total: new D(0) };
+      const actual = m.get(k) ?? { anio: f.anio, tributo: f.tributo, predioId: f.predioId, cuota: f.cuota, total: new D(0) };
       actual.total = actual.total.plus(f.importe);
       m.set(k, actual);
     }
@@ -153,11 +156,20 @@ export function diferencias(declarado: ImporteCuota[], fiscalizado: ImporteCuota
     const base = dec.get(k) ?? fis.get(k)!;
     const d = r2(dec.get(k)?.total ?? new D(0));
     const f = r2(fis.get(k)?.total ?? new D(0));
-    const fila = { anio: base.anio, tributo: base.tributo, cuota: base.cuota, declarado: d, fiscalizado: f, diferencia: f.minus(d) };
+    const fila = {
+      anio: base.anio,
+      tributo: base.tributo,
+      predioId: base.predioId,
+      cuota: base.cuota,
+      declarado: d,
+      fiscalizado: f,
+      diferencia: f.minus(d),
+    };
     if (fila.diferencia.isPositive() && !fila.diferencia.isZero()) aumentos.push(fila);
     else if (fila.diferencia.isNegative()) disminuciones.push(fila);
   }
-  const orden = (a: DiferenciaCuota, b: DiferenciaCuota) => a.anio - b.anio || a.tributo.localeCompare(b.tributo) || a.cuota - b.cuota;
+  const orden = (a: DiferenciaCuota, b: DiferenciaCuota) =>
+    a.anio - b.anio || a.tributo.localeCompare(b.tributo) || (a.predioId ?? 0) - (b.predioId ?? 0) || a.cuota - b.cuota;
   aumentos.sort(orden);
   disminuciones.sort(orden);
 
@@ -178,4 +190,39 @@ export function diferencias(declarado: ImporteCuota[], fiscalizado: ImporteCuota
     porAnio: [...porAnio.values()].sort((a, b) => a.anio - b.anio || a.tributo.localeCompare(b.tributo)),
     totalOmitido: aumentos.reduce((t, a) => t.plus(a.diferencia), new D(0)),
   };
+}
+
+// ---- Resolución (F5, decisión 3): cómo entra cada aumento a la cuenta corriente ----
+
+export interface CuotaDeclarada {
+  id: number;
+  anio: number;
+  tributo: string;
+  predioId: number | null;
+  cuota: number;
+  importe: Num;
+  estado: string; // EstadoCuenta
+  enValor: boolean; // en una OP/RD vigente
+  ajusteDeId: number | null;
+}
+
+export interface PlanAjustes {
+  actualizar: { id: number; importe: Dec }[]; // cuota PENDIENTE libre: sube a lo fiscalizado
+  ajustes: { ajusteDeId: number; anio: number; tributo: string; predioId: number | null; cuota: number; importe: Dec }[]; // protegida
+  crear: { anio: number; tributo: string; predioId: number | null; cuota: number; importe: Dec }[]; // no existía (o estaba anulada)
+}
+
+// Una cuota PENDIENTE que no está en un valor vigente se sube; una protegida (pagada, fraccionada, en
+// coactivo o en un valor) recibe una fila de diferencia que apunta a ella; si no existía, nace la cuota.
+export function planAjustes(aumentos: DiferenciaCuota[], cuotas: CuotaDeclarada[]): PlanAjustes {
+  const base = new Map(cuotas.filter((c) => c.ajusteDeId === null && c.estado !== 'ANULADO').map((c) => [clave(c), c]));
+  const plan: PlanAjustes = { actualizar: [], ajustes: [], crear: [] };
+  for (const a of aumentos) {
+    const c = base.get(clave(a));
+    const llave = { anio: a.anio, tributo: a.tributo, predioId: a.predioId, cuota: a.cuota };
+    if (!c) plan.crear.push({ ...llave, importe: a.diferencia });
+    else if (c.estado === 'PENDIENTE' && !c.enValor) plan.actualizar.push({ id: c.id, importe: r2(new D(c.importe).plus(a.diferencia)) });
+    else plan.ajustes.push({ ajusteDeId: c.id, ...llave, importe: a.diferencia });
+  }
+  return plan;
 }

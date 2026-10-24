@@ -124,7 +124,15 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
   escala). La ficha reusa el formulario de la DJ (`predios/DatosPredioCampos.tsx` + `predioForm.ts`, extraídos de
   `DeclaracionForm`); `GET /predios/catalogos` acepta también `rentas.fiscalizacion`. Guardar una ficha borra la
   liquidación previa del predio.
-- [ ] Fase C: liquidación y resolución con RD de fiscalización y diferencias en cuenta corriente (F4, F5).
+- [x] Fase C: liquidación y resolución con RD de fiscalización y diferencias en cuenta corriente (F4, F5).
+  Lo fiscalizado sale de `CalculoService.lineasFiscalizacion` (el motor con la ficha en lugar del predio, sin escribir) y
+  se compara por año, tributo, predio y cuota; las diferencias (`ajusteDeId`) se suman a su cuota en `planificar`
+  y en el cálculo. Una cuota pendiente libre entra completa a la RD (sube a lo fiscalizado); la protegida, solo su
+  diferencia. El predial va por contribuyente: con un solo predio la RD se liga a él; con varios, RD del año sin predio.
+  La liquidación se guarda igual en cada `fiscalizacion_predios`. Sin aumentos: SIN_DIFERENCIAS y el predio no cambia.
+  La RD imprimible muestra declarado/fiscalizado/omitido (`/rentas/fiscalizacion/valores/:id`; `GET /rentas/valores/:id`
+  acepta también `rentas.fiscalizacion`). Nota: aplicada la ficha, un recálculo posterior sí rebaja cuotas pendientes
+  si la ficha dio menos en algún concepto (la decisión 7 rige para la determinación de la RD, no para el cálculo).
 - [ ] Fase D: multas 178.1 en el expediente y 176.1 en la DJ extemporánea, con RM imprimible (F6, F7) + niveles (F8).
   `lint` + `build` + `test` en cada fase.
 - [ ] PR de `feat/rentas-fiscalizacion` hacia `main` (cuando el usuario lo pida).

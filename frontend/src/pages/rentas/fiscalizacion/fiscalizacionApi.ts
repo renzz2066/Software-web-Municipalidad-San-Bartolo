@@ -95,6 +95,31 @@ export interface Ficha {
   observacion: string | null
 }
 
+// POST .../liquidar (F4) y lo guardado al resolver (F5).
+export interface DiferenciaCuota {
+  anio: number
+  tributo: string
+  predioId: number | null
+  cuota: number
+  declarado: string
+  fiscalizado: string
+  diferencia: string
+}
+
+export interface Liquidacion {
+  totalOmitido: string
+  sinDiferencias: boolean
+  anios: {
+    anio: number
+    baseFiscalizada: string | null
+    porTributo: { tributo: string; declarado: string; fiscalizado: string; omitido: string }[]
+    aumentos: DiferenciaCuota[]
+    disminuciones: DiferenciaCuota[]
+  }[]
+}
+
+export const RUTA_VALORES_FISCALIZACION = '/rentas/fiscalizacion/valores'
+
 export interface Expediente {
   id: number
   numero: string
@@ -111,6 +136,8 @@ export interface Expediente {
   inspeccion: { fecha: string; hora: string } | null
   notificacion: { fecha: string; modalidad: Modalidad | null; dni: string | null; nombre: string | null } | null
   predios: { predioId: number; ficha: Ficha | null; liquidacion: unknown; predio: PredioApi }[]
+  liquidacion: Liquidacion | null
+  valores: { id: number; tipo: string; numero: string; estado: string; totalDeuda: string; predioId: number | null }[]
 }
 
 export function useExpediente(id: string | undefined, recarga = 0) {

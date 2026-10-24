@@ -106,6 +106,12 @@ export interface Valor {
   contribuyente: Required<ContribuyenteCorto> & { direccionFiscal: string | null }
   predio: (PredioCorto & { usoPredio: string | null; zona: { codigo: string; nombre: string } | null }) | null
   transferencia: { anio: number; numero: string; fecha: string; estado: string } | null
+  // RD de fiscalización: expediente y lo declarado/fiscalizado/omitido del año (rentas-fiscalizacion-v1, decisión 4)
+  fiscalizacion: {
+    id: number
+    numero: string
+    porTributo: { tributo: string; declarado: string; fiscalizado: string; omitido: string }[]
+  } | null
   anioFiscal: number
   uit: string | null
   escala: { tramo: number; desdeUit: string; hastaUit: string | null; tasa: string }[]

@@ -7,6 +7,7 @@ import { validarDeclaracion } from './declaracion.reglas.js';
 import { DatosPredioDto, DeclaracionDto } from './dto/declaracion.dto.js';
 
 type Tx = Prisma.TransactionClient;
+type Construccion = Pick<DeclaracionDto, 'pisos' | 'otrasInstalaciones'>;
 
 // Una DJ hace ~15 consultas seguidas; con la latencia a Supabase el límite de 5 s no alcanza.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 20_000 };
@@ -145,7 +146,31 @@ export class PrediosService {
     }, OPCIONES_TX);
   }
 
-  private datosPredio(p: DatosPredioDto, dto: DeclaracionDto) {
+  // DJ de motivo FISCALIZACION (specs/rentas-fiscalizacion-v1.md, F5): aplica la ficha de inspección al
+  // predio dentro de la transacción de la resolución; los condóminos no cambian. Queda versionada igual.
+  async aplicarFicha(
+    tx: Tx,
+    e: { predioId: number; contribuyenteId: number; anio: number; fecha: string; ficha: Construccion & { predio: DatosPredioDto }; observacion: string },
+  ) {
+    await tx.predio.update({ where: { id: e.predioId }, data: this.datosPredio(e.ficha.predio, e.ficha) });
+    await this.reemplazarConstruccion(tx, e.predioId, e.ficha);
+    const snapshot = await tx.predio.findUniqueOrThrow({ where: { id: e.predioId }, include: INCLUDE_PREDIO });
+    const dj = await tx.declaracionJurada.create({
+      data: {
+        predioId: e.predioId,
+        contribuyenteId: e.contribuyenteId,
+        anio: e.anio,
+        motivo: MotivoDeclaracion.FISCALIZACION,
+        fecha: new Date(e.fecha),
+        snapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
+        observacion: e.observacion.slice(0, 250),
+      },
+      select: { id: true },
+    });
+    return dj.id;
+  }
+
+  private datosPredio(p: DatosPredioDto, dto: Construccion) {
     const texto = (v?: string) => v?.trim().toUpperCase() || null;
     const areaConstruida = dto.pisos.reduce((acc, piso) => acc + Math.round(piso.areaConstruida * 100), 0) / 100;
     return {
@@ -164,7 +189,7 @@ export class PrediosService {
   }
 
   // Pisos e instalaciones se declaran completos en cada DJ (la versión anterior queda en el snapshot).
-  private async reemplazarConstruccion(tx: Tx, predioId: number, dto: DeclaracionDto) {
+  private async reemplazarConstruccion(tx: Tx, predioId: number, dto: Construccion) {
     await tx.otraInstalacion.deleteMany({ where: { predioId } });
     await tx.piso.deleteMany({ where: { predioId } });
     if (dto.pisos.length) {

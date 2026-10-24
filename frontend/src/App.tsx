@@ -284,6 +284,16 @@ function App() {
         }
       />
       <Route
+        path="/rentas/fiscalizacion/valores/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.fiscalizacion">
+              <ValorImprimible />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/rentas/fiscalizacion/expedientes/:id/requerimiento"
         element={
           <ProtectedRoute>

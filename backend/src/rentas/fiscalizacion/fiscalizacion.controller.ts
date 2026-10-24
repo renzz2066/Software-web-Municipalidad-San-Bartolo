@@ -125,7 +125,7 @@ export class FiltrosExpedientesDto {
   anio?: number;
 }
 
-// Expedientes de fiscalización (specs/rentas-fiscalizacion-v1.md, F1–F3, F8).
+// Expedientes de fiscalización (specs/rentas-fiscalizacion-v1.md, F1–F5, F8).
 @UseGuards(JwtAuthGuard, NivelGuard)
 @RequireNivel('rentas.fiscalizacion')
 @Controller('rentas/fiscalizacion')
@@ -160,6 +160,18 @@ export class FiscalizacionController {
   @Put('expedientes/:id/fichas/:predioId')
   guardarFicha(@Param('id', ParseIntPipe) id: number, @Param('predioId', ParseIntPipe) predioId: number, @Body() dto: FichaDto) {
     return this.fiscalizacion.guardarFicha(id, predioId, dto);
+  }
+
+  @Post('expedientes/:id/liquidar')
+  @HttpCode(HttpStatus.OK)
+  liquidar(@Param('id', ParseIntPipe) id: number) {
+    return this.fiscalizacion.liquidar(id);
+  }
+
+  @Post('expedientes/:id/resolver')
+  @HttpCode(HttpStatus.OK)
+  resolver(@Param('id', ParseIntPipe) id: number) {
+    return this.fiscalizacion.resolver(id);
   }
 
   @Post('expedientes/:id/anular')

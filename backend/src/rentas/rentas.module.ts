@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
+import { PrediosModule } from '../predios/predios.module.js';
 import { CalculoController } from './calculo/calculo.controller.js';
 import { CalculoService } from './calculo/calculo.service.js';
 import { EstadoCuentaController } from './estado-cuenta/estado-cuenta.controller.js';
@@ -19,7 +20,7 @@ import { ValoresService } from './valores/valores.service.js';
 // Valores v1 (specs/rentas-valores-v1.md): emisión de OP/RD, fraccionamiento y transferencia a coactivo.
 // Fiscalización v1 (specs/rentas-fiscalizacion-v1.md): expedientes, fichas, RD por diferencias y multas.
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PrediosModule],
   controllers: [MaestrosController, CalculoController, EstadoCuentaController, ValoresController, FraccionamientoController, TransferenciasController, FiscalizacionController],
   providers: [MaestrosService, CalculoService, EstadoCuentaService, ValoresService, FraccionamientoService, TransferenciasService, FiscalizacionService],
   exports: [MaestrosService, EstadoCuentaService],

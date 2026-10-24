@@ -4,6 +4,7 @@ import { api } from '../../../lib/api'
 import { RUTA_BASE, soles } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
 import { AccionesValor } from './AccionesValor'
+import { RUTA_EXPEDIENTES } from '../fiscalizacion/fiscalizacionApi'
 import { ESTILO_VALOR, MODALIDADES, NOMBRE_VALOR, direccionPredio, numeroValor, type Valor } from './valoresApi'
 
 // OP/RD para imprimir o guardar como PDF (specs/rentas-valores-v1.md, V3): montos a la fecha de
@@ -18,6 +19,12 @@ const FUNDAMENTO = {
   RD: [
     'Se emite conforme a los artículos 76° y 77° del Texto Único Ordenado del Código Tributario, determinando los Arbitrios Municipales del predio según la ordenanza de arbitrios del año.',
     'Los intereses moratorios se calculan según el artículo 33° del Código Tributario (TIM).',
+    'Puede interponer recurso de reclamación dentro de los veinte (20) días hábiles siguientes a su notificación (artículo 137°). Vencido el plazo sin reclamar, la deuda es exigible en cobranza coactiva (artículo 115°, inciso a).',
+  ],
+  // RD que nace de una fiscalización (specs/rentas-fiscalizacion-v1.md, decisión 4).
+  RD_FISCALIZACION: [
+    'Se emite conforme a los artículos 61°, 62°, 75°, 76° y 77° del Texto Único Ordenado del Código Tributario, como resultado de la fiscalización del predio: se determina el tributo omitido entre lo declarado por el contribuyente y lo verificado en la inspección (Decreto Legislativo N° 776, Ley de Tributación Municipal).',
+    'El reajuste del Impuesto Predial se aplica según el artículo 15° de la Ley de Tributación Municipal y los intereses moratorios según el artículo 33° del Código Tributario (TIM), desde el vencimiento original de cada cuota.',
     'Puede interponer recurso de reclamación dentro de los veinte (20) días hábiles siguientes a su notificación (artículo 137°). Vencido el plazo sin reclamar, la deuda es exigible en cobranza coactiva (artículo 115°, inciso a).',
   ],
 } as const
@@ -52,11 +59,17 @@ export function ValorImprimible() {
       <div className="mx-auto max-w-4xl">
         <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
           <Link
-            to={v ? `${RUTA_BASE}/contribuyentes/${v.contribuyente.id}` : RUTA_BASE}
+            to={
+              v?.fiscalizacion
+                ? `${RUTA_EXPEDIENTES}/${v.fiscalizacion.id}`
+                : v
+                  ? `${RUTA_BASE}/contribuyentes/${v.contribuyente.id}`
+                  : RUTA_BASE
+            }
             className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
           >
             <i aria-hidden="true" className="bi bi-arrow-left" />
-            Ficha del contribuyente
+            {v?.fiscalizacion ? 'Expediente de fiscalización' : 'Ficha del contribuyente'}
           </Link>
           <button
             type="button"
@@ -110,6 +123,37 @@ export function ValorImprimible() {
                   <Campo titulo="Tributo" valor={`Impuesto Predial ${v.anioFiscal}`} />
                 )}
               </section>
+
+              {v.fiscalizacion && (
+                <section aria-label="Determinación por fiscalización" className="mt-4 rounded-md bg-mar-profundo/5 px-3 py-2">
+                  <p>
+                    Determinación por fiscalización · Expediente <strong>FIS {v.fiscalizacion.numero}</strong>
+                    {v.baseImponible && ` · base imponible fiscalizada ${soles(v.baseImponible)}`}
+                  </p>
+                  {v.fiscalizacion.porTributo.length > 0 && (
+                    <table className="mt-2 w-full text-left text-xs">
+                      <thead>
+                        <tr className="text-slate-500">
+                          <th scope="col" className="py-1 pr-2">Tributo {v.anioFiscal}</th>
+                          <th scope="col" className="py-1 pr-2 text-right">Declarado</th>
+                          <th scope="col" className="py-1 pr-2 text-right">Fiscalizado</th>
+                          <th scope="col" className="py-1 text-right">Omitido</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {v.fiscalizacion.porTributo.map((t) => (
+                          <tr key={t.tributo} className="border-t border-slate-200">
+                            <td className="py-1 pr-2">{t.tributo}</td>
+                            <td className="py-1 pr-2 text-right">{soles(t.declarado)}</td>
+                            <td className="py-1 pr-2 text-right">{soles(t.fiscalizado)}</td>
+                            <td className="py-1 text-right font-semibold">{soles(t.omitido)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+              )}
 
               {v.tipo === 'OP' && v.baseImponible && (
                 <section aria-label="Base imponible" className="mt-4 rounded-md bg-mar-profundo/5 px-3 py-2">
@@ -181,7 +225,7 @@ export function ValorImprimible() {
 
               <section aria-label="Fundamentos" className="mt-4 space-y-2 text-xs leading-relaxed text-slate-700">
                 <p className="font-semibold uppercase tracking-wider text-slate-500">Fundamentos y base legal</p>
-                {FUNDAMENTO[v.tipo].map((t) => (
+                {FUNDAMENTO[v.fiscalizacion ? 'RD_FISCALIZACION' : v.tipo].map((t) => (
                   <p key={t}>{t}</p>
                 ))}
               </section>
