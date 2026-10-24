@@ -142,6 +142,10 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
   de Rentas) con nivel `rentas.registro-tributario` o `rentas.fiscalizacion`. Migración `20261026120000_multa_dj_descartada`
   (`declaraciones_juradas.multaDescartada`), escrita a mano porque la BD compartida trae tablas de coactivo creadas
   fuera de migraciones. Las RM se transfieren a coactivo como OP/RD y se ven en `/rentas/{fiscalizacion|registro-tributario}/valores/:id`.
+- [x] Prueba manual completa (2026-10-24, FIS 2026-000006). Corrige la liquidación: lo declarado es, por cuota, lo mayor
+  entre la cuenta corriente y lo que `motor.ts` determina sin la ficha (`referenciaDeclarada`); el predial va por
+  contribuyente y un predio inscrito por DJ sin calcular se cobraba como omitido y con multa 178.1. Esa parte sube a la
+  cuenta corriente sin RD ni multa (en cuota protegida, fila de diferencia propia) y la pantalla la indica.
 - [ ] PR de `feat/rentas-fiscalizacion` hacia `main` (cuando el usuario lo pida).
 
 ## 5. Verificación

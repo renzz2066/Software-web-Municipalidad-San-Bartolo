@@ -211,6 +211,12 @@ function TablaLiquidacion({ liquidacion: l }: { liquidacion: Liquidacion }) {
               ))}
             </tbody>
           </table>
+          {Number(a.declaradoSinCalcular ?? 0) > 0 && (
+            <p className="mt-1 text-xs text-slate-600">
+              Lo declarado incluye {soles(a.declaradoSinCalcular!)} que aún no estaban en la cuenta corriente (predios declarados sin
+              calcular): al resolver suben sin RD ni multa.
+            </p>
+          )}
           {a.disminuciones.length > 0 && (
             <p className="mt-1 text-xs text-amber-800">
               {a.disminuciones.length} {a.disminuciones.length === 1 ? 'cuota resulta' : 'cuotas resultan'} menor(es) que lo declarado: no se

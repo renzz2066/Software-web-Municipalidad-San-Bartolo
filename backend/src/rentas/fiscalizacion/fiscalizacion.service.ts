@@ -20,6 +20,8 @@ import { ESTADOS_VALOR_VIGENTE } from '../valores/valores.reglas.js';
 import {
   type AccionExpediente,
   type CuotaDeclarada,
+  type DiferenciaCuota,
+  type ImporteCuota,
   type ResumenDiferencias,
   diferencias,
   errorAccion,
@@ -28,6 +30,7 @@ import {
   estadoTrasFichas,
   planAjustes,
   rangoFiscalizable,
+  referenciaDeclarada,
 } from './fiscalizacion.reglas.js';
 import { MultasService } from './multas.service.js';
 
@@ -87,14 +90,17 @@ function datosCalculo(f: FichaEntrada): DatosPredioCalculo {
 const n2 = (x: Prisma.Decimal) => x.toFixed(2);
 
 // Liquidación serializable (se guarda en fiscalizacion_predios.liquidacion y la ve la pantalla).
-function serializar(anios: { anio: number; base: Prisma.Decimal | null; r: ResumenDiferencias }[]) {
+// `declarado` es la referencia (cuenta corriente o lo determinado con lo declarado, lo mayor);
+// `declaradoSinCalcular`: la parte de esa referencia que faltaba en la cuenta corriente.
+function serializar(anios: { anio: number; base: Prisma.Decimal | null; r: ResumenDiferencias; sinCalcular: DiferenciaCuota[] }[]) {
   const total = anios.reduce((t, a) => t.plus(a.r.totalOmitido), new D(0));
   return {
     totalOmitido: n2(total),
     sinDiferencias: total.isZero(),
-    anios: anios.map(({ anio, base, r }) => ({
+    anios: anios.map(({ anio, base, r, sinCalcular }) => ({
       anio,
       baseFiscalizada: base ? n2(base) : null,
+      declaradoSinCalcular: n2(sinCalcular.reduce((t, s) => t.plus(s.diferencia), new D(0))),
       porTributo: r.porAnio.map((x) => ({ tributo: x.tributo, declarado: n2(x.declarado), fiscalizado: n2(x.fiscalizado), omitido: n2(x.omitido) })),
       aumentos: r.aumentos.map((x) => ({ ...x, declarado: n2(x.declarado), fiscalizado: n2(x.fiscalizado), diferencia: n2(x.diferencia) })),
       disminuciones: r.disminuciones.map((x) => ({ ...x, declarado: n2(x.declarado), fiscalizado: n2(x.fiscalizado), diferencia: n2(x.diferencia) })),
@@ -388,8 +394,8 @@ export class FiscalizacionService {
       }
 
       const tocadas: { id: number; anio: number; predioId: number | null }[] = [];
-      for (const { anio, r, declaradas, tributos } of anios) {
-        const plan = planAjustes(r.aumentos, declaradas);
+      for (const { anio, r, sinCalcular, declaradas, tributos } of anios) {
+        const plan = planAjustes(r.aumentos, declaradas, sinCalcular);
         const porId = new Map(declaradas.map((c) => [c.id, c]));
         for (const a of plan.actualizar) {
           const { count } = await tx.cuentaCorriente.updateMany({
@@ -399,7 +405,7 @@ export class FiscalizacionService {
           if (count === 0) {
             throw new ConflictException('Alguna cuota cambió de estado mientras se resolvía; vuelve a liquidar');
           }
-          tocadas.push({ id: a.id, anio, predioId: porId.get(a.id)!.predioId });
+          if (a.enRD) tocadas.push({ id: a.id, anio, predioId: porId.get(a.id)!.predioId });
         }
         const nuevas = [
           ...plan.ajustes.map((a) => ({ ...a, vence: porId.get(a.ajusteDeId)!.fechaVencimiento })),
@@ -419,7 +425,7 @@ export class FiscalizacionService {
             },
             select: { id: true },
           });
-          tocadas.push({ id: fila.id, anio, predioId: n.predioId });
+          if (n.enRD) tocadas.push({ id: fila.id, anio, predioId: n.predioId });
         }
       }
       await this.emitirRD(tx, f, anios, tocadas, hoy);
@@ -508,7 +514,8 @@ export class FiscalizacionService {
     }
   }
 
-  // Lo fiscalizado (motor con la ficha) contra lo declarado (cuenta corriente), por cada año del expediente.
+  // Lo fiscalizado (motor con la ficha) contra lo declarado (cuenta corriente o, si es mayor, lo que el
+  // motor determina sin la ficha: `referenciaDeclarada`), por cada año del expediente.
   private async plan(tx: Tx, id: number) {
     const f = await tx.fiscalizacion.findUniqueOrThrow({
       where: { id },
@@ -536,9 +543,20 @@ export class FiscalizacionService {
       const { lineas, tributos, base } = await this.calculo.lineasFiscalizacion(tx, anio, f.contribuyenteId, sustituir);
       const codigo = new Map([...tributos].map(([c, tid]) => [tid, c]));
       const delExpediente = (predioId: number | null) => predioId === null || predioIds.includes(predioId);
-      const fiscalizado = lineas
-        .filter((l) => delExpediente(l.predioId))
-        .map((l) => ({ anio, tributo: codigo.get(l.tributoId)!, predioId: l.predioId, cuota: l.cuota, importe: l.importe }));
+      const aCuotas = (filas: typeof lineas): ImporteCuota[] =>
+        filas
+          .filter((l) => delExpediente(l.predioId))
+          .map((l) => ({ anio, tributo: codigo.get(l.tributoId)!, predioId: l.predioId, cuota: l.cuota, importe: l.importe }));
+      const fiscalizado = aCuotas(lineas);
+      // Lo que el motor determina con lo declarado (sin la ficha). Si lo declarado no se puede valorizar,
+      // la referencia es solo la cuenta corriente.
+      const determinado = await this.calculo
+        .lineasFiscalizacion(tx, anio, f.contribuyenteId, new Map())
+        .then((d) => aCuotas(d.lineas))
+        .catch((e: unknown) => {
+          if (e instanceof BadRequestException) return [];
+          throw e;
+        });
       const cuentas = await tx.cuentaCorriente.findMany({
         where: {
           contribuyenteId: f.contribuyenteId,
@@ -571,7 +589,15 @@ export class FiscalizacionService {
         fechaVencimiento: c.fechaVencimiento,
       }));
       const declarado = declaradas.filter((c) => c.estado !== EstadoCuenta.ANULADO);
-      anios.push({ anio, base, r: diferencias(declarado, fiscalizado), declaradas, tributos });
+      const referencia = referenciaDeclarada(declarado, determinado);
+      anios.push({
+        anio,
+        base,
+        r: diferencias(referencia, fiscalizado),
+        sinCalcular: diferencias(declarado, referencia).aumentos,
+        declaradas,
+        tributos,
+      });
     }
     return { f: { ...f, tipoPersona: f.contribuyente.tipoPersona, predios }, anios };
   }

@@ -112,6 +112,7 @@ export interface Liquidacion {
   anios: {
     anio: number
     baseFiscalizada: string | null
+    declaradoSinCalcular?: string // ausente en liquidaciones guardadas antes de este campo
     porTributo: { tributo: string; declarado: string; fiscalizado: string; omitido: string }[]
     aumentos: DiferenciaCuota[]
     disminuciones: DiferenciaCuota[]

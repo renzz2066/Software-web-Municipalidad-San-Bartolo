@@ -135,19 +135,34 @@ export interface ResumenDiferencias {
 const clave = (c: { anio: number; tributo: string; predioId: number | null; cuota: number }) =>
   `${c.anio}|${c.tributo}|${c.predioId ?? '-'}|${c.cuota}`;
 
-// `declarado`: lo que hay en cuenta corriente (incluidas diferencias anteriores, que se suman a su cuota).
-// `fiscalizado`: lo que resulta de valorizar el predio con la ficha.
+const sumar = (filas: ImporteCuota[]) => {
+  const m = new Map<string, { anio: number; tributo: string; predioId: number | null; cuota: number; total: Dec }>();
+  for (const f of filas) {
+    const k = clave(f);
+    const actual = m.get(k) ?? { anio: f.anio, tributo: f.tributo, predioId: f.predioId, cuota: f.cuota, total: new D(0) };
+    actual.total = actual.total.plus(f.importe);
+    m.set(k, actual);
+  }
+  return m;
+};
+
+// Lo declarado contra lo que se mide la fiscalización, por cuota: lo mayor entre la cuenta corriente y
+// lo que el motor determina con lo declarado. El predial va por contribuyente: un predio inscrito por DJ
+// y aún sin calcular no es omisión detectada por la fiscalización (ni da multa 178.1).
+export function referenciaDeclarada(cuenta: ImporteCuota[], determinado: ImporteCuota[]): ImporteCuota[] {
+  const cc = sumar(cuenta);
+  const det = sumar(determinado);
+  return [...new Set([...cc.keys(), ...det.keys()])].map((k) => {
+    const { anio, tributo, predioId, cuota } = cc.get(k) ?? det.get(k)!;
+    const c = cc.get(k)?.total ?? new D(0);
+    const d = det.get(k)?.total ?? new D(0);
+    return { anio, tributo, predioId, cuota, importe: D.max(c, d) };
+  });
+}
+
+// `declarado`: lo que hay en cuenta corriente (incluidas diferencias anteriores, que se suman a su cuota),
+// o la referencia de `referenciaDeclarada`. `fiscalizado`: lo que resulta de valorizar el predio con la ficha.
 export function diferencias(declarado: ImporteCuota[], fiscalizado: ImporteCuota[]): ResumenDiferencias {
-  const sumar = (filas: ImporteCuota[]) => {
-    const m = new Map<string, { anio: number; tributo: string; predioId: number | null; cuota: number; total: Dec }>();
-    for (const f of filas) {
-      const k = clave(f);
-      const actual = m.get(k) ?? { anio: f.anio, tributo: f.tributo, predioId: f.predioId, cuota: f.cuota, total: new D(0) };
-      actual.total = actual.total.plus(f.importe);
-      m.set(k, actual);
-    }
-    return m;
-  };
   const dec = sumar(declarado);
   const fis = sumar(fiscalizado);
   const aumentos: DiferenciaCuota[] = [];
@@ -206,23 +221,35 @@ export interface CuotaDeclarada {
   ajusteDeId: number | null;
 }
 
+// `enRD`: la fila entra a la RD de fiscalización (tiene omitido); sin él solo sube a lo declarado.
 export interface PlanAjustes {
-  actualizar: { id: number; importe: Dec }[]; // cuota PENDIENTE libre: sube a lo fiscalizado
-  ajustes: { ajusteDeId: number; anio: number; tributo: string; predioId: number | null; cuota: number; importe: Dec }[]; // protegida
-  crear: { anio: number; tributo: string; predioId: number | null; cuota: number; importe: Dec }[]; // no existía (o estaba anulada)
+  actualizar: { id: number; importe: Dec; enRD: boolean }[]; // cuota PENDIENTE libre: sube a lo fiscalizado
+  ajustes: { ajusteDeId: number; anio: number; tributo: string; predioId: number | null; cuota: number; importe: Dec; enRD: boolean }[]; // protegida
+  crear: { anio: number; tributo: string; predioId: number | null; cuota: number; importe: Dec; enRD: boolean }[]; // no existía (o estaba anulada)
 }
 
 // Una cuota PENDIENTE que no está en un valor vigente se sube; una protegida (pagada, fraccionada, en
 // coactivo o en un valor) recibe una fila de diferencia que apunta a ella; si no existía, nace la cuota.
-export function planAjustes(aumentos: DiferenciaCuota[], cuotas: CuotaDeclarada[]): PlanAjustes {
+// `sinCalcular`: lo declarado que faltaba en la cuenta corriente (cuenta corriente → referencia); en una
+// cuota protegida va en su propia fila de diferencia, fuera de la RD.
+export function planAjustes(aumentos: DiferenciaCuota[], cuotas: CuotaDeclarada[], sinCalcular: DiferenciaCuota[] = []): PlanAjustes {
   const base = new Map(cuotas.filter((c) => c.ajusteDeId === null && c.estado !== 'ANULADO').map((c) => [clave(c), c]));
+  const omitido = new Map(aumentos.map((a) => [clave(a), a]));
+  const previo = new Map(sinCalcular.map((s) => [clave(s), s]));
   const plan: PlanAjustes = { actualizar: [], ajustes: [], crear: [] };
-  for (const a of aumentos) {
-    const c = base.get(clave(a));
-    const llave = { anio: a.anio, tributo: a.tributo, predioId: a.predioId, cuota: a.cuota };
-    if (!c) plan.crear.push({ ...llave, importe: a.diferencia });
-    else if (c.estado === 'PENDIENTE' && !c.enValor) plan.actualizar.push({ id: c.id, importe: r2(new D(c.importe).plus(a.diferencia)) });
-    else plan.ajustes.push({ ajusteDeId: c.id, ...llave, importe: a.diferencia });
+  for (const k of new Set([...omitido.keys(), ...previo.keys()])) {
+    const { anio, tributo, predioId, cuota } = omitido.get(k) ?? previo.get(k)!;
+    const llave = { anio, tributo, predioId, cuota };
+    const o = omitido.get(k)?.diferencia ?? new D(0);
+    const p = previo.get(k)?.diferencia ?? new D(0);
+    const enRD = o.isPositive() && !o.isZero();
+    const c = base.get(k);
+    if (!c) plan.crear.push({ ...llave, importe: p.plus(o), enRD });
+    else if (c.estado === 'PENDIENTE' && !c.enValor) plan.actualizar.push({ id: c.id, importe: r2(new D(c.importe).plus(p).plus(o)), enRD });
+    else {
+      if (!p.isZero()) plan.ajustes.push({ ajusteDeId: c.id, ...llave, importe: p, enRD: false });
+      if (enRD) plan.ajustes.push({ ajusteDeId: c.id, ...llave, importe: o, enRD: true });
+    }
   }
   return plan;
 }

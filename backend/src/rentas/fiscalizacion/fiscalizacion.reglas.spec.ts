@@ -9,6 +9,7 @@ import {
   estadoTrasFichas,
   planAjustes,
   rangoFiscalizable,
+  referenciaDeclarada,
 } from './fiscalizacion.reglas.js';
 
 const D = Prisma.Decimal;
@@ -140,6 +141,31 @@ describe('diferencias', () => {
   });
 });
 
+describe('referenciaDeclarada', () => {
+  const predial = (cuota: number, importe: number) => ({ anio: 2026, tributo: 'PREDIAL', predioId: null, cuota, importe });
+
+  it('otro predio declarado y sin calcular no es omisión de la fiscalización', () => {
+    // Cuenta corriente: 100 por cuota. Con lo declarado (otro predio inscrito sin calcular) el motor da 160;
+    // con la ficha (un piso más del predio fiscalizado), 175.
+    const cuenta = [1, 2].map((c) => predial(c, 100));
+    const determinado = [1, 2].map((c) => predial(c, 160));
+    const fiscalizado = [1, 2].map((c) => predial(c, 175));
+    const referencia = referenciaDeclarada(cuenta, determinado);
+    const r = diferencias(referencia, fiscalizado);
+    expect(r.aumentos.map((a) => [a.cuota, a.declarado.toFixed(2), a.diferencia.toFixed(2)])).toEqual([
+      [1, '160.00', '15.00'],
+      [2, '160.00', '15.00'],
+    ]);
+    expect(r.totalOmitido.toFixed(2)).toBe('30.00');
+    expect(diferencias(cuenta, referencia).aumentos.map((a) => a.diferencia.toFixed(2))).toEqual(['60.00', '60.00']);
+  });
+
+  it('si la cuenta corriente ya es mayor (diferencias anteriores), manda la cuenta corriente', () => {
+    const referencia = referenciaDeclarada([predial(1, 100), predial(1, 30)], [predial(1, 110)]);
+    expect(referencia.map((x) => [x.cuota, new D(x.importe).toFixed(2)])).toEqual([[1, '130.00']]);
+  });
+});
+
 describe('diferencias por predio en arbitrios', () => {
   it('cada predio se compara por separado', () => {
     const arb = (predioId: number, importe: number) => ({ anio: 2026, tributo: 'RESIDUOS', predioId, cuota: 1, importe });
@@ -184,6 +210,17 @@ describe('planAjustes', () => {
       [4, '25.00'],
     ]);
     expect(r.crear).toHaveLength(0);
+  });
+
+  it('lo declarado sin calcular sube fuera de la RD; solo lo omitido entra a la RD', () => {
+    const sinCalcular = [aumento(1, 60), aumento(2, 60), aumento(3, 60)];
+    const r = planAjustes([aumento(1, 15), aumento(2, 15)], [cuota(1, 1, 'CANCELADO'), cuota(2, 2, 'PENDIENTE'), cuota(3, 3, 'PENDIENTE', { enValor: true })], sinCalcular);
+    expect(r.actualizar.map((a) => [a.id, a.importe.toFixed(2), a.enRD])).toEqual([[2, '175.00', true]]);
+    expect(r.ajustes.map((a) => [a.ajusteDeId, a.importe.toFixed(2), a.enRD])).toEqual([
+      [1, '60.00', false],
+      [1, '15.00', true],
+      [3, '60.00', false],
+    ]);
   });
 
   it('una cuota que no existe o está anulada nace completa; una diferencia previa no es base', () => {
