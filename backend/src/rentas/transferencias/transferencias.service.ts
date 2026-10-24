@@ -132,7 +132,7 @@ export class TransferenciasService {
 
   private async preparar(tx: Tx, entrada: TransferenciaEntrada) {
     const fecha = hoyLima();
-    const tipos = entrada.tipos?.length ? entrada.tipos : [TipoValor.OP, TipoValor.RD];
+    const tipos = entrada.tipos?.length ? entrada.tipos : [TipoValor.OP, TipoValor.RD, TipoValor.RM];
     const [valores, { ipm, tim }] = await Promise.all([
       tx.valorCab.findMany({
         where: {

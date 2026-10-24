@@ -12,7 +12,10 @@ export const ESTADOS_VALOR_VIGENTE: EstadoValor[] = [EstadoValor.EMITIDO, Estado
 
 export type TributoValorizable = 'PREDIAL' | 'ARBITRIOS';
 
-export const tipoValorDe = (tributo: TributoValorizable): TipoValor => (tributo === 'PREDIAL' ? TipoValor.OP : TipoValor.RD);
+// La emisión de Control y Recaudación produce OP o RD; la RM nace de una fiscalización o de una DJ extemporánea.
+export type TipoValorEmision = Extract<TipoValor, 'OP' | 'RD'>;
+
+export const tipoValorDe = (tributo: TributoValorizable): TipoValorEmision => (tributo === 'PREDIAL' ? TipoValor.OP : TipoValor.RD);
 
 export interface CuotaEmitible {
   id: number;
@@ -29,7 +32,7 @@ export interface OpcionesEmision {
   fecha: string; // AAAA-MM-DD de emisión
   soloVencidas: boolean;
   montoMinimo: Num; // por valor
-  excluir?: (contribuyenteId: number, tipo: TipoValor) => boolean; // p. ej. deuda por recalcular
+  excluir?: (contribuyenteId: number, tipo: TipoValorEmision) => boolean; // p. ej. deuda por recalcular
 }
 
 export interface DetalleValorPlan {

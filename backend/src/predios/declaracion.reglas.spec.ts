@@ -12,6 +12,13 @@ const base: DeclaracionDJ = {
   pisos: [{ nivel: '01', anioConstruccion: 2000, areaConstruida: 80 }],
 };
 
+describe('fecha del hecho (D.L. 776 art. 14)', () => {
+  it('la adquisición no puede ser posterior a la presentación', () => {
+    expect(validarDeclaracion({ ...base, motivo: 'COMPRA', fechaHecho: '2026-09-15' }, { ...ctx, titularesActuales: [] })).toBeNull();
+    expect(validarDeclaracion({ ...base, fechaHecho: '2026-10-02' }, ctx)).toMatch(/adquisición/);
+  });
+});
+
 describe('validarCondominos', () => {
   it('acepta condominio 50/50 y 33.33+33.33+33.34', () => {
     expect(validarCondominos([{ contribuyenteId: 1, porcentaje: 50 }, { contribuyenteId: 2, porcentaje: 50 }])).toBeNull();

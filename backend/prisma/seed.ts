@@ -92,6 +92,7 @@ async function main() {
 
   // Tributos que genera el cálculo (Fase D). Los códigos de arbitrios = conceptos de tarifas.
   // FRACCION: cuotas de convenios de fraccionamiento (specs/rentas-valores-v1.md, V6).
+  // MULTA: multas tributarias (specs/rentas-fiscalizacion-v1.md, decisión 5).
   const tributos = [
     { codigo: 'PREDIAL', nombre: 'IMPUESTO PREDIAL', tipo: 'PREDIAL' as const },
     { codigo: 'RESIDUOS', nombre: 'ARBITRIO RESIDUOS SÓLIDOS', tipo: 'ARBITRIOS' as const },
@@ -99,11 +100,47 @@ async function main() {
     { codigo: 'PARQUES', nombre: 'ARBITRIO PARQUES Y JARDINES', tipo: 'ARBITRIOS' as const },
     { codigo: 'SERENAZGO', nombre: 'ARBITRIO SERENAZGO', tipo: 'ARBITRIOS' as const },
     { codigo: 'FRACCION', nombre: 'CUOTA DE FRACCIONAMIENTO', tipo: 'OTRO' as const },
+    { codigo: 'MULTA', nombre: 'MULTA TRIBUTARIA', tipo: 'MULTA' as const },
   ];
   for (const t of tributos) {
     await prisma.tributo.upsert({ where: { codigo: t.codigo }, update: {}, create: t });
   }
   console.log('Tributos de rentas verificados');
+
+  // Infracciones del año (Código Tributario; % como SIMUN: Multas_tributarias.dbf). Se editan en Maestros.
+  const infracciones = [
+    {
+      codigo: '176.1',
+      articulo: '176',
+      numeral: '1',
+      descripcion: 'No presentar las declaraciones que contengan la determinación de la deuda tributaria dentro de los plazos establecidos',
+      base: 'UIT' as const,
+      porcentajeNatural: 50,
+      porcentajeJuridica: 100,
+    },
+    {
+      codigo: '176.2',
+      articulo: '176',
+      numeral: '2',
+      descripcion: 'No presentar otras declaraciones o comunicaciones dentro de los plazos establecidos',
+      base: 'UIT' as const,
+      porcentajeNatural: 15,
+      porcentajeJuridica: 30,
+    },
+    {
+      codigo: '178.1',
+      articulo: '178',
+      numeral: '1',
+      descripcion: 'No incluir en las declaraciones tributos, rentas o bienes, o declarar cifras o datos falsos que influyan en la determinación',
+      base: 'TRIBUTO_OMITIDO' as const,
+      porcentajeNatural: 50,
+      porcentajeJuridica: 50,
+    },
+  ];
+  for (const i of infracciones) {
+    await prisma.infraccion.upsert({ where: { anio_codigo: { anio, codigo: i.codigo } }, update: {}, create: { anio, ...i } });
+  }
+  console.log(`Infracciones ${anio} verificadas`);
 }
 
 main()

@@ -3,15 +3,18 @@ import { EstadoRegistro, MotivoDeclaracion, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hoyLima } from '../rentas/fechas.js';
 import { anioValido } from '../rentas/maestros/maestros.reglas.js';
+import { iso } from '../rentas/estado-cuenta/tasas.js';
+import { vencePlazoDJ, esExtemporanea } from '../rentas/fiscalizacion/multas.reglas.js';
 import { validarDeclaracion } from './declaracion.reglas.js';
 import { DatosPredioDto, DeclaracionDto } from './dto/declaracion.dto.js';
 
 type Tx = Prisma.TransactionClient;
+type Construccion = Pick<DeclaracionDto, 'pisos' | 'otrasInstalaciones'>;
 
 // Una DJ hace ~15 consultas seguidas; con la latencia a Supabase el límite de 5 s no alcanza.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 20_000 };
 
-const INCLUDE_PREDIO = {
+export const INCLUDE_PREDIO = {
   zona: { select: { id: true, codigo: true, nombre: true } },
   urbanizacion: { select: { id: true, codigo: true, nombre: true } },
   via: { select: { id: true, tipoVia: true, nombre: true } },
@@ -54,8 +57,11 @@ export class PrediosService {
             anio: true,
             motivo: true,
             fecha: true,
+            fechaHecho: true,
             observacion: true,
+            multaDescartada: true,
             contribuyente: { select: { id: true, nombreCompleto: true } },
+            multas: { where: { estado: { not: 'ANULADO' } }, select: { id: true, anio: true, numero: true, estado: true } },
           },
           orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
         },
@@ -64,7 +70,20 @@ export class PrediosService {
     if (!predio) {
       throw new NotFoundException('El predio no existe');
     }
-    return predio;
+    // DJ extemporánea (specs/rentas-fiscalizacion-v1.md, F7): plazo y si ya se resolvió su multa.
+    const feriados = new Set((await this.prisma.feriado.findMany({ select: { fecha: true } })).map((f) => iso(f.fecha)));
+    return {
+      ...predio,
+      declaraciones: predio.declaraciones.map((dj) => {
+        const hecho = dj.fechaHecho ? iso(dj.fechaHecho) : null;
+        return {
+          ...dj,
+          fechaHecho: hecho,
+          vencePlazo: hecho ? vencePlazoDJ(dj.motivo, hecho, feriados) : null,
+          extemporanea: esExtemporanea(dj.motivo, hecho, iso(dj.fecha), feriados),
+        };
+      }),
+    };
   }
 
   async findDeclaracion(id: number) {
@@ -103,7 +122,7 @@ export class PrediosService {
       }
 
       const error = validarDeclaracion(
-        { ...dto, fecha },
+        { ...dto, fecha, fechaHecho: dto.fechaHecho?.slice(0, 10) ?? null },
         { hoy: hoyLima(), titularesActuales: actual?.contribuyentes.map((c) => c.contribuyenteId) ?? [] },
       );
       if (error) {
@@ -136,6 +155,7 @@ export class PrediosService {
           anio: dto.anio,
           motivo: dto.motivo,
           fecha: new Date(fecha),
+          fechaHecho: dto.fechaHecho ? new Date(dto.fechaHecho.slice(0, 10)) : null,
           snapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
           observacion: dto.observacion?.trim() || null,
         },
@@ -145,7 +165,31 @@ export class PrediosService {
     }, OPCIONES_TX);
   }
 
-  private datosPredio(p: DatosPredioDto, dto: DeclaracionDto) {
+  // DJ de motivo FISCALIZACION (specs/rentas-fiscalizacion-v1.md, F5): aplica la ficha de inspección al
+  // predio dentro de la transacción de la resolución; los condóminos no cambian. Queda versionada igual.
+  async aplicarFicha(
+    tx: Tx,
+    e: { predioId: number; contribuyenteId: number; anio: number; fecha: string; ficha: Construccion & { predio: DatosPredioDto }; observacion: string },
+  ) {
+    await tx.predio.update({ where: { id: e.predioId }, data: this.datosPredio(e.ficha.predio, e.ficha) });
+    await this.reemplazarConstruccion(tx, e.predioId, e.ficha);
+    const snapshot = await tx.predio.findUniqueOrThrow({ where: { id: e.predioId }, include: INCLUDE_PREDIO });
+    const dj = await tx.declaracionJurada.create({
+      data: {
+        predioId: e.predioId,
+        contribuyenteId: e.contribuyenteId,
+        anio: e.anio,
+        motivo: MotivoDeclaracion.FISCALIZACION,
+        fecha: new Date(e.fecha),
+        snapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
+        observacion: e.observacion.slice(0, 250),
+      },
+      select: { id: true },
+    });
+    return dj.id;
+  }
+
+  private datosPredio(p: DatosPredioDto, dto: Construccion) {
     const texto = (v?: string) => v?.trim().toUpperCase() || null;
     const areaConstruida = dto.pisos.reduce((acc, piso) => acc + Math.round(piso.areaConstruida * 100), 0) / 100;
     return {
@@ -164,7 +208,7 @@ export class PrediosService {
   }
 
   // Pisos e instalaciones se declaran completos en cada DJ (la versión anterior queda en el snapshot).
-  private async reemplazarConstruccion(tx: Tx, predioId: number, dto: DeclaracionDto) {
+  private async reemplazarConstruccion(tx: Tx, predioId: number, dto: Construccion) {
     await tx.otraInstalacion.deleteMany({ where: { predioId } });
     await tx.piso.deleteMany({ where: { predioId } });
     if (dto.pisos.length) {

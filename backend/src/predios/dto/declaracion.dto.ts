@@ -1,9 +1,8 @@
-import { MotivoDeclaracion } from '@prisma/client';
+import { MOTIVOS_DJ, type Motivo } from '../declaracion.reglas.js';
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
-  IsEnum,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -127,14 +126,20 @@ export class CondominoDto {
 }
 
 export class DeclaracionDto {
-  @IsEnum(MotivoDeclaracion, { message: 'Motivo no válido' })
-  motivo: MotivoDeclaracion;
+  // FISCALIZACION no: esa DJ la genera la resolución del expediente (specs/rentas-fiscalizacion-v1.md, F5).
+  @IsIn(MOTIVOS_DJ, { message: 'Motivo no válido' })
+  motivo: Motivo;
 
   @IsInt()
   anio: number;
 
   @IsDateString({}, { message: 'La fecha debe tener formato AAAA-MM-DD' })
   fecha: string;
+
+  // Inscripción o compra: fecha de adquisición; con ella se evalúa si la DJ es extemporánea (F7).
+  @IsOptional()
+  @IsDateString({}, { message: 'La fecha de adquisición debe tener formato AAAA-MM-DD' })
+  fechaHecho?: string;
 
   @IsInt({ message: 'Indica el declarante' })
   declaranteId: number;

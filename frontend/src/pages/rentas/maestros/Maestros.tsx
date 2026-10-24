@@ -9,6 +9,7 @@ import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona 
 
 // Maestros de Rentas (specs/rentas-nucleo-v1.md, C4): parámetros por año + ubicación.
 // Feriados y fraccionamiento: specs/rentas-valores-v1.md (decisiones 2 y 3).
+// Fiscalizadores e infracciones: specs/rentas-fiscalizacion-v1.md (decisiones 2 y 5).
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS = Array.from({ length: 8 }, (_, i) => ANIO_ACTUAL + 1 - i)
@@ -23,6 +24,7 @@ const PESTANAS = [
   { id: 'mora', titulo: 'TIM / IPM' },
   { id: 'fraccionamiento', titulo: 'Fraccionamiento' },
   { id: 'feriados', titulo: 'Feriados' },
+  { id: 'fiscalizacion', titulo: 'Fiscalización' },
   { id: 'ubicacion', titulo: 'Ubicación' },
 ] as const
 
@@ -64,6 +66,22 @@ const COL_DEPRECIACION: Columna[] = [
 const COL_FERIADOS: Columna[] = [
   { key: 'fecha', label: 'Fecha', tipo: 'fecha' },
   { key: 'descripcion', label: 'Descripción', tipo: 'texto' },
+]
+
+const COL_INFRACCIONES: Columna[] = [
+  { key: 'codigo', label: 'Código (art.num)', tipo: 'texto', placeholder: '176.1' },
+  { key: 'descripcion', label: 'Infracción', tipo: 'texto' },
+  {
+    key: 'base',
+    label: 'Base',
+    tipo: 'select',
+    opciones: [
+      { value: 'UIT', label: '% de la UIT' },
+      { value: 'TRIBUTO_OMITIDO', label: '% del tributo omitido' },
+    ],
+  },
+  { key: 'porcentajeNatural', label: '% persona natural', tipo: 'numero' },
+  { key: 'porcentajeJuridica', label: '% persona jurídica', tipo: 'numero' },
 ]
 
 const COL_MORA: Columna[] = [
@@ -341,6 +359,27 @@ export function Maestros() {
               conOrdenanza={false}
               ayuda={`Feriados de ${anio} para contar días hábiles (plazo de reclamo de una RD). Sábados y domingos ya se descuentan solos.`}
             />
+          )}
+          {pestana === 'fiscalizacion' && (
+            <div className="space-y-8">
+              <Catalogo
+                titulo="Fiscalizadores"
+                url="/rentas/maestros/fiscalizadores"
+                campos={[
+                  { key: 'nombre', label: 'Apellidos y nombres', maxLength: 100 },
+                  { key: 'dni', label: 'DNI / CE', maxLength: 12 },
+                ]}
+                interruptor={{ key: 'activo', label: 'Activo' }}
+              />
+              <section>
+                <h2 className="mb-2 font-semibold text-mar-profundo">Infracciones y multas {anio}</h2>
+                <TablaEditable
+                  url={`/rentas/maestros/infracciones/${anio}`}
+                  columnas={COL_INFRACCIONES}
+                  ayuda="Código Tributario arts. 176 y 178. La multa es el % de la UIT del año o del tributo omitido; la sucesión usa el % de persona natural. Una infracción ya usada en una resolución de multa no se puede quitar."
+                />
+              </section>
+            </div>
           )}
           {pestana === 'ubicacion' && (
             <div className="grid gap-8 lg:grid-cols-3">

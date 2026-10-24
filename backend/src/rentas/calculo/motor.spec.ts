@@ -176,6 +176,17 @@ describe('planificar (idempotencia)', () => {
     expect(r).toMatchObject({ crear: [], actualizar: [], anular: [], sinCambio: 1, protegidas: 1 });
   });
 
+  it('suma las diferencias de fiscalización: el recálculo no las duplica', () => {
+    // Cuota 1 pagada (25) + diferencia de 5; cuota 2 pendiente (25) + diferencia de 5 tras un extorno.
+    const r = planificar(
+      [linea(1, 30), linea(2, 30)],
+      [{ ...existente(10, 1, 25, 'CANCELADO'), ajustes: 5 }, { ...existente(11, 2, 25, 'PENDIENTE'), ajustes: 5 }],
+    );
+    expect(r).toMatchObject({ crear: [], actualizar: [], sinCambio: 1, protegidas: 1 });
+    const sube = planificar([linea(2, 32)], [{ ...existente(11, 2, 25, 'PENDIENTE'), ajustes: 5 }]);
+    expect(sube.actualizar[0].importe.toFixed(2)).toBe('27.00'); // 32 − 5 de la diferencia ya cargada
+  });
+
   it('anula pendientes que ya no corresponden y reactiva anuladas que vuelven', () => {
     const r = planificar([linea(1, 25)], [existente(10, 1, 25, 'ANULADO'), existente(11, 2, 25, 'PENDIENTE'), existente(12, 3, 25, 'COACTIVO')]);
     expect(r.actualizar.map((a) => a.id)).toEqual([10]);

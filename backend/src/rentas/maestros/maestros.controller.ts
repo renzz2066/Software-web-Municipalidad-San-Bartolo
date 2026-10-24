@@ -9,6 +9,8 @@ import {
   DepreciacionesDto,
   EscalaDto,
   FeriadosDto,
+  FiscalizadorDto,
+  InfraccionesDto,
   ParametroFraccionamientoDto,
   TarifasArbitriosDto,
   TasasMoraDto,
@@ -120,6 +122,35 @@ export class MaestrosController {
   @Put('fraccionamiento/:anio')
   guardarFraccionamiento(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ParametroFraccionamientoDto) {
     return this.maestros.guardarFraccionamiento(anio, dto);
+  }
+
+  // Fiscalización (specs/rentas-fiscalizacion-v1.md, decisiones 2 y 5). La lista también la usa
+  // la apertura de expedientes.
+  @Get('fiscalizadores')
+  @RequireNivel('rentas.maestros', 'rentas.fiscalizacion')
+  listarFiscalizadores() {
+    return this.maestros.listarFiscalizadores();
+  }
+
+  @Post('fiscalizadores')
+  crearFiscalizador(@Body() dto: FiscalizadorDto) {
+    return this.maestros.crearFiscalizador(dto);
+  }
+
+  @Patch('fiscalizadores/:id')
+  actualizarFiscalizador(@Param('id', ParseIntPipe) id: number, @Body() dto: FiscalizadorDto) {
+    return this.maestros.actualizarFiscalizador(id, dto);
+  }
+
+  @Get('infracciones/:anio')
+  @RequireNivel('rentas.maestros', 'rentas.fiscalizacion', 'rentas.registro-tributario')
+  listarInfracciones(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.listarInfracciones(anio);
+  }
+
+  @Put('infracciones/:anio')
+  guardarInfracciones(@Param('anio', ParseIntPipe) anio: number, @Body() dto: InfraccionesDto) {
+    return this.maestros.guardarInfracciones(anio, dto);
   }
 
   // Solo lectura: también lo usa el filtro por zona de la emisión de valores.

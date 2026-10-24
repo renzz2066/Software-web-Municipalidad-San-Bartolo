@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 // emisiones simultáneas nunca reciben el mismo número, y si la transacción se revierte
 // el número vuelve a quedar libre (sin huecos).
 
-export type SerieCorrelativo = 'OP' | 'RD' | 'CONV' | 'MEMO' | 'REC'; // REC = recibos de caja
+export type SerieCorrelativo = 'OP' | 'RD' | 'RM' | 'CONV' | 'MEMO' | 'REC' | 'FIS'; // REC = recibos de caja; FIS = expedientes de fiscalización
 
 const DIGITOS = 6;
 

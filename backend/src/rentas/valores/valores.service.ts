@@ -17,6 +17,7 @@ import {
   type CuotaEmitible,
   type Exclusiones,
   type ValorPlan,
+  type TipoValorEmision,
 } from './valores.reglas.js';
 
 const D = Prisma.Decimal;
@@ -31,14 +32,14 @@ export interface NotificacionEntrada {
 
 export interface EmisionEntrada {
   anio: number;
-  tipos?: TipoValor[];
+  tipos?: TipoValorEmision[];
   contribuyenteId?: number;
   zonaId?: number;
   soloVencidas?: boolean;
   montoMinimo?: number;
 }
 
-const TRIBUTO_DE: Record<TipoValor, TipoCalculo> = { OP: 'PREDIAL', RD: 'ARBITRIOS' };
+const TRIBUTO_DE: Record<TipoValorEmision, TipoCalculo> = { OP: 'PREDIAL', RD: 'ARBITRIOS' };
 // Mismo margen que el cálculo masivo: miles de filas con la latencia a Supabase.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 120_000 };
 const LOTE = 500;
@@ -57,6 +58,19 @@ const SELECT_PREDIO = {
 
 // Emisión de OP/RD (specs/rentas-valores-v1.md, V1-V3). Simular no escribe; ejecutar graba
 // cabecera + detalle con la liquidación a la fecha de emisión, en una sola transacción.
+
+// Declarado, fiscalizado y omitido del año de la RD, tomados de la liquidación del expediente.
+function comparacionFiscalizacion(f: { id: number; anio: number; numero: string; predios: { liquidacion: Prisma.JsonValue }[] }, anio: number) {
+  const liquidacion = f.predios[0]?.liquidacion as
+    | { anios: { anio: number; porTributo: { tributo: string; declarado: string; fiscalizado: string; omitido: string }[] }[] }
+    | null;
+  return {
+    id: f.id,
+    numero: `${f.anio}-${f.numero}`,
+    porTributo: liquidacion?.anios.find((a) => a.anio === anio)?.porTributo.filter((t) => Number(t.omitido) > 0) ?? [],
+  };
+}
+
 @Injectable()
 export class ValoresService {
   constructor(
@@ -203,6 +217,11 @@ export class ValoresService {
         contribuyente: { select: { id: true, tipoDoc: true, numDoc: true, nombreCompleto: true, direccionFiscal: true } },
         predio: { select: { ...SELECT_PREDIO, usoPredio: true, zona: { select: { codigo: true, nombre: true } } } },
         transferencia: { select: { anio: true, numero: true, fecha: true, estado: true } },
+        // RD de fiscalización (specs/rentas-fiscalizacion-v1.md, decisión 4): su liquidación para el imprimible.
+        fiscalizacion: { select: { id: true, anio: true, numero: true, predios: { select: { liquidacion: true }, take: 1 } } },
+        // RM (specs/rentas-fiscalizacion-v1.md, F6–F7): la infracción y, si nace de una DJ extemporánea, la DJ.
+        infraccion: { select: { codigo: true, articulo: true, numeral: true, descripcion: true, base: true } },
+        declaracion: { select: { id: true, motivo: true, fecha: true, fechaHecho: true, predioId: true } },
         detalles: {
           select: {
             id: true,
@@ -297,6 +316,11 @@ export class ValoresService {
       contribuyente: valor.contribuyente,
       predio: valor.predio,
       transferencia: valor.transferencia,
+      fiscalizacion: valor.fiscalizacion ? comparacionFiscalizacion(valor.fiscalizacion, anioFiscal) : null,
+      infraccion: valor.infraccion,
+      declaracion: valor.declaracion
+        ? { ...valor.declaracion, fecha: iso(valor.declaracion.fecha), fechaHecho: valor.declaracion.fechaHecho ? iso(valor.declaracion.fechaHecho) : null }
+        : null,
       anioFiscal,
       uit: uit?.valor.toFixed(2) ?? null,
       escala: escala.map((t) => ({ tramo: t.tramo, desdeUit: t.desdeUit.toString(), hastaUit: t.hastaUit?.toString() ?? null, tasa: t.tasa.toString() })),

@@ -1,6 +1,6 @@
 // Contrato de backend/src/predios (Fase C).
 
-export type Motivo = 'INSCRIPCION' | 'COMPRA' | 'VENTA' | 'RECTIFICACION' | 'BAJA'
+export type Motivo = 'INSCRIPCION' | 'COMPRA' | 'VENTA' | 'RECTIFICACION' | 'BAJA' | 'FISCALIZACION'
 
 export const MOTIVOS: { value: Motivo; label: string; ayuda: string }[] = [
   { value: 'INSCRIPCION', label: 'Inscripción', ayuda: 'Registra un predio nuevo.' },
@@ -9,6 +9,9 @@ export const MOTIVOS: { value: Motivo; label: string; ayuda: string }[] = [
   { value: 'VENTA', label: 'Venta', ayuda: 'La presenta el vendedor; deja de ser titular.' },
   { value: 'BAJA', label: 'Baja', ayuda: 'El predio deja de estar afecto (demolición, fusión, etc.).' },
 ]
+
+// Solo la genera la resolución de una fiscalización; no se elige en el formulario.
+export const ETIQUETA_FISCALIZACION = 'Fiscalización'
 
 export interface Catalogos {
   zonas: { id: number; codigo: string; nombre: string }[]
@@ -69,8 +72,14 @@ export interface PredioApi {
     anio: number
     motivo: Motivo
     fecha: string
+    fechaHecho: string | null
     observacion: string | null
     contribuyente: { id: number; nombreCompleto: string }
+    // DJ extemporánea (specs/rentas-fiscalizacion-v1.md, F7)
+    vencePlazo: string | null
+    extemporanea: boolean
+    multaDescartada: string | null
+    multas: { id: number; anio: number; numero: string; estado: string }[]
   }[]
 }
 
@@ -85,4 +94,4 @@ export function direccion(p: Pick<PredioApi, 'via' | 'numero' | 'manzana' | 'lot
   return partes.filter(Boolean).join(' ') || `Predio #${p.id}`
 }
 
-export const etiquetaMotivo = (m: Motivo) => MOTIVOS.find((x) => x.value === m)?.label ?? m
+export const etiquetaMotivo = (m: Motivo) => (m === 'FISCALIZACION' ? ETIQUETA_FISCALIZACION : (MOTIVOS.find((x) => x.value === m)?.label ?? m))

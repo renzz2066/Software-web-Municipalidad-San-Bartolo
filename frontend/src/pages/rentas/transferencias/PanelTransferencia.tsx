@@ -9,6 +9,7 @@ import { RUTA_TRANSFERENCIAS, type ResultadoTransferencia, type TransferenciaRes
 // Simular → elegir → generar memorándum de transferencia a Cobranza Coactiva (V7).
 
 const OPCIONES: { value: TipoValor[]; label: string }[] = [
+  { value: ['OP', 'RD', 'RM'], label: 'OP, RD y RM' },
   { value: ['OP', 'RD'], label: 'OP y RD' },
   { value: ['OP'], label: 'Solo OP' },
   { value: ['RD'], label: 'Solo RD' },
