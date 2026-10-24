@@ -12,7 +12,9 @@ import { PrediosService } from './predios.service.js';
 export class PrediosController {
   constructor(private readonly predios: PrediosService) {}
 
+  // También la usa la ficha de inspección de Fiscalización (specs/rentas-fiscalizacion-v1.md, F3).
   @Get('catalogos')
+  @RequireNivel('rentas.registro-tributario', 'rentas.fiscalizacion')
   catalogos() {
     return this.predios.catalogos();
   }

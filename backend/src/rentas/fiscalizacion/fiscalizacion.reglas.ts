@@ -5,7 +5,7 @@
 //   se anula con motivo mientras no esté resuelto.
 // - Diferencias por año, tributo y cuota: solo se determina lo que sube; lo que baja queda anotado
 //   para un descargo (decisión 7).
-import { EstadoFiscalizacion, Prisma } from '@prisma/client';
+import { EstadoFiscalizacion, ModalidadNotificacion, Prisma } from '@prisma/client';
 
 const D = Prisma.Decimal;
 type Dec = Prisma.Decimal;
@@ -75,6 +75,30 @@ export function errorAccion(estado: EstadoFiscalizacion, accion: AccionExpedient
     const m = motivo?.trim() ?? '';
     if (m.length < 10) return 'Indica el motivo de la anulación (mínimo 10 caracteres)';
     if (m.length > 200) return 'El motivo admite hasta 200 caracteres';
+  }
+  return null;
+}
+
+// Requerimiento de inspección (F2): la visita se programa después de abierto el expediente y, si ya
+// se notificó, después de la notificación (surte efecto al día siguiente, art. 106). Notificación
+// personal: DNI/CE y nombre de quien recibe, como en los valores (art. 104).
+export interface DatosRequerimiento {
+  fechaApertura: string; // AAAA-MM-DD
+  fechaInspeccion: string; // AAAA-MM-DD (la hora se guarda aparte)
+  notificacion?: { fecha: string; modalidad: ModalidadNotificacion; dni?: string | null; nombre?: string | null } | null;
+  hoy: string;
+}
+
+export function errorRequerimiento(d: DatosRequerimiento): string | null {
+  if (d.fechaInspeccion < d.fechaApertura) return 'La inspección no puede ser anterior a la apertura del expediente';
+  const n = d.notificacion;
+  if (!n) return null;
+  if (n.fecha < d.fechaApertura) return 'La notificación no puede ser anterior a la apertura del expediente';
+  if (n.fecha > d.hoy) return 'La fecha de notificación no puede ser futura';
+  if (d.fechaInspeccion <= n.fecha) return 'La inspección debe programarse después del día de la notificación';
+  if (n.modalidad === ModalidadNotificacion.PERSONAL) {
+    if (!n.nombre?.trim()) return 'Registra el nombre de quien recibió el requerimiento';
+    if (!/^[0-9A-Z]{8,12}$/.test(n.dni?.trim().toUpperCase() ?? '')) return 'Registra el DNI (8 dígitos) o CE de quien recibió el requerimiento';
   }
   return null;
 }

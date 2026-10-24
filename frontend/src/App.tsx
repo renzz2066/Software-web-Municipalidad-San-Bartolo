@@ -28,6 +28,10 @@ import { ValorImprimible } from './pages/rentas/valores/ValorImprimible'
 import { ConvenioImprimible } from './pages/rentas/fraccionamiento/ConvenioImprimible'
 import { MemorandumImprimible } from './pages/rentas/transferencias/MemorandumImprimible'
 import { Cobro } from './pages/caja/Cobro'
+import { Fiscalizacion } from './pages/rentas/fiscalizacion/Fiscalizacion'
+import { Expediente } from './pages/rentas/fiscalizacion/Expediente'
+import { FichaInspeccion } from './pages/rentas/fiscalizacion/FichaInspeccion'
+import { RequerimientoImprimible } from './pages/rentas/fiscalizacion/RequerimientoImprimible'
 import { ReciboImprimible } from './pages/caja/ReciboImprimible'
 import { Extornos } from './pages/caja/Extornos'
 import { Reportes } from './pages/caja/Reportes'
@@ -41,6 +45,7 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.registro-tributario': <Contribuyentes />,
   'rentas.calculo-masivo': <CalculoMasivo />,
   'rentas.control-recaudacion': <ControlRecaudacion />,
+  'rentas.fiscalizacion': <Fiscalizacion />,
   'caja.cancelaciones': <Cobro />,
   'caja.extornos': <Extornos />,
   'caja.reportes': <Reportes />,
@@ -254,6 +259,36 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="rentas.control-recaudacion">
               <MemorandumImprimible />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/fiscalizacion/expedientes/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.fiscalizacion">
+              <Expediente />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/fiscalizacion/expedientes/:id/fichas/:predioId"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.fiscalizacion">
+              <FichaInspeccion />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/rentas/fiscalizacion/expedientes/:id/requerimiento"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.fiscalizacion">
+              <RequerimientoImprimible />
             </RequireNivel>
           </ProtectedRoute>
         }

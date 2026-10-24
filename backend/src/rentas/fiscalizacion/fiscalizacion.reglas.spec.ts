@@ -1,6 +1,6 @@
-import { EstadoFiscalizacion } from '@prisma/client';
+import { EstadoFiscalizacion, ModalidadNotificacion } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { diferencias, errorAccion, errorExpediente, estadoTrasFichas, rangoFiscalizable } from './fiscalizacion.reglas.js';
+import { diferencias, errorAccion, errorExpediente, errorRequerimiento, estadoTrasFichas, rangoFiscalizable } from './fiscalizacion.reglas.js';
 
 const { ABIERTO, INSPECCIONADO, RESUELTO } = EstadoFiscalizacion;
 
@@ -60,6 +60,28 @@ describe('errorAccion y estadoTrasFichas', () => {
     expect(estadoTrasFichas(2, 2)).toBe(INSPECCIONADO);
     expect(estadoTrasFichas(1, 2)).toBe(ABIERTO);
     expect(estadoTrasFichas(0, 0)).toBe(ABIERTO);
+  });
+});
+
+describe('errorRequerimiento', () => {
+  const base = { fechaApertura: '2026-10-20', fechaInspeccion: '2026-10-28', hoy: '2026-10-24' };
+  const personal = { fecha: '2026-10-22', modalidad: ModalidadNotificacion.PERSONAL, dni: '12345678', nombre: 'Juan Pérez' };
+
+  it('programa la visita sin notificación todavía', () => {
+    expect(errorRequerimiento(base)).toBeNull();
+    expect(errorRequerimiento({ ...base, fechaInspeccion: '2026-10-19' })).toMatch(/anterior a la apertura/);
+  });
+
+  it('notificación personal válida antes de la visita', () => {
+    expect(errorRequerimiento({ ...base, notificacion: personal })).toBeNull();
+    expect(errorRequerimiento({ ...base, notificacion: { ...personal, dni: '' } })).toMatch(/DNI/);
+    expect(errorRequerimiento({ ...base, notificacion: { ...personal, modalidad: ModalidadNotificacion.CEDULON, dni: null, nombre: null } })).toBeNull();
+  });
+
+  it('la visita va después del día de la notificación, que no es futura ni previa a la apertura', () => {
+    expect(errorRequerimiento({ ...base, fechaInspeccion: '2026-10-22', notificacion: personal })).toMatch(/después del día/);
+    expect(errorRequerimiento({ ...base, notificacion: { ...personal, fecha: '2026-10-25' } })).toMatch(/futura/);
+    expect(errorRequerimiento({ ...base, notificacion: { ...personal, fecha: '2026-10-19' } })).toMatch(/anterior a la apertura/);
   });
 });
 

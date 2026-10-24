@@ -11,7 +11,7 @@ type Tx = Prisma.TransactionClient;
 // Una DJ hace ~15 consultas seguidas; con la latencia a Supabase el límite de 5 s no alcanza.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 20_000 };
 
-const INCLUDE_PREDIO = {
+export const INCLUDE_PREDIO = {
   zona: { select: { id: true, codigo: true, nombre: true } },
   urbanizacion: { select: { id: true, codigo: true, nombre: true } },
   via: { select: { id: true, tipoVia: true, nombre: true } },
