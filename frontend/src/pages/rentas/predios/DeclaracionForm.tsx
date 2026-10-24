@@ -39,6 +39,7 @@ export function DeclaracionForm() {
   const [motivo, setMotivo] = useState<Motivo>(motivoInicial ?? 'RECTIFICACION')
   const [anio, setAnio] = useState(String(new Date().getFullYear()))
   const [fecha, setFecha] = useState(HOY)
+  const [fechaHecho, setFechaHecho] = useState('')
   const [observacion, setObservacion] = useState('')
   const [declarante, setDeclarante] = useState<Persona | null>(null)
   const [datos, setDatos] = useState<DatosForm>(DATOS_VACIOS)
@@ -92,12 +93,16 @@ export function DeclaracionForm() {
   }, [id])
 
   const esBaja = motivo === 'BAJA'
+  // Inscripción y compra se declaran hasta el último día hábil del mes siguiente a la adquisición
+  // (D.L. 776 art. 14); fuera de plazo se propone la multa 176.1 (specs/rentas-fiscalizacion-v1.md, F7).
+  const conPlazo = motivo === 'INSCRIPCION' || motivo === 'COMPRA'
   const sumaCentavos = condominos.reduce((acc, c) => acc + centavos(c.porcentaje || '0'), 0)
 
   function validar(): string | null {
     if (!declarante) return 'Elige al declarante'
     if (!/^\d{4}$/.test(anio)) return 'Indica el año fiscal'
     if (fecha > HOY) return 'La fecha no puede ser futura'
+    if (fechaHecho && fechaHecho > fecha) return 'La fecha de adquisición no puede ser posterior a la presentación'
     if (esBaja) return null
     const errorPredio = errorConstruccion(datos, pisos)
     if (errorPredio) return errorPredio
@@ -122,6 +127,7 @@ export function DeclaracionForm() {
       motivo,
       anio: Number(anio),
       fecha,
+      fechaHecho: conPlazo && fechaHecho ? fechaHecho : undefined,
       declaranteId: declarante!.id,
       predioId: id ? Number(id) : undefined,
       observacion: opt(observacion),
@@ -178,6 +184,11 @@ export function DeclaracionForm() {
               <Campo id="fecha" label="Fecha de presentación">
                 <input id="fecha" type="date" max={HOY} value={fecha} onChange={(e) => setFecha(e.target.value)} className={CLASE} />
               </Campo>
+              {conPlazo && (
+                <Campo id="fecha-hecho" label="Fecha de adquisición">
+                  <input id="fecha-hecho" type="date" max={fecha} value={fechaHecho} onChange={(e) => setFechaHecho(e.target.value)} className={CLASE} />
+                </Campo>
+              )}
               <Campo id="obs" label="Observación">
                 <input id="obs" maxLength={250} value={observacion} onChange={(e) => setObservacion(e.target.value)} className={CLASE} />
               </Campo>

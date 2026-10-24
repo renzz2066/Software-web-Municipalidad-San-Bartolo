@@ -229,6 +229,7 @@ function TablaLiquidacion({ liquidacion: l }: { liquidacion: Liquidacion }) {
 
 function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; alResolver: (x: ExpedienteApi) => void }) {
   const [liquidacion, setLiquidacion] = useState<Liquidacion | null>(null)
+  const [multa178, setMulta178] = useState(true)
   const [confirmando, setConfirmando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [procesando, setProcesando] = useState(false)
@@ -251,7 +252,10 @@ function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; 
     setProcesando(true)
     setError(null)
     try {
-      const { data } = await api.post<ExpedienteApi>(`/rentas/fiscalizacion/expedientes/${e.id}/resolver`)
+      const multas = liquidacion?.multas ?? []
+      const { data } = await api.post<ExpedienteApi>(`/rentas/fiscalizacion/expedientes/${e.id}/resolver`, {
+        multa178: multa178 && multas.length > 0,
+      })
       alResolver(data)
     } catch (err) {
       setError(mensajeError(err))
@@ -277,6 +281,30 @@ function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; 
       {liquidacion && (
         <div className="mt-4">
           <TablaLiquidacion liquidacion={liquidacion} />
+          {!!liquidacion.multas?.length && (
+            <fieldset className="mt-4 rounded-md border border-slate-200 px-3 py-2">
+              <legend className="px-1 text-xs font-bold uppercase tracking-wider text-mar-profundo">Multa por omisión</legend>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={multa178}
+                  disabled={confirmando}
+                  onChange={(x) => setMulta178(x.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+                />
+                <span>
+                  Emitir también la Resolución de Multa (art. {liquidacion.multas[0].codigo}: {liquidacion.multas[0].descripcion.toLowerCase()}).
+                  <ul className="mt-1 text-xs text-slate-600">
+                    {liquidacion.multas.map((m) => (
+                      <li key={m.anio}>
+                        {m.anio}: {m.porcentaje} % de {soles(m.base)} omitido = <strong>{soles(m.monto)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </span>
+              </label>
+            </fieldset>
+          )}
           <p className="mt-3 text-sm text-slate-600">
             {liquidacion.sinDiferencias
               ? 'No hay tributo omitido: al resolver, el expediente se cierra sin diferencias y el predio no cambia.'
@@ -294,7 +322,7 @@ function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; 
                 : confirmando
                   ? liquidacion.sinDiferencias
                     ? 'Confirmar cierre sin diferencias'
-                    : `Confirmar y emitir RD por ${soles(liquidacion.totalOmitido)}`
+                    : `Confirmar y emitir RD por ${soles(liquidacion.totalOmitido)}${multa178 && liquidacion.multas?.length ? ' y la multa' : ''}`
                   : 'Resolver expediente'}
             </button>
           </div>

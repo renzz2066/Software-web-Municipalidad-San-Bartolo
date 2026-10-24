@@ -4,6 +4,7 @@ import { api } from '../../../lib/api'
 import { CLASIFICACIONES, COMPONENTES_CORTOS, ESTADOS_CONSERVACION, MATERIALES, etiqueta } from '../catalogosConstruccion'
 import { RUTA_BASE } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
+import { MultaDJ } from './MultaDJ'
 import { direccion, etiquetaMotivo, type PredioApi } from './tipos'
 
 // Detalle del predio: datos vigentes + historial de DDJJ. Todo cambio entra por una DJ.
@@ -12,6 +13,7 @@ export function Predio() {
   const { id } = useParams()
   const [predio, setPredio] = useState<PredioApi | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [recarga, setRecarga] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -27,7 +29,7 @@ export function Predio() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, recarga])
 
   const titular = predio?.contribuyentes[0]?.contribuyente
   const activo = predio?.estado !== 'BAJA'
@@ -168,6 +170,7 @@ export function Predio() {
                         <span className="font-semibold text-mar-profundo">{etiquetaMotivo(dj.motivo)}</span>
                         <span className="text-slate-500"> · año {dj.anio} · por {dj.contribuyente.nombreCompleto}</span>
                         {dj.observacion && <span className="block text-xs text-slate-500">{dj.observacion}</span>}
+                        {dj.extemporanea && <MultaDJ dj={dj} alCambiar={() => setRecarga((r) => r + 1)} />}
                       </span>
                       <span className="font-mono text-xs text-slate-500">
                         DJ {dj.id} · {dj.fecha.slice(0, 10)}

@@ -688,6 +688,7 @@ model DeclaracionJurada {
   motivo          MotivoDeclaracion
   fecha           DateTime          @db.Date
   fechaHecho      DateTime?         @db.Date // adquisición o inscripción: inicia el plazo de la DJ (D.L. 776 art. 14)
+  multaDescartada String?           @db.VarChar(200) // DJ extemporánea sin multa 176.1: motivo (specs/rentas-fiscalizacion-v1.md, F7)
   snapshot        Json // predio + pisos + condóminos al momento de la DJ
   observacion     String?           @db.VarChar(250)
   createdAt       DateTime          @default(now())

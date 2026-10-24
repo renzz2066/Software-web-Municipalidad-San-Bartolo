@@ -18,6 +18,7 @@ export interface DeclaracionDJ {
   motivo: Motivo;
   anio: number;
   fecha: string; // AAAA-MM-DD
+  fechaHecho?: string | null; // adquisición o inscripción (D.L. 776 art. 14): inicia el plazo para declarar
   declaranteId: number;
   predioId?: number | null;
   condominos: CondominoDJ[];
@@ -34,6 +35,9 @@ const centavos = (n: number) => Math.round(n * 100);
 export function validarDeclaracion(dj: DeclaracionDJ, ctx: ContextoDJ): string | null {
   if (dj.fecha > ctx.hoy) {
     return 'La fecha de la declaración no puede ser futura';
+  }
+  if (dj.fechaHecho && dj.fechaHecho > dj.fecha) {
+    return 'La fecha de adquisición no puede ser posterior a la presentación de la declaración';
   }
   if (dj.motivo === 'INSCRIPCION' && dj.predioId) {
     return 'La inscripción crea un predio nuevo: no indiques predio';

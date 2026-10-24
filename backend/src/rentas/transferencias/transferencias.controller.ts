@@ -10,7 +10,7 @@ export class TransferenciaDto {
   @IsOptional()
   @IsArray()
   @ArrayUnique()
-  @IsIn([TipoValor.OP, TipoValor.RD], { each: true, message: 'Tipo de valor no válido (OP o RD)' })
+  @IsIn([TipoValor.OP, TipoValor.RD, TipoValor.RM], { each: true, message: 'Tipo de valor no válido (OP, RD o RM)' })
   tipos?: TipoValor[];
 
   // Valores elegidos de la simulación; sin lista se transfieren todos los exigibles.

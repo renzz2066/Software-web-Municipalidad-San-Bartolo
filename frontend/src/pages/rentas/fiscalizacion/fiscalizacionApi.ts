@@ -116,9 +116,20 @@ export interface Liquidacion {
     aumentos: DiferenciaCuota[]
     disminuciones: DiferenciaCuota[]
   }[]
+  multas?: MultaPrevista[]
 }
 
 export const RUTA_VALORES_FISCALIZACION = '/rentas/fiscalizacion/valores'
+
+// Multa 178.1 que correspondería por año (solo en la respuesta de liquidar).
+export interface MultaPrevista {
+  anio: number
+  codigo: string
+  descripcion: string
+  porcentaje: string
+  base: string
+  monto: string
+}
 
 export interface Expediente {
   id: number

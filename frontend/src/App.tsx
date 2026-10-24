@@ -284,6 +284,16 @@ function App() {
         }
       />
       <Route
+        path="/rentas/registro-tributario/valores/:id"
+        element={
+          <ProtectedRoute>
+            <RequireNivel codigo="rentas.registro-tributario">
+              <ValorImprimible />
+            </RequireNivel>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/rentas/fiscalizacion/valores/:id"
         element={
           <ProtectedRoute>

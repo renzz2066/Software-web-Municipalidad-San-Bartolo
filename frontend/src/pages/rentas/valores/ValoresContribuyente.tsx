@@ -69,7 +69,7 @@ export function ValoresContribuyente({ contribuyenteId, alEmitir }: { contribuye
                 <td className="px-3 py-2">
                   {v.aniosFiscales.join(', ')} · {v.cuotas} cuota(s)
                 </td>
-                <td className="px-3 py-2 text-slate-600">{v.tipo === 'RD' ? direccionPredio(v.predio) : 'Predial'}</td>
+                <td className="px-3 py-2 text-slate-600">{v.tipo === 'RM' ? 'Multa tributaria' : v.tipo === 'RD' ? direccionPredio(v.predio) : 'Predial'}</td>
                 <td className="px-3 py-2">{v.fechaEmision.slice(0, 10)}</td>
                 <td className="px-3 py-2">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ESTILO_VALOR[v.estado]}`}>{v.estado}</span>

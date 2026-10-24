@@ -99,7 +99,7 @@ export class ValoresController {
 
   // También lo abre Fiscalización: sus RD de fiscalización (specs/rentas-fiscalizacion-v1.md, decisión 4).
   @Get(':id')
-  @RequireNivel('rentas.control-recaudacion', 'rentas.fiscalizacion')
+  @RequireNivel('rentas.control-recaudacion', 'rentas.fiscalizacion', 'rentas.registro-tributario')
   obtener(@Param('id', ParseIntPipe) id: number) {
     return this.valores.obtener(id);
   }

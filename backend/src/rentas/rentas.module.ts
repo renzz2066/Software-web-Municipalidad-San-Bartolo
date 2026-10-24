@@ -7,6 +7,7 @@ import { EstadoCuentaController } from './estado-cuenta/estado-cuenta.controller
 import { EstadoCuentaService } from './estado-cuenta/estado-cuenta.service.js';
 import { FiscalizacionController } from './fiscalizacion/fiscalizacion.controller.js';
 import { FiscalizacionService } from './fiscalizacion/fiscalizacion.service.js';
+import { MultasService } from './fiscalizacion/multas.service.js';
 import { FraccionamientoController } from './fraccionamiento/fraccionamiento.controller.js';
 import { FraccionamientoService } from './fraccionamiento/fraccionamiento.service.js';
 import { MaestrosController } from './maestros/maestros.controller.js';
@@ -22,7 +23,7 @@ import { ValoresService } from './valores/valores.service.js';
 @Module({
   imports: [AuthModule, PrediosModule],
   controllers: [MaestrosController, CalculoController, EstadoCuentaController, ValoresController, FraccionamientoController, TransferenciasController, FiscalizacionController],
-  providers: [MaestrosService, CalculoService, EstadoCuentaService, ValoresService, FraccionamientoService, TransferenciasService, FiscalizacionService],
+  providers: [MaestrosService, CalculoService, EstadoCuentaService, ValoresService, FraccionamientoService, TransferenciasService, FiscalizacionService, MultasService],
   exports: [MaestrosService, EstadoCuentaService],
 })
 export class RentasModule {}

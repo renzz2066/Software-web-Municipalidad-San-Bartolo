@@ -136,6 +136,11 @@ export class DeclaracionDto {
   @IsDateString({}, { message: 'La fecha debe tener formato AAAA-MM-DD' })
   fecha: string;
 
+  // Inscripción o compra: fecha de adquisición; con ella se evalúa si la DJ es extemporánea (F7).
+  @IsOptional()
+  @IsDateString({}, { message: 'La fecha de adquisición debe tener formato AAAA-MM-DD' })
+  fechaHecho?: string;
+
   @IsInt({ message: 'Indica el declarante' })
   declaranteId: number;
 

@@ -17,29 +17,29 @@ fiscalización masiva por cruce con Catastro, fotos/geo de la inspección desde 
 - Como SUPERVISOR/ADMIN de Rentas (fiscalización), quiero abrir expedientes de fiscalización, registrar
   lo verificado en la inspección, determinar la diferencia contra lo declarado y emitir la RD y la
   multa; como registrador, quiero que una DJ presentada fuera de plazo proponga su multa.
-- [ ] F1 Expediente: apertura con número correlativo (`FIS 2026-000001`), tipo (`ORDINARIA` /
+- [x] F1 Expediente: apertura con número correlativo (`FIS 2026-000001`), tipo (`ORDINARIA` /
   `A_SOLICITUD`), contribuyente, predios a fiscalizar, años (desde–hasta, dentro de la prescripción:
   4 años, 6 si nunca declaró — Código Tributario art. 43) y fiscalizador. Estados
   `ABIERTO → INSPECCIONADO → RESUELTO | SIN_DIFERENCIAS`, o `ANULADO` con motivo (nunca `DELETE`).
-- [ ] F2 Requerimiento de inspección imprimible (fecha y hora de la visita, base legal arts. 62 y 87)
+- [x] F2 Requerimiento de inspección imprimible (fecha y hora de la visita, base legal arts. 62 y 87)
   y registro de su notificación (misma modalidad que los valores, art. 104).
-- [ ] F3 Ficha de inspección: por predio, los datos verificados (terreno, pisos con categorías, otras
+- [x] F3 Ficha de inspección: por predio, los datos verificados (terreno, pisos con categorías, otras
   instalaciones, uso, zona) con el mismo formulario de la DJ. La ficha no toca el predio hasta resolver.
-- [ ] F4 Liquidación (simular): por año y tributo, lo determinado con la ficha contra lo declarado
+- [x] F4 Liquidación (simular): por año y tributo, lo determinado con la ficha contra lo declarado
   (lo que ya está en cuenta corriente), con base imponible, impuesto/arbitrio y diferencia; usa
   `motor.ts` con los parámetros de cada año. Sin diferencias → `SIN_DIFERENCIAS`.
-- [ ] F5 Resolución (ejecutar, una transacción): la ficha se aplica al predio como DJ de motivo
+- [x] F5 Resolución (ejecutar, una transacción): la ficha se aplica al predio como DJ de motivo
   `FISCALIZACION` (versionada); las diferencias pasan a cuenta corriente (decisión 3); se emite la RD
   de fiscalización (decisión 4) y, si corresponde, la RM por la infracción (F6). Expediente → `RESUELTO`.
-- [ ] F6 Multas (Código Tributario art. 180 y tablas): catálogo de infracciones por año (decisión 5) —
+- [x] F6 Multas (Código Tributario art. 180 y tablas): catálogo de infracciones por año (decisión 5) —
   176.1 no declarar en plazo (50 % UIT persona natural / 1 UIT jurídica, como SIMUN), 176.2 otras
   declaraciones (15 % / 30 % UIT), 178.1 declarar cifras falsas u omitir (50 % del tributo omitido).
   La multa nace como deuda (tributo `MULTA`) con su Resolución de Multa imprimible e interés desde la
   comisión o detección de la infracción (art. 181).
-- [ ] F7 DJ extemporánea: al grabar una DJ de inscripción o compra fuera de plazo (D.L. 776 art. 14:
+- [x] F7 DJ extemporánea: al grabar una DJ de inscripción o compra fuera de plazo (D.L. 776 art. 14:
   último día hábil de febrero o del mes siguiente a la adquisición) se propone la multa 176.1; quien
   registra confirma o descarta con motivo (decisión 6).
-- [ ] F8 Accesos: nivel existente `rentas.fiscalizacion` (F1–F6); F7 en la DJ con
+- [x] F8 Accesos: nivel existente `rentas.fiscalizacion` (F1–F6); F7 en la DJ con
   `rentas.registro-tributario`. Fiscalizadores en Maestros (`rentas.maestros`). Sin nivel → 403.
 
 ## 2. Archivos afectados
@@ -133,8 +133,15 @@ Decisiones (aprobadas 2026-10-23 según la recomendación entre paréntesis):
   La RD imprimible muestra declarado/fiscalizado/omitido (`/rentas/fiscalizacion/valores/:id`; `GET /rentas/valores/:id`
   acepta también `rentas.fiscalizacion`). Nota: aplicada la ficha, un recálculo posterior sí rebaja cuotas pendientes
   si la ficha dio menos en algún concepto (la decisión 7 rige para la determinación de la RD, no para el cálculo).
-- [ ] Fase D: multas 178.1 en el expediente y 176.1 en la DJ extemporánea, con RM imprimible (F6, F7) + niveles (F8).
-  `lint` + `build` + `test` en cada fase.
+- [x] Fase D: multas 178.1 en el expediente y 176.1 en la DJ extemporánea, con RM imprimible (F6, F7) + niveles (F8).
+  `lint` + `build` + `test` en cada fase. La liquidación prevé la 178.1 (una RM por año con omitido, 50 % del omitido,
+  se comete al detectarse: fecha de la inspección) y la resolución la emite si se marca. La DJ gana "fecha de
+  adquisición" (inscripción y compra); el detalle del predio marca la DJ extemporánea y propone la 176.1 (% de la UIT
+  del año en que vence el plazo; interés desde el día siguiente), que se emite o se descarta con motivo una sola vez.
+  El endpoint quedó en `POST /rentas/fiscalizacion/declaraciones/:id/multa` (no en `/predios/...`: Predios no depende
+  de Rentas) con nivel `rentas.registro-tributario` o `rentas.fiscalizacion`. Migración `20261026120000_multa_dj_descartada`
+  (`declaraciones_juradas.multaDescartada`), escrita a mano porque la BD compartida trae tablas de coactivo creadas
+  fuera de migraciones. Las RM se transfieren a coactivo como OP/RD y se ven en `/rentas/{fiscalizacion|registro-tributario}/valores/:id`.
 - [ ] PR de `feat/rentas-fiscalizacion` hacia `main` (cuando el usuario lo pida).
 
 ## 5. Verificación

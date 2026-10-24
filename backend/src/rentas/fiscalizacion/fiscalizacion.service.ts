@@ -29,6 +29,7 @@ import {
   planAjustes,
   rangoFiscalizable,
 } from './fiscalizacion.reglas.js';
+import { MultasService } from './multas.service.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -126,6 +127,7 @@ export class FiscalizacionService {
     private readonly prisma: PrismaService,
     private readonly calculo: CalculoService,
     private readonly predios: PrediosService,
+    private readonly multas: MultasService,
   ) {}
 
   // Datos para abrir un expediente: predios activos del contribuyente, si declaró, años permitidos.
@@ -344,12 +346,13 @@ export class FiscalizacionService {
     return this.obtener(id);
   }
 
-  // F4: diferencia por año, tributo y cuota entre lo fiscalizado y lo declarado. No escribe.
+  // F4: diferencia por año, tributo y cuota entre lo fiscalizado y lo declarado, y la multa 178.1
+  // que correspondería por cada año con tributo omitido (F6). No escribe.
   async liquidar(id: number) {
     return this.prisma.$transaction(async (tx) => {
       await this.paraAccion(tx, id, 'LIQUIDAR');
-      const { anios } = await this.plan(tx, id);
-      return serializar(anios);
+      const { f, anios } = await this.plan(tx, id);
+      return { ...serializar(anios), multas: await this.multas.prever178(tx, f.tipoPersona, anios.map((a) => ({ anio: a.anio, omitido: a.r.totalOmitido }))) };
     }, OPCIONES_TX_LIQUIDACION);
   }
 
@@ -357,7 +360,7 @@ export class FiscalizacionService {
   // el predio no cambia. Con aumentos: la ficha pasa al predio como DJ FISCALIZACION, cada aumento
   // entra a la cuenta corriente (sube la cuota libre, o fila de diferencia sobre la protegida, o cuota
   // nueva) y se emite una RD por año y predio con lo determinado, ligada al expediente.
-  async resolver(id: number) {
+  async resolver(id: number, multa178: boolean) {
     await this.prisma.$transaction(async (tx) => {
       await this.paraAccion(tx, id, 'RESOLVER');
       const { f, anios } = await this.plan(tx, id);
@@ -420,6 +423,24 @@ export class FiscalizacionService {
         }
       }
       await this.emitirRD(tx, f, anios, tocadas, hoy);
+
+      // F6: multa 178.1 por año con omitido; se comete al detectarse (la inspección, art. 181).
+      if (multa178) {
+        const previstas = await this.multas.prever178(tx, f.tipoPersona, anios.map((a) => ({ anio: a.anio, omitido: a.r.totalOmitido })));
+        const deteccion = f.fechaInspeccion ? limaFechaHora(f.fechaInspeccion).fecha : hoy;
+        for (const m of previstas) {
+          const infraccion = await this.multas.infraccion(tx, m.codigo, m.anio);
+          await this.multas.emitir(tx, {
+            contribuyenteId: f.contribuyenteId,
+            predioId: f.predios.length === 1 ? f.predios[0].predioId : null,
+            anio: m.anio,
+            infraccionId: infraccion.id,
+            monto: new D(m.monto),
+            fechaInfraccion: deteccion < hoy ? deteccion : hoy,
+            fiscalizacionId: f.id,
+          });
+        }
+      }
       await this.cambiarEstado(tx, id, EstadoFiscalizacion.INSPECCIONADO, EstadoFiscalizacion.RESUELTO);
     }, OPCIONES_TX_LIQUIDACION);
     return this.obtener(id);
@@ -498,6 +519,8 @@ export class FiscalizacionService {
         contribuyenteId: true,
         anioDesde: true,
         anioHasta: true,
+        fechaInspeccion: true,
+        contribuyente: { select: { tipoPersona: true } },
         predios: { select: { id: true, predioId: true, ficha: true }, orderBy: { predioId: 'asc' } },
       },
     });
@@ -550,7 +573,7 @@ export class FiscalizacionService {
       const declarado = declaradas.filter((c) => c.estado !== EstadoCuenta.ANULADO);
       anios.push({ anio, base, r: diferencias(declarado, fiscalizado), declaradas, tributos });
     }
-    return { f: { ...f, predios }, anios };
+    return { f: { ...f, tipoPersona: f.contribuyente.tipoPersona, predios }, anios };
   }
 
   private async cambiarEstado(tx: Tx, id: number, desde: EstadoFiscalizacion, hacia: EstadoFiscalizacion) {

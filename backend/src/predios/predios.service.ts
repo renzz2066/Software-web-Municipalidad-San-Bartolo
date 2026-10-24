@@ -3,6 +3,8 @@ import { EstadoRegistro, MotivoDeclaracion, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hoyLima } from '../rentas/fechas.js';
 import { anioValido } from '../rentas/maestros/maestros.reglas.js';
+import { iso } from '../rentas/estado-cuenta/tasas.js';
+import { vencePlazoDJ, esExtemporanea } from '../rentas/fiscalizacion/multas.reglas.js';
 import { validarDeclaracion } from './declaracion.reglas.js';
 import { DatosPredioDto, DeclaracionDto } from './dto/declaracion.dto.js';
 
@@ -55,8 +57,11 @@ export class PrediosService {
             anio: true,
             motivo: true,
             fecha: true,
+            fechaHecho: true,
             observacion: true,
+            multaDescartada: true,
             contribuyente: { select: { id: true, nombreCompleto: true } },
+            multas: { where: { estado: { not: 'ANULADO' } }, select: { id: true, anio: true, numero: true, estado: true } },
           },
           orderBy: [{ fecha: 'desc' }, { id: 'desc' }],
         },
@@ -65,7 +70,20 @@ export class PrediosService {
     if (!predio) {
       throw new NotFoundException('El predio no existe');
     }
-    return predio;
+    // DJ extemporánea (specs/rentas-fiscalizacion-v1.md, F7): plazo y si ya se resolvió su multa.
+    const feriados = new Set((await this.prisma.feriado.findMany({ select: { fecha: true } })).map((f) => iso(f.fecha)));
+    return {
+      ...predio,
+      declaraciones: predio.declaraciones.map((dj) => {
+        const hecho = dj.fechaHecho ? iso(dj.fechaHecho) : null;
+        return {
+          ...dj,
+          fechaHecho: hecho,
+          vencePlazo: hecho ? vencePlazoDJ(dj.motivo, hecho, feriados) : null,
+          extemporanea: esExtemporanea(dj.motivo, hecho, iso(dj.fecha), feriados),
+        };
+      }),
+    };
   }
 
   async findDeclaracion(id: number) {
@@ -104,7 +122,7 @@ export class PrediosService {
       }
 
       const error = validarDeclaracion(
-        { ...dto, fecha },
+        { ...dto, fecha, fechaHecho: dto.fechaHecho?.slice(0, 10) ?? null },
         { hoy: hoyLima(), titularesActuales: actual?.contribuyentes.map((c) => c.contribuyenteId) ?? [] },
       );
       if (error) {
@@ -137,6 +155,7 @@ export class PrediosService {
           anio: dto.anio,
           motivo: dto.motivo,
           fecha: new Date(fecha),
+          fechaHecho: dto.fechaHecho ? new Date(dto.fechaHecho.slice(0, 10)) : null,
           snapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
           observacion: dto.observacion?.trim() || null,
         },

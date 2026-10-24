@@ -1,6 +1,6 @@
 // Contrato de /rentas/valores (backend/src/rentas/valores). specs/rentas-valores-v1.md.
 
-export type TipoValor = 'OP' | 'RD'
+export type TipoValor = 'OP' | 'RD' | 'RM' // RM: multas (specs/rentas-fiscalizacion-v1.md)
 export type EstadoValor = 'EMITIDO' | 'NOTIFICADO' | 'COACTIVO' | 'CANCELADO' | 'ANULADO'
 export type Modalidad = 'PERSONAL' | 'NEGATIVA' | 'CEDULON' | 'PUBLICACION'
 
@@ -17,6 +17,7 @@ export const RUTA_VALORES = '/rentas/control-recaudacion/valores'
 export const NOMBRE_VALOR: Record<TipoValor, string> = {
   OP: 'Orden de Pago',
   RD: 'Resolución de Determinación',
+  RM: 'Resolución de Multa',
 }
 
 export const ESTILO_VALOR: Record<EstadoValor, string> = {
@@ -112,6 +113,9 @@ export interface Valor {
     numero: string
     porTributo: { tributo: string; declarado: string; fiscalizado: string; omitido: string }[]
   } | null
+  // RM: infracción aplicada y, si nace de una DJ extemporánea, esa DJ.
+  infraccion: { codigo: string; articulo: string; numeral: string; descripcion: string; base: 'UIT' | 'TRIBUTO_OMITIDO' } | null
+  declaracion: { id: number; motivo: string; fecha: string; fechaHecho: string | null; predioId: number } | null
   anioFiscal: number
   uit: string | null
   escala: { tramo: number; desdeUit: string; hastaUit: string | null; tasa: string }[]

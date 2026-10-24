@@ -21,6 +21,11 @@ const FUNDAMENTO = {
     'Los intereses moratorios se calculan según el artículo 33° del Código Tributario (TIM).',
     'Puede interponer recurso de reclamación dentro de los veinte (20) días hábiles siguientes a su notificación (artículo 137°). Vencido el plazo sin reclamar, la deuda es exigible en cobranza coactiva (artículo 115°, inciso a).',
   ],
+  RM: [
+    'Se emite conforme a los artículos 77°, 164°, 165° y 180° del Texto Único Ordenado del Código Tributario, por la infracción indicada, con la sanción de la tabla de infracciones y sanciones vigente a la fecha de su comisión.',
+    'La multa genera intereses moratorios desde la fecha en que se cometió la infracción o, no siendo posible establecerla, desde su detección (artículo 181°).',
+    'Puede interponer recurso de reclamación dentro de los veinte (20) días hábiles siguientes a su notificación (artículo 137°). Vencido el plazo sin reclamar, la deuda es exigible en cobranza coactiva (artículo 115°, inciso a).',
+  ],
   // RD que nace de una fiscalización (specs/rentas-fiscalizacion-v1.md, decisión 4).
   RD_FISCALIZACION: [
     'Se emite conforme a los artículos 61°, 62°, 75°, 76° y 77° del Texto Único Ordenado del Código Tributario, como resultado de la fiscalización del predio: se determina el tributo omitido entre lo declarado por el contribuyente y lo verificado en la inspección (Decreto Legislativo N° 776, Ley de Tributación Municipal).',
@@ -62,14 +67,16 @@ export function ValorImprimible() {
             to={
               v?.fiscalizacion
                 ? `${RUTA_EXPEDIENTES}/${v.fiscalizacion.id}`
-                : v
-                  ? `${RUTA_BASE}/contribuyentes/${v.contribuyente.id}`
-                  : RUTA_BASE
+                : v?.declaracion
+                  ? `${RUTA_BASE}/predios/${v.declaracion.predioId}`
+                  : v
+                    ? `${RUTA_BASE}/contribuyentes/${v.contribuyente.id}`
+                    : RUTA_BASE
             }
             className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
           >
             <i aria-hidden="true" className="bi bi-arrow-left" />
-            {v?.fiscalizacion ? 'Expediente de fiscalización' : 'Ficha del contribuyente'}
+            {v?.fiscalizacion ? 'Expediente de fiscalización' : v?.declaracion ? 'Predio' : 'Ficha del contribuyente'}
           </Link>
           <button
             type="button"
@@ -120,11 +127,30 @@ export function ValorImprimible() {
                     }`}
                   />
                 ) : (
-                  <Campo titulo="Tributo" valor={`Impuesto Predial ${v.anioFiscal}`} />
+                  <Campo titulo="Tributo" valor={v.tipo === 'RM' ? `Multa tributaria ${v.anioFiscal}` : `Impuesto Predial ${v.anioFiscal}`} />
                 )}
               </section>
 
-              {v.fiscalizacion && (
+              {v.infraccion && (
+                <section aria-label="Infracción" className="mt-4 rounded-md bg-mar-profundo/5 px-3 py-2">
+                  <p>
+                    Infracción: <strong>artículo {v.infraccion.articulo}°, numeral {v.infraccion.numeral}</strong> del Código Tributario —{' '}
+                    {v.infraccion.descripcion}.
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    {v.declaracion
+                      ? `Declaración jurada N° ${v.declaracion.id} presentada el ${v.declaracion.fecha}${
+                          v.declaracion.fechaHecho ? `, por un hecho (adquisición) del ${v.declaracion.fechaHecho}` : ''
+                        }, fuera del plazo del artículo 14° de la Ley de Tributación Municipal.`
+                      : v.fiscalizacion
+                        ? `Detectada en la fiscalización FIS ${v.fiscalizacion.numero}.`
+                        : ''}{' '}
+                    Sanción: {v.infraccion.base === 'UIT' ? 'porcentaje de la UIT' : 'porcentaje del tributo omitido'}.
+                  </p>
+                </section>
+              )}
+
+              {v.fiscalizacion && v.tipo === 'RD' && (
                 <section aria-label="Determinación por fiscalización" className="mt-4 rounded-md bg-mar-profundo/5 px-3 py-2">
                   <p>
                     Determinación por fiscalización · Expediente <strong>FIS {v.fiscalizacion.numero}</strong>
@@ -225,7 +251,7 @@ export function ValorImprimible() {
 
               <section aria-label="Fundamentos" className="mt-4 space-y-2 text-xs leading-relaxed text-slate-700">
                 <p className="font-semibold uppercase tracking-wider text-slate-500">Fundamentos y base legal</p>
-                {FUNDAMENTO[v.fiscalizacion ? 'RD_FISCALIZACION' : v.tipo].map((t) => (
+                {FUNDAMENTO[v.tipo === 'RD' && v.fiscalizacion ? 'RD_FISCALIZACION' : v.tipo].map((t) => (
                   <p key={t}>{t}</p>
                 ))}
               </section>
@@ -240,7 +266,7 @@ export function ValorImprimible() {
                   </p>
                   {v.fechaExigible && (
                     <p className="text-slate-600">
-                      {v.tipo === 'RD'
+                      {v.tipo !== 'OP'
                         ? 'Plazo de reclamo: 20 días hábiles. Si no se reclama, será exigible en cobranza coactiva desde el'
                         : 'Exigible en cobranza coactiva desde el'}{' '}
                       <strong>{v.fechaExigible}</strong>.

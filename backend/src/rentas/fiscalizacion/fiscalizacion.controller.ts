@@ -6,6 +6,8 @@ import {
   ArrayNotEmpty,
   ArrayUnique,
   IsArray,
+  IsBoolean,
+  IsIn,
   IsDateString,
   IsEnum,
   IsInt,
@@ -20,6 +22,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
 import { NivelGuard } from '../../auth/guards/nivel.guard.js';
 import { DatosPredioDto, OtraInstalacionDto, PisoDto } from '../../predios/dto/declaracion.dto.js';
 import { FiscalizacionService } from './fiscalizacion.service.js';
+import { MultasService } from './multas.service.js';
 
 export class AperturaDto {
   @IsEnum(TipoFiscalizacion, { message: 'Tipo no válido (ORDINARIA o A_SOLICITUD)' })
@@ -109,6 +112,23 @@ export class AnularExpedienteDto {
   motivo: string;
 }
 
+export class ResolverDto {
+  // F6: emitir también la multa 178.1 por el tributo omitido.
+  @IsOptional()
+  @IsBoolean()
+  multa178?: boolean;
+}
+
+export class DecisionMultaDto {
+  @IsIn(['EMITIR', 'DESCARTAR'], { message: 'La acción es EMITIR o DESCARTAR' })
+  accion: 'EMITIR' | 'DESCARTAR';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  motivo?: string;
+}
+
 export class FiltrosExpedientesDto {
   @IsOptional()
   @Type(() => Number)
@@ -125,12 +145,15 @@ export class FiltrosExpedientesDto {
   anio?: number;
 }
 
-// Expedientes de fiscalización (specs/rentas-fiscalizacion-v1.md, F1–F5, F8).
+// Expedientes de fiscalización y multas (specs/rentas-fiscalizacion-v1.md, F1–F8).
 @UseGuards(JwtAuthGuard, NivelGuard)
 @RequireNivel('rentas.fiscalizacion')
 @Controller('rentas/fiscalizacion')
 export class FiscalizacionController {
-  constructor(private readonly fiscalizacion: FiscalizacionService) {}
+  constructor(
+    private readonly fiscalizacion: FiscalizacionService,
+    private readonly multas: MultasService,
+  ) {}
 
   @Get('opciones')
   opciones(@Query('contribuyenteId', ParseIntPipe) contribuyenteId: number) {
@@ -170,8 +193,16 @@ export class FiscalizacionController {
 
   @Post('expedientes/:id/resolver')
   @HttpCode(HttpStatus.OK)
-  resolver(@Param('id', ParseIntPipe) id: number) {
-    return this.fiscalizacion.resolver(id);
+  resolver(@Param('id', ParseIntPipe) id: number, @Body() dto: ResolverDto) {
+    return this.fiscalizacion.resolver(id, dto.multa178 ?? false);
+  }
+
+  // F7: multa 176.1 de una DJ extemporánea; la decide quien registra la DJ (Registro Tributario).
+  @Post('declaraciones/:id/multa')
+  @HttpCode(HttpStatus.OK)
+  @RequireNivel('rentas.registro-tributario', 'rentas.fiscalizacion')
+  decidirMultaDJ(@Param('id', ParseIntPipe) id: number, @Body() dto: DecisionMultaDto) {
+    return this.multas.decidirDJ(id, dto.accion, dto.motivo);
   }
 
   @Post('expedientes/:id/anular')

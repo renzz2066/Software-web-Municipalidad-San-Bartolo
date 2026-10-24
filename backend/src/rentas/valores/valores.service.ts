@@ -219,6 +219,9 @@ export class ValoresService {
         transferencia: { select: { anio: true, numero: true, fecha: true, estado: true } },
         // RD de fiscalización (specs/rentas-fiscalizacion-v1.md, decisión 4): su liquidación para el imprimible.
         fiscalizacion: { select: { id: true, anio: true, numero: true, predios: { select: { liquidacion: true }, take: 1 } } },
+        // RM (specs/rentas-fiscalizacion-v1.md, F6–F7): la infracción y, si nace de una DJ extemporánea, la DJ.
+        infraccion: { select: { codigo: true, articulo: true, numeral: true, descripcion: true, base: true } },
+        declaracion: { select: { id: true, motivo: true, fecha: true, fechaHecho: true, predioId: true } },
         detalles: {
           select: {
             id: true,
@@ -314,6 +317,10 @@ export class ValoresService {
       predio: valor.predio,
       transferencia: valor.transferencia,
       fiscalizacion: valor.fiscalizacion ? comparacionFiscalizacion(valor.fiscalizacion, anioFiscal) : null,
+      infraccion: valor.infraccion,
+      declaracion: valor.declaracion
+        ? { ...valor.declaracion, fecha: iso(valor.declaracion.fecha), fechaHecho: valor.declaracion.fechaHecho ? iso(valor.declaracion.fechaHecho) : null }
+        : null,
       anioFiscal,
       uit: uit?.valor.toFixed(2) ?? null,
       escala: escala.map((t) => ({ tramo: t.tramo, desdeUit: t.desdeUit.toString(), hastaUit: t.hastaUit?.toString() ?? null, tasa: t.tasa.toString() })),
