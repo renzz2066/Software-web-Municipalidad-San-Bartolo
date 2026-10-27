@@ -103,7 +103,7 @@ export class PrediosService {
       }
 
       const error = validarDeclaracion(
-        { ...dto, fecha },
+        { ...dto, fecha, motivo: dto.motivo as any },
         { hoy: hoyLima(), titularesActuales: actual?.contribuyentes.map((c) => c.contribuyenteId) ?? [] },
       );
       if (error) {

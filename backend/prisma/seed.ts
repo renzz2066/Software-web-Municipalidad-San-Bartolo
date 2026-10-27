@@ -102,6 +102,34 @@ async function main() {
     await prisma.tributo.upsert({ where: { codigo: t.codigo }, update: {}, create: t });
   }
   console.log('Tributos de rentas verificados');
+
+  // Ejecutores y auxiliares coactiva (mínimo para recepción/transferencia)
+  const ejecutores = [
+    { codigo: 'EJEC001', nombre: 'Juan Perez Gomez', activo: true },
+    { codigo: 'EJEC002', nombre: 'Maria Lopez Torres', activo: true },
+    { codigo: 'EJEC003', nombre: 'Carlos Ruiz Diaz', activo: true },
+  ];
+  for (const e of ejecutores) {
+    await prisma.ejecutorCoactivo.upsert({
+      where: { codigo: e.codigo },
+      update: {},
+      create: e,
+    });
+  }
+
+  const auxiliares = [
+    { codigo: 'AUX001', nombre: 'Ana Martinez Silva', activo: true },
+    { codigo: 'AUX002', nombre: 'Luis Gonzalez Vargas', activo: true },
+    { codigo: 'AUX003', nombre: 'Rosa Herrera Castro', activo: true },
+  ];
+  for (const a of auxiliares) {
+    await prisma.auxiliarCoactivo.upsert({
+      where: { codigo: a.codigo },
+      update: {},
+      create: a,
+    });
+  }
+  console.log('Ejecutores y auxiliares coactiva verificados');
 }
 
 main()

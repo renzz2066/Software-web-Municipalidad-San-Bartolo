@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../../rentas/maestros/maestrosApi'
 import { TablaSoloLectura, type Columna } from './TablaSoloLectura'
@@ -42,6 +43,8 @@ export function RecepcionTransferencia() {
   const [transferenciaForm, setTransferenciaForm] = useState({ ejecutorId: '', auxiliarId: '', tipoGestionId: '' })
   const [isTransfering, setIsTransfering] = useState(false)
   const [transferResult, setTransferResult] = useState<{ exitosos: number; fallidos: number; errores: string[] } | null>(null)
+  const [memorandums, setMemorandums] = useState<{ id: number; numero: string; anio: number; areaOrigen: string; fechaRecepcion: string }[]>([])
+  const [selectedMemorandum, setSelectedMemorandum] = useState<number | null>(null)
 
   const cargarValores = async () => {
     setIsLoading(true)
@@ -54,6 +57,7 @@ export function RecepcionTransferencia() {
       if (estado) params.append('estado', estado)
       if (fechaDesde) params.append('fechaDesde', fechaDesde)
       if (fechaHasta) params.append('fechaHasta', fechaHasta)
+      if (selectedMemorandum) params.append('memorandumId', String(selectedMemorandum))
       params.append('page', String(page))
       params.append('limit', String(limit))
       
@@ -85,10 +89,20 @@ export function RecepcionTransferencia() {
     }
   }
 
+  const cargarMemorandums = async () => {
+    try {
+      const { data } = await api.get('/coactiva/recepcion-transferencia/memorandums')
+      setMemorandums(data)
+    } catch (err) {
+      console.error('Error cargando memorandums:', err)
+    }
+  }
+
   useEffect(() => {
     cargarValores()
     cargarCatalogos()
-  }, [anio, tipo, contribuyente, estado, fechaDesde, fechaHasta, page])
+    cargarMemorandums()
+  }, [anio, tipo, contribuyente, estado, fechaDesde, fechaHasta, page, selectedMemorandum])
 
   const handleSelectRow = (id: number | string, checked: boolean) => {
     const numId = typeof id === 'string' ? parseInt(id, 10) : id
@@ -187,7 +201,15 @@ export function RecepcionTransferencia() {
   return (
     <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <Link
+          to="/coactivo"
+          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+        >
+          <i aria-hidden="true" className="bi bi-arrow-left" />
+          Cobranza Coactiva
+        </Link>
+
+        <header className="mb-6 mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <span
@@ -329,7 +351,51 @@ export function RecepcionTransferencia() {
           </div>
         )}
 
-        <section className="rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10 overflow-hidden">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
+          {/* Panel de memorandums */}
+          <aside className="rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10 h-fit">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-mar-profundo">Memorandums</h2>
+              {selectedMemorandum && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedMemorandum(null); setPage(1); }}
+                  className="text-xs text-mar hover:text-mar-profundo"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+            <div className="space-y-1">
+              {memorandums.length === 0 && (
+                <p className="text-xs text-slate-400">Sin memorandums.</p>
+              )}
+              {memorandums.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedMemorandum(selectedMemorandum === m.id ? null : m.id)
+                    setPage(1)
+                    setSelectedIds([])
+                  }}
+                  className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                    selectedMemorandum === m.id
+                      ? 'bg-mar-profundo text-white'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="block font-medium">{m.numero}</span>
+                  <span className={`block text-xs ${selectedMemorandum === m.id ? 'text-white/70' : 'text-slate-500'}`}>
+                    {m.anio} · {m.areaOrigen}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          {/* Tabla dinámica de valores */}
+          <section className="rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10 overflow-hidden">
           <TablaSoloLectura<ValorTransferible>
             columnas={COL_VALORES}
             datos={valores}
@@ -364,6 +430,7 @@ export function RecepcionTransferencia() {
             </div>
           </div>
         </section>
+        </div>
 
         {showTransferModal && (
           <TransferenciaModal

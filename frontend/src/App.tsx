@@ -23,6 +23,8 @@ import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuy
 import { Predio } from './pages/rentas/predios/Predio'
 import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
+import { RecepcionTransferencia } from './pages/coactiva/recepcion-transferencia/RecepcionTransferencia'
+import { AsignarValores } from './pages/coactiva/asignar-valores/AsignarValores'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -31,6 +33,8 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.maestros': <Maestros />,
   'rentas.registro-tributario': <Contribuyentes />,
   'rentas.calculo-masivo': <CalculoMasivo />,
+  'coactivo.recepcion': <RecepcionTransferencia />,
+  'coactivo.asignar-valores': <AsignarValores />,
 }
 
 function App() {

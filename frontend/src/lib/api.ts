@@ -4,6 +4,23 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
 })
 
+export interface AsignarValoresApi {
+  asignarValores: (data: { valorIds: number[]; auxiliarId: number }) => Promise<any>
+  getMemorandums: () => Promise<any>
+  getAuxiliares: () => Promise<any>
+  getValoresByMemorandum: (memorandumId: number) => Promise<any>
+}
+
+// Extender el tipo de api para incluir los métodos personalizados
+declare module 'axios' {
+  interface AxiosInstance {
+    asignarValores: (data: { valorIds: number[]; auxiliarId: number }) => Promise<any>
+    getMemorandums: () => Promise<any>
+    getAuxiliares: () => Promise<any>
+    getValoresByMemorandum: (memorandumId: number) => Promise<any>
+  }
+}
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken')
   if (token) {
