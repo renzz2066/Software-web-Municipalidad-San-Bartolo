@@ -17,7 +17,7 @@ export class RecepcionTransferenciaService {
   constructor(private prisma: PrismaService) {}
 
   async getMemorandums() {
-    return this.prisma.memorandums_coactiva.findMany({
+    return this.prisma.memorandumCoactiva.findMany({
       where: { activo: true },
       orderBy: [{ anio: 'desc' }, { numero: 'asc' }],
     });

@@ -43,8 +43,8 @@ export async function transferirValor(
   }
 
   const [ejecutor, auxiliar] = await Promise.all([
-    tx.ejecutores_coactivo.findUnique({ where: { id: input.ejecutorId } }),
-    tx.auxiliares_coactivo.findUnique({ where: { id: input.auxiliarId } }),
+    tx.ejecutorCoactivo.findUnique({ where: { id: input.ejecutorId } }),
+    tx.auxiliarCoactivo.findUnique({ where: { id: input.auxiliarId } }),
   ]);
 
   if (!ejecutor || !ejecutor.activo) {
@@ -67,40 +67,45 @@ export async function transferirValor(
   const correlativo = (ultimo ? parseInt(ultimo.numExpediente, 10) : 0) + 1;
   const numExpediente = correlativo.toString().padStart(6, '0');
 
-  const expediente = await tx.coactivoExp.create({
-    data: {
-      anioExpediente: anioExp,
-      numExpediente,
-      valorId: input.valorId,
-      contribuyenteId: valor.contribuyenteId,
-      ejecutorId: input.ejecutorId,
-      auxiliarId: input.auxiliarId,
-      tipoGestionId: input.tipoGestionId,
-      estado: EstadoValor.COACTIVO,
-      fechaGeneracion: new Date(),
-      creadoPorId: input.usuarioId,
-      detalles: {
-        create: valor.detalles.map((d) => ({
-          cuentaCorrienteId: d.cuentaCorrienteId,
-          descripcion: `${d.cuentaCorriente.tributo.codigo} - Cuota ${d.cuentaCorriente.cuota}`,
-          monto: d.subtotal,
-        })),
+  // Regla 3 (AGENTS.md): expediente y valor se escriben en la misma transacción
+  const expediente = await tx.$transaction(async (t) => {
+    const creado = await t.coactivoExp.create({
+      data: {
+        anioExpediente: anioExp,
+        numExpediente,
+        valorId: input.valorId,
+        contribuyenteId: valor.contribuyenteId,
+        ejecutorId: input.ejecutorId,
+        auxiliarId: input.auxiliarId,
+        tipoGestionId: input.tipoGestionId,
+        estado: EstadoValor.COACTIVO,
+        fechaGeneracion: new Date(),
+        creadoPorId: input.usuarioId,
+        detalles: {
+          create: valor.detalles.map((d) => ({
+            cuentaCorrienteId: d.cuentaCorrienteId,
+            descripcion: `${d.cuentaCorriente.tributo.codigo} - Cuota ${d.cuentaCorriente.cuota}`,
+            monto: d.subtotal,
+          })),
+        },
       },
-    },
-    include: {
-      detalles: true,
-      ejecutor: true,
-      auxiliar: true,
-    },
-  });
+      include: {
+        detalles: true,
+        ejecutor: true,
+        auxiliar: true,
+      },
+    });
 
-  await tx.valorCab.update({
-    where: { id: input.valorId },
-    data: {
-      estado: EstadoValor.COACTIVO,
-      fechaNotificacion: new Date(),
-      modificadoPorId: input.usuarioId,
-    },
+    await t.valorCab.update({
+      where: { id: input.valorId },
+      data: {
+        estado: EstadoValor.COACTIVO,
+        fechaNotificacion: new Date(),
+        modificadoPorId: input.usuarioId,
+      },
+    });
+
+    return creado;
   });
 
   return { expediente, valor };
@@ -247,8 +252,8 @@ export async function getValorDetalle(
       },
       expedientes: {
         include: {
-          ejecutores_coactivo: true,
-          auxiliares_coactivo: true,
+          ejecutor: true,
+          auxiliar: true,
         },
       },
     },
@@ -256,21 +261,21 @@ export async function getValorDetalle(
 }
 
 export async function getEjecutoresActivos(tx: PrismaClient) {
-  return tx.ejecutores_coactivo.findMany({
+  return tx.ejecutorCoactivo.findMany({
     where: { activo: true },
     orderBy: { nombre: 'asc' },
   });
 }
 
 export async function getAuxiliaresActivos(tx: PrismaClient) {
-  return tx.auxiliares_coactivo.findMany({
+  return tx.auxiliarCoactivo.findMany({
     where: { activo: true },
     orderBy: { nombre: 'asc' },
   });
 }
 
 export async function getTiposGestionActivos(tx: PrismaClient) {
-  return tx.tipos_gestion_coactiva.findMany({
+  return tx.tipoGestionCoactiva.findMany({
     where: { activo: true },
     orderBy: { descripcion: 'asc' },
   });

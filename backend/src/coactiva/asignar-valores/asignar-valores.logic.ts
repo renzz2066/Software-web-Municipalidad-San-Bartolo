@@ -13,21 +13,21 @@ export interface AsignarValoresResultado {
 }
 
 export async function getMemorandumsActivos(tx: PrismaClient) {
-  return tx.memorandums_coactiva.findMany({
+  return tx.memorandumCoactiva.findMany({
     where: { activo: true },
     orderBy: [{ anio: 'desc' }, { numero: 'asc' }],
   });
 }
 
 export async function getAuxiliaresActivos(tx: PrismaClient) {
-  return tx.auxiliares_coactivo.findMany({
+  return tx.auxiliarCoactivo.findMany({
     where: { activo: true },
     orderBy: { nombre: 'asc' },
   });
 }
 
 export async function getValoresByMemorandum(tx: PrismaClient, memorandumId: number) {
-  const memorandum = await tx.memorandums_coactiva.findUnique({
+  const memorandum = await tx.memorandumCoactiva.findUnique({
     where: { id: memorandumId },
   });
 
@@ -53,7 +53,7 @@ export async function asignarValores(
   input: AsignarValoresInput,
   tx: PrismaClient
 ): Promise<AsignarValoresResultado> {
-  const auxiliar = await tx.auxiliares_coactivo.findUnique({
+  const auxiliar = await tx.auxiliarCoactivo.findUnique({
     where: { id: input.auxiliarId },
   });
 

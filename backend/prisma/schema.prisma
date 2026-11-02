@@ -948,6 +948,11 @@ model ValorCab {
   infraccion            Infraccion?            @relation(fields: [infraccionId], references: [id], onDelete: Restrict)
   declaracionId         Int? // RM por DJ extemporánea (F7)
   declaracion           DeclaracionJurada?     @relation(fields: [declaracionId], references: [id], onDelete: Restrict)
+  // Cobranza coactiva: memo que origina la transferencia y auxiliar que recibe el valor
+  memorandumId          Int?
+  memorandum            MemorandumCoactiva?    @relation(fields: [memorandumId], references: [id])
+  auxiliarAsignadoId    Int?
+  auxiliarAsignado      AuxiliarCoactivo?      @relation(fields: [auxiliarAsignadoId], references: [id])
   estado                EstadoValor            @default(EMITIDO)
   createdAt             DateTime               @default(now())
   creadoPorId           Int?
@@ -962,6 +967,8 @@ model ValorCab {
   @@index([contribuyenteId])
   @@index([estado])
   @@index([fiscalizacionId])
+  @@index([memorandumId])
+  @@index([auxiliarAsignadoId])
   @@map("valores_cab")
 }
 
@@ -1099,10 +1106,13 @@ model CoactivoExp {
   valorId         Int?
   valor           ValorCab?     @relation(fields: [valorId], references: [id], onDelete: SetNull)
   contribuyenteId Int
-  contribuyente   Contribuyente @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
-  ejecutor        String?       @db.VarChar(100)
-  auxiliar        String?       @db.VarChar(100)
-  estado          EstadoValor   @default(EMITIDO)
+  contribuyente   Contribuyente       @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  ejecutorId      Int?
+  ejecutor        EjecutorCoactivo?   @relation(fields: [ejecutorId], references: [id])
+  auxiliarId      Int?
+  auxiliar        AuxiliarCoactivo?   @relation(fields: [auxiliarId], references: [id])
+  tipoGestionId   Int? // sin FK: la BD no la tiene (la rama tampoco la declara)
+  estado          EstadoValor         @default(EMITIDO)
   fechaGeneracion DateTime      @default(now()) @db.Date
   createdAt       DateTime      @default(now())
   creadoPorId     Int?
@@ -1114,6 +1124,8 @@ model CoactivoExp {
 
   @@unique([anioExpediente, numExpediente])
   @@index([contribuyenteId])
+  @@index([ejecutorId])
+  @@index([auxiliarId])
   @@map("coactivo_exp")
 }
 
@@ -1128,6 +1140,66 @@ model CoactivoDet {
 
   @@index([expedienteId])
   @@map("coactivo_det")
+}
+
+// ============================================================
+// G2. MAESTROS DE COBRANZA COACTIVA
+// specs/coactiva-recepcion-transferencia-v1.md
+// Ref SIMUN: tabla_ejecutor_coactivo + tabla_auxiliares_coactivo + memo_coactivo
+// ============================================================
+
+// Ejecutor que ordena la transferencia (antes texto libre en coactivo_exp.ejecutor)
+model EjecutorCoactivo {
+  id          Int           @id @default(autoincrement())
+  codigo      String        @unique @db.VarChar(10)
+  nombre      String        @db.VarChar(100)
+  activo      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  coactivoExp CoactivoExp[]
+
+  @@map("ejecutores_coactivo")
+}
+
+// Auxiliar que acompaña el expediente y al que se le asignan valores
+model AuxiliarCoactivo {
+  id          Int           @id @default(autoincrement())
+  codigo      String        @unique @db.VarChar(10)
+  nombre      String        @db.VarChar(100)
+  activo      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  coactivoExp CoactivoExp[]
+  valores     ValorCab[]
+
+  @@map("auxiliares_coactivo")
+}
+
+// Memorándum de recepción: origen de la transferencia de valores a coactiva
+model MemorandumCoactiva {
+  id             Int          @id @default(autoincrement())
+  numero         String       @unique @db.VarChar(20)
+  anio           Int
+  areaOrigen     String       @db.VarChar(100)
+  fechaRecepcion DateTime     @db.Date
+  activo         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  valores        ValorCab[]
+
+  @@index([anio])
+  @@map("memorandums_coactiva")
+}
+
+// Tipo de gestión del expediente. Sin FK en coactivo_exp.tipoGestionId: la BD no la tiene.
+model TipoGestionCoactiva {
+  id          Int       @id @default(autoincrement())
+  codigo      String    @unique @db.VarChar(10)
+  descripcion String    @db.VarChar(150)
+  activo      Boolean?  @default(true)
+  createdAt   DateTime? @default(now())
+
+  @@map("tipos_gestion_coactiva")
 }
 
 // ============================================================
