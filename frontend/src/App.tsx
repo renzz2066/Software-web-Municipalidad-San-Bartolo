@@ -36,6 +36,8 @@ import { ReciboImprimible } from './pages/caja/ReciboImprimible'
 import { Extornos } from './pages/caja/Extornos'
 import { Reportes } from './pages/caja/Reportes'
 import { CierreCaja, CierreImprimible } from './pages/caja/CierreCaja'
+import { RecepcionTransferencia } from './pages/coactiva/recepcion-transferencia/RecepcionTransferencia'
+import { AsignarValores } from './pages/coactiva/asignar-valores/AsignarValores'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -49,6 +51,8 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'caja.cancelaciones': <Cobro />,
   'caja.extornos': <Extornos />,
   'caja.reportes': <Reportes />,
+  'coactivo.recepcion': <RecepcionTransferencia />,
+  'coactivo.asignar-valores': <AsignarValores />,
 }
 
 function App() {
