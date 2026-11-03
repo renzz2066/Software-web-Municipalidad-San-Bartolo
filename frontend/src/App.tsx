@@ -27,6 +27,10 @@ import { ControlRecaudacion } from './pages/rentas/valores/ControlRecaudacion'
 import { ValorImprimible } from './pages/rentas/valores/ValorImprimible'
 import { ConvenioImprimible } from './pages/rentas/fraccionamiento/ConvenioImprimible'
 import { MemorandumImprimible } from './pages/rentas/transferencias/MemorandumImprimible'
+import { Calculadora } from './pages/utilitarios/calculadora/Calculadora'
+import { Calendario } from './pages/utilitarios/calendario/Calendario'
+import { BuscadorUniversal } from './pages/utilitarios/buscador/BuscadorUniversal'
+import { Exportar } from './pages/utilitarios/exportar/Exportar'
 import { Cobro } from './pages/caja/Cobro'
 import { Fiscalizacion } from './pages/rentas/fiscalizacion/Fiscalizacion'
 import { Expediente } from './pages/rentas/fiscalizacion/Expediente'
@@ -46,6 +50,10 @@ const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'rentas.calculo-masivo': <CalculoMasivo />,
   'rentas.control-recaudacion': <ControlRecaudacion />,
   'rentas.fiscalizacion': <Fiscalizacion />,
+  'utilitarios.calculadora': <Calculadora />,
+  'utilitarios.calendario': <Calendario />,
+  'utilitarios.buscador': <BuscadorUniversal />,
+  'utilitarios.exportar': <Exportar />,
   'caja.cancelaciones': <Cobro />,
   'caja.extornos': <Extornos />,
   'caja.reportes': <Reportes />,
