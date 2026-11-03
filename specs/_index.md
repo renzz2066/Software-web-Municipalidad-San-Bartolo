@@ -9,4 +9,5 @@
 - `rentas-nucleo-v1.md`: activa. Contribuyentes, predios/DJ, maestros, cálculo predial/arbitrios, estado de cuenta.
 - `rentas-valores-v1.md`: activa. OP/RD, notificación, fraccionamiento, transferencia a coactivo.
 - `caja-v1.md`: activa. Cobros en ventanilla, recibo correlativo, extornos y cierre diario por cajero.
+- `utilitarios-v1.md`: activa. Herramientas de apoyo: calculadora (UIT, mora, DNI/RUC, efectivo), calendario, buscador y exportación CSV.
 - `rentas-fiscalizacion-v1.md`: activa. Expediente de fiscalización, ficha, RD por diferencias y multas (RM).
