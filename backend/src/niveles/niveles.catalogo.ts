@@ -72,14 +72,6 @@ export const NIVELES_CATALOGO: NivelDef[] = [
     padre: 'accesibilidad',
     orden: 4,
   },
-  {
-    codigo: 'accesibilidad.auditoria',
-    tipo: TipoNivel.FUNCIONALIDAD,
-    nombre: 'Auditoría',
-    descripcion: 'Movimientos y sesiones registrados (solo ADMIN).',
-    padre: 'accesibilidad',
-    orden: 5,
-  },
 
   // Esqueleto de módulos SIMUN (specs/modulos-esqueleto-v1.md): sin funciones aún.
   ...modulo('rentas', 'Rentas', 'Registro tributario, recaudación y fiscalización.', 1, [
@@ -117,5 +109,6 @@ export const NIVELES_CATALOGO: NivelDef[] = [
   ]),
   ...modulo('tablero', 'Tablero Gerencial', 'Indicadores para gerencia.', 7, [
     ['resumen', 'Resumen'],
+    ['auditoria', 'Auditoría'],
   ]),
 ];
