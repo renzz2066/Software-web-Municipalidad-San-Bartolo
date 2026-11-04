@@ -87,6 +87,9 @@ export const MODULOS: Modulo[] = [
     titulo: 'Tablero Gerencial',
     descripcion: 'Indicadores para gerencia.',
     icono: 'bi bi-speedometer2',
-    submodulos: [{ slug: 'resumen', titulo: 'Resumen', icono: 'bi bi-clipboard-data' }],
+    submodulos: [
+      { slug: 'resumen', titulo: 'Resumen', icono: 'bi bi-clipboard-data' },
+      { slug: 'auditoria', titulo: 'Auditoría', icono: 'bi bi-journal-text' },
+    ],
   },
 ]

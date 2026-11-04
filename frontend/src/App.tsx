@@ -11,7 +11,7 @@ import { NuevoRol } from './pages/accesibilidad/NuevoRol'
 import { EditarRol } from './pages/accesibilidad/EditarRol'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
-import { Auditoria } from './pages/accesibilidad/Auditoria'
+import { Auditoria } from './pages/tablero/Auditoria'
 import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
@@ -41,6 +41,7 @@ import { RequireNivel } from './routes/RequireNivel'
 
 // Submódulos ya implementados; el resto muestra "En construcción".
 const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
+  'tablero.auditoria': <Auditoria />,
   'rentas.maestros': <Maestros />,
   'rentas.registro-tributario': <Contribuyentes />,
   'rentas.calculo-masivo': <CalculoMasivo />,
@@ -149,16 +150,6 @@ function App() {
           <ProtectedRoute>
             <RequireNivel codigo="accesibilidad.accesos-por-rol">
               <AccesosPorRol />
-            </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/auditoria"
-        element={
-          <ProtectedRoute>
-            <RequireNivel codigo="accesibilidad.auditoria">
-              <Auditoria />
             </RequireNivel>
           </ProtectedRoute>
         }

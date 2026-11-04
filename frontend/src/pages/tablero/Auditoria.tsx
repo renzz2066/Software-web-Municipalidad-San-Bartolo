@@ -159,11 +159,11 @@ export function Auditoria() {
     <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
       <div className="mx-auto max-w-6xl">
         <Link
-          to="/accesibilidad"
+          to="/tablero"
           className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
         >
           <i aria-hidden="true" className="bi bi-arrow-left" />
-          Accesibilidad
+          Tablero Gerencial
         </Link>
 
         <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
