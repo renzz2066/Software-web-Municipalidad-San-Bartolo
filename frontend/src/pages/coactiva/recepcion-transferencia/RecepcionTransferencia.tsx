@@ -25,14 +25,13 @@ export function RecepcionTransferencia() {
   const [anio, setAnio] = useState(ANIO_ACTUAL)
   const [tipo, setTipo] = useState('')
   const [contribuyente, setContribuyente] = useState('')
-  const [estado, setEstado] = useState('')
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [page, setPage] = useState(1)
   const [limit] = useState(20)
   const [valores, setValores] = useState<ValorTransferible[]>([])
   const [total, setTotal] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showTransferModal, setShowTransferModal] = useState(false)
@@ -46,63 +45,70 @@ export function RecepcionTransferencia() {
   const [memorandums, setMemorandums] = useState<{ id: number; numero: string; anio: number; areaOrigen: string; fechaRecepcion: string }[]>([])
   const [selectedMemorandum, setSelectedMemorandum] = useState<number | null>(null)
 
-  const cargarValores = async () => {
+  // Recarga explícita (Buscar, Limpiar, tras transferir) sin duplicar la lógica del efecto.
+  const [recarga, setRecarga] = useState(0)
+  const refrescar = () => {
     setIsLoading(true)
-    setError(null)
-    try {
+    setRecarga((n) => n + 1)
+  }
+
+  useEffect(() => {
+    let cancelado = false
+    async function cargarValores() {
       const params = new URLSearchParams()
       if (anio) params.append('anio', String(anio))
       if (tipo) params.append('tipo', tipo)
       if (contribuyente) params.append('contribuyente', contribuyente)
-      if (estado) params.append('estado', estado)
       if (fechaDesde) params.append('fechaDesde', fechaDesde)
       if (fechaHasta) params.append('fechaHasta', fechaHasta)
       if (selectedMemorandum) params.append('memorandumId', String(selectedMemorandum))
       params.append('page', String(page))
       params.append('limit', String(limit))
-      
-
-      const { data } = await api.get<{ data: ValorTransferible[]; total: number; page: number; limit: number }>(
-        `/coactiva/recepcion-transferencia/valores?${params.toString()}`
-      )
-      setValores(data.data)
-      setTotal(data.total)
-    } catch (err) {
-      setError(mensajeError(err))
-    } finally {
-      setIsLoading(false)
+      try {
+        const { data } = await api.get<{ data: ValorTransferible[]; total: number; page: number; limit: number }>(
+          `/coactiva/recepcion-transferencia/valores?${params.toString()}`
+        )
+        if (cancelado) return
+        setValores(data.data)
+        setTotal(data.total)
+        setError(null)
+      } catch (err) {
+        if (!cancelado) setError(mensajeError(err))
+      } finally {
+        if (!cancelado) setIsLoading(false)
+      }
     }
-  }
-
-  const cargarCatalogos = async () => {
-    try {
-      const [ejec, aux, tg] = await Promise.all([
-        api.get<Ejecutor[]>('/coactiva/recepcion-transferencia/ejecutores'),
-        api.get<Auxiliar[]>('/coactiva/recepcion-transferencia/auxiliares'),
-        api.get<TipoGestion[]>('/coactiva/recepcion-transferencia/tipos-gestion'),
-      ])
-      setEjecutores(ejec.data)
-      setAuxiliares(aux.data)
-      setTiposGestion(tg.data)
-    } catch (err) {
-      console.error('Error cargando catálogos:', err)
+    void cargarValores()
+    return () => {
+      cancelado = true
     }
-  }
+  }, [anio, tipo, contribuyente, fechaDesde, fechaHasta, page, limit, selectedMemorandum, recarga])
 
-  const cargarMemorandums = async () => {
-    try {
-      const { data } = await api.get('/coactiva/recepcion-transferencia/memorandums')
-      setMemorandums(data)
-    } catch (err) {
-      console.error('Error cargando memorandums:', err)
-    }
-  }
-
+  // Catálogos y memorándums: una sola vez al abrir la pantalla.
   useEffect(() => {
-    cargarValores()
-    cargarCatalogos()
-    cargarMemorandums()
-  }, [anio, tipo, contribuyente, estado, fechaDesde, fechaHasta, page, selectedMemorandum])
+    let cancelado = false
+    async function cargarCatalogos() {
+      try {
+        const [ejec, aux, tg, memos] = await Promise.all([
+          api.get<Ejecutor[]>('/coactiva/recepcion-transferencia/ejecutores'),
+          api.get<Auxiliar[]>('/coactiva/recepcion-transferencia/auxiliares'),
+          api.get<TipoGestion[]>('/coactiva/recepcion-transferencia/tipos-gestion'),
+          api.get('/coactiva/recepcion-transferencia/memorandums'),
+        ])
+        if (cancelado) return
+        setEjecutores(ejec.data)
+        setAuxiliares(aux.data)
+        setTiposGestion(tg.data)
+        setMemorandums(memos.data)
+      } catch (err) {
+        if (!cancelado) setError(mensajeError(err))
+      }
+    }
+    void cargarCatalogos()
+    return () => {
+      cancelado = true
+    }
+  }, [])
 
   const handleSelectRow = (id: number | string, checked: boolean) => {
     const numId = typeof id === 'string' ? parseInt(id, 10) : id
@@ -173,7 +179,7 @@ export function RecepcionTransferencia() {
         )
         setTransferResult({ exitosos: 1, fallidos: 0, errores: [] })
       }
-      await cargarValores()
+      refrescar()
       setSelectedIds([])
     } catch (err) {
       setError(mensajeError(err))
@@ -271,24 +277,6 @@ export function RecepcionTransferencia() {
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
               />
             </div>
-            <div>
-              <label htmlFor="filtro-estado" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Estado
-              </label>
-              <select
-                id="filtro-estado"
-                value={estado}
-                onChange={(e) => setEstado(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
-              >
-                <option value="">Todos</option>
-                <option value="EMITIDO">Emitido</option>
-                <option value="NOTIFICADO">Notificado</option>
-                <option value="COACTIVO">Coactivo</option>
-                <option value="CANCELADO">Cancelado</option>
-                <option value="ANULADO">Anulado</option>
-              </select>
-            </div>
           </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -321,7 +309,7 @@ export function RecepcionTransferencia() {
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              onClick={() => { setPage(1); cargarValores(); }}
+              onClick={() => { setPage(1); refrescar(); }}
               className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
             >
               Buscar
@@ -332,11 +320,10 @@ export function RecepcionTransferencia() {
                 setAnio(ANIO_ACTUAL)
                 setTipo('')
                 setContribuyente('')
-                setEstado('')
                 setFechaDesde('')
                 setFechaHasta('')
                 setPage(1)
-                cargarValores()
+                refrescar()
               }}
               className="rounded-md border border-mar-profundo/30 px-4 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
             >
