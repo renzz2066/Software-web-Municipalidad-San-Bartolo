@@ -1,10 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { idsUnicos, motivoNoAsignable } from '../coactiva.reglas.js';
 
 export interface AsignarValoresInput {
   valorIds: number[];
   auxiliarId: number;
-  usuarioId: number;
 }
 
 export interface AsignarValoresResultado {
@@ -64,21 +64,22 @@ export async function asignarValores(
   const exitosos: number[] = [];
   const fallidos: { valorId: number; error: string }[] = [];
 
-  for (const valorId of input.valorIds) {
+  for (const valorId of idsUnicos(input.valorIds)) {
     try {
-      const valor = await tx.valorCab.findUnique({ where: { id: valorId } });
-
-      if (!valor) {
-        fallidos.push({ valorId, error: 'Valor no encontrado' });
+      const valor = await tx.valorCab.findUnique({
+        where: { id: valorId },
+        select: { estado: true, _count: { select: { expedientes: true } } },
+      });
+      const motivo = motivoNoAsignable(valor && { estado: valor.estado, expedientes: valor._count.expedientes });
+      if (motivo) {
+        fallidos.push({ valorId, error: motivo });
         continue;
       }
 
+      // modificadoPorId lo fija el trigger de auditoría (skills/backend-db.md, 6).
       await tx.valorCab.update({
         where: { id: valorId },
-        data: {
-          auxiliarAsignadoId: input.auxiliarId,
-          modificadoPorId: input.usuarioId,
-        },
+        data: { auxiliarAsignadoId: input.auxiliarId },
       });
 
       exitosos.push(valorId);

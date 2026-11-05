@@ -50,36 +50,56 @@ export function AsignarValores() {
   const [error, setError] = useState<string | null>(null)
   const [isAsigning, setIsAsigning] = useState(false)
 
-  const cargarMemorandums = async () => {
-    try {
-      const { data } = await api.get('/coactiva/asignar-valores/memorandums')
-      setMemorandums(data)
-    } catch (err) {
-      setError(mensajeError(err))
-    }
-  }
+  const [recarga, setRecarga] = useState(0)
 
-  const cargarAuxiliares = async () => {
-    try {
-      const { data } = await api.get('/coactiva/asignar-valores/auxiliares')
-      setAuxiliares(data)
-    } catch (err) {
-      setError(mensajeError(err))
-    }
-  }
-
-  const cargarValores = async (memorandumId: number) => {
-    setIsLoading(true)
+  // Cambiar de memorándum limpia la tabla aquí (no en un efecto) y dispara la carga.
+  const elegirMemorandum = (id: number | null) => {
+    setSelectedMemorandum(id)
+    setSelectedIds([])
+    setValores([])
     setError(null)
-    try {
-      const { data } = await api.get('/coactiva/asignar-valores/valores/' + memorandumId)
-      setValores(data)
-    } catch (err) {
-      setError(mensajeError(err))
-    } finally {
-      setIsLoading(false)
-    }
+    setIsLoading(id !== null)
   }
+
+  useEffect(() => {
+    let cancelado = false
+    async function cargarMaestros() {
+      try {
+        const [memos, aux] = await Promise.all([
+          api.get<Memorandum[]>('/coactiva/asignar-valores/memorandums'),
+          api.get<Auxiliar[]>('/coactiva/asignar-valores/auxiliares'),
+        ])
+        if (cancelado) return
+        setMemorandums(memos.data)
+        setAuxiliares(aux.data)
+      } catch (err) {
+        if (!cancelado) setError(mensajeError(err))
+      }
+    }
+    void cargarMaestros()
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedMemorandum === null) return
+    let cancelado = false
+    async function cargarValores(memorandumId: number) {
+      try {
+        const { data } = await api.get<ValorAsignable[]>('/coactiva/asignar-valores/valores/' + memorandumId)
+        if (!cancelado) setValores(data)
+      } catch (err) {
+        if (!cancelado) setError(mensajeError(err))
+      } finally {
+        if (!cancelado) setIsLoading(false)
+      }
+    }
+    void cargarValores(selectedMemorandum)
+    return () => {
+      cancelado = true
+    }
+  }, [selectedMemorandum, recarga])
 
   const manejarAsignar = async () => {
     if (!selectedIds.length || !auxiliarSeleccionado) {
@@ -90,13 +110,17 @@ export function AsignarValores() {
     setIsAsigning(true)
     setError(null)
     try {
-      await api.post('/coactiva/asignar-valores/asignar', {
-        valorIds: selectedIds,
-        auxiliarId: auxiliarSeleccionado,
-      })
-      if (selectedMemorandum) {
-        await cargarValores(selectedMemorandum)
+      const { data } = await api.post<{ exitosos: number; fallidos: { valorId: number; error: string }[] }>(
+        '/coactiva/asignar-valores/asignar',
+        { valorIds: selectedIds, auxiliarId: auxiliarSeleccionado },
+      )
+      // El backend rechaza valores no recibidos o que ya salieron de coactiva: se informan, no se ocultan.
+      if (data.fallidos.length > 0) {
+        const detalle = data.fallidos.map((f) => `valor ${f.valorId}: ${f.error}`).join('; ')
+        setError(`${data.exitosos} asignado(s). No se asignaron ${data.fallidos.length}: ${detalle}`)
       }
+      setIsLoading(true)
+      setRecarga((n) => n + 1)
       setSelectedIds([])
     } catch (err) {
       setError(mensajeError(err))
@@ -128,20 +152,6 @@ export function AsignarValores() {
     }
     return null
   }
-
-  useEffect(() => {
-    cargarMemorandums()
-    cargarAuxiliares()
-  }, [])
-
-  useEffect(() => {
-    if (selectedMemorandum) {
-      cargarValores(selectedMemorandum)
-    } else {
-      setValores([])
-      setSelectedIds([])
-    }
-  }, [selectedMemorandum])
 
   return (
     <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
@@ -183,7 +193,7 @@ export function AsignarValores() {
               {selectedMemorandum && (
                 <button
                   type="button"
-                  onClick={() => { setSelectedMemorandum(null); setSelectedIds([]); }}
+                  onClick={() => elegirMemorandum(null)}
                   className="text-xs text-mar hover:text-mar-profundo"
                 >
                   Limpiar
@@ -199,8 +209,7 @@ export function AsignarValores() {
                   key={m.id}
                   type="button"
                   onClick={() => {
-                    setSelectedMemorandum(selectedMemorandum === m.id ? null : m.id)
-                    setSelectedIds([])
+                    elegirMemorandum(selectedMemorandum === m.id ? null : m.id)
                     setAuxiliarSeleccionado(null)
                   }}
                   className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
