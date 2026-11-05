@@ -1,12 +1,21 @@
-import { PrismaClient, Prisma, EstadoValor, CoactivoExp, ValorCab } from '@prisma/client';
+import { PrismaClient, Prisma, EstadoCuenta, EstadoValor, CoactivoExp, ValorCab } from '@prisma/client';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { hoyLima } from '../../rentas/fechas.js';
+import { MENSAJE_NO_RECIBIBLE, WHERE_RECIBIBLE, idsUnicos, motivoNoRecibible, siguienteExpediente } from '../coactiva.reglas.js';
 
-export interface TransferenciaInput {
-  valorId: number;
+type Tx = Prisma.TransactionClient;
+
+// Serializa recepciones: un valor no puede abrir dos expedientes ni dos expedientes compartir número.
+const LOCK_RECEPCION = 7_301_003;
+
+export interface Responsables {
   ejecutorId: number;
   auxiliarId: number;
   tipoGestionId?: number;
-  usuarioId: number;
+}
+
+export interface TransferenciaInput extends Responsables {
+  valorId: number;
 }
 
 export interface TransferenciaResultado {
@@ -14,199 +23,166 @@ export interface TransferenciaResultado {
   valor: ValorCab;
 }
 
-export async function transferirValor(
-  input: TransferenciaInput,
-  tx: PrismaClient
-): Promise<TransferenciaResultado> {
-  const valor = await tx.valorCab.findUnique({
+// Ejecutor, auxiliar y tipo de gestión deben existir y estar activos.
+async function validarResponsables(db: Tx | PrismaClient, r: Responsables): Promise<void> {
+  const [ejecutor, auxiliar, tipoGestion] = await Promise.all([
+    db.ejecutorCoactivo.findUnique({ where: { id: r.ejecutorId } }),
+    db.auxiliarCoactivo.findUnique({ where: { id: r.auxiliarId } }),
+    r.tipoGestionId != null ? db.tipoGestionCoactiva.findUnique({ where: { id: r.tipoGestionId } }) : null,
+  ]);
+  if (!ejecutor || !ejecutor.activo) {
+    throw new BadRequestException('Ejecutor no encontrado o inactivo');
+  }
+  if (!auxiliar || !auxiliar.activo) {
+    throw new BadRequestException('Auxiliar no encontrado o inactivo');
+  }
+  if (r.tipoGestionId != null && (!tipoGestion || tipoGestion.activo === false)) {
+    throw new BadRequestException('Tipo de gestión no encontrado o inactivo');
+  }
+}
+
+// Recepción de un valor ya transferido por Rentas: crea el expediente con sus cuotas en coactiva.
+// No toca el valor (sigue COACTIVO con su transferenciaId y su fechaNotificacion originales).
+async function recibir(t: Tx, input: TransferenciaInput): Promise<TransferenciaResultado> {
+  await t.$executeRaw`SELECT pg_advisory_xact_lock(${LOCK_RECEPCION})`;
+  const valor = await t.valorCab.findUnique({
     where: { id: input.valorId },
     include: {
-      detalles: {
-        include: {
-          cuentaCorriente: {
-            include: {
-              tributo: true,
-            },
-          },
-        },
-      },
-      expedientes: true,
+      detalles: { include: { cuentaCorriente: { include: { tributo: true } } }, orderBy: { id: 'asc' } },
+      _count: { select: { expedientes: true } },
     },
   });
-
   if (!valor) {
     throw new NotFoundException('Valor no encontrado');
   }
 
-  if (valor.expedientes.length > 0) {
-    throw new ConflictException('Valor ya transferido a coactiva');
+  const cuotas = valor.detalles.filter((d) => d.cuentaCorriente.estado === EstadoCuenta.COACTIVO);
+  const motivo = motivoNoRecibible({
+    estado: valor.estado,
+    transferenciaId: valor.transferenciaId,
+    expedientes: valor._count.expedientes,
+    cuotasCoactivo: cuotas.length,
+  });
+  if (motivo) {
+    throw new ConflictException(MENSAJE_NO_RECIBIBLE[motivo]);
   }
 
-  const [ejecutor, auxiliar] = await Promise.all([
-    tx.ejecutorCoactivo.findUnique({ where: { id: input.ejecutorId } }),
-    tx.auxiliarCoactivo.findUnique({ where: { id: input.auxiliarId } }),
-  ]);
-
-  if (!ejecutor || !ejecutor.activo) {
-    throw new BadRequestException('Ejecutor no encontrado o inactivo');
-  }
-
-  if (!auxiliar || !auxiliar.activo) {
-    throw new BadRequestException('Auxiliar no encontrado o inactivo');
-  }
-
-  // tipoGestionId es opcional, no validamos contra tabla inexistente
-
-  const anioExp = new Date().getFullYear();
-  const ultimo = await tx.coactivoExp.findFirst({
-    where: { anioExpediente: anioExp },
+  const fecha = hoyLima();
+  const anioExpediente = Number(fecha.slice(0, 4));
+  const ultimo = await t.coactivoExp.findFirst({
+    where: { anioExpediente },
     orderBy: { numExpediente: 'desc' },
     select: { numExpediente: true },
   });
 
-  const correlativo = (ultimo ? parseInt(ultimo.numExpediente, 10) : 0) + 1;
-  const numExpediente = correlativo.toString().padStart(6, '0');
-
-  // Regla 3 (AGENTS.md): expediente y valor se escriben en la misma transacción
-  const expediente = await tx.$transaction(async (t) => {
-    const creado = await t.coactivoExp.create({
-      data: {
-        anioExpediente: anioExp,
-        numExpediente,
-        valorId: input.valorId,
-        contribuyenteId: valor.contribuyenteId,
-        ejecutorId: input.ejecutorId,
-        auxiliarId: input.auxiliarId,
-        tipoGestionId: input.tipoGestionId,
-        estado: EstadoValor.COACTIVO,
-        fechaGeneracion: new Date(),
-        creadoPorId: input.usuarioId,
-        detalles: {
-          create: valor.detalles.map((d) => ({
-            cuentaCorrienteId: d.cuentaCorrienteId,
-            descripcion: `${d.cuentaCorriente.tributo.codigo} - Cuota ${d.cuentaCorriente.cuota}`,
-            monto: d.subtotal,
-          })),
-        },
+  // creadoPorId lo fija el trigger de auditoría (skills/backend-db.md, 6).
+  const expediente = await t.coactivoExp.create({
+    data: {
+      anioExpediente,
+      numExpediente: siguienteExpediente(ultimo?.numExpediente),
+      valorId: valor.id,
+      contribuyenteId: valor.contribuyenteId,
+      ejecutorId: input.ejecutorId,
+      auxiliarId: input.auxiliarId,
+      tipoGestionId: input.tipoGestionId,
+      estado: EstadoValor.COACTIVO,
+      fechaGeneracion: new Date(fecha),
+      detalles: {
+        create: cuotas.map((d) => ({
+          cuentaCorrienteId: d.cuentaCorrienteId,
+          descripcion: `${d.cuentaCorriente.tributo.codigo} - Cuota ${d.cuentaCorriente.cuota}`,
+          monto: d.subtotal,
+        })),
       },
-      include: {
-        detalles: true,
-        ejecutor: true,
-        auxiliar: true,
-      },
-    });
-
-    await t.valorCab.update({
-      where: { id: input.valorId },
-      data: {
-        estado: EstadoValor.COACTIVO,
-        fechaNotificacion: new Date(),
-        modificadoPorId: input.usuarioId,
-      },
-    });
-
-    return creado;
+    },
+    include: { detalles: true, ejecutor: true, auxiliar: true },
   });
 
-  return { expediente, valor };
+  const { detalles: _d, _count: _c, ...cabecera } = valor;
+  return { expediente, valor: cabecera };
 }
 
+// Choque con el índice único (valor ya recibido / número repetido) → 409, no 500.
+function comoConflicto(error: unknown): never {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    throw new ConflictException('El valor ya fue recibido en coactiva; actualiza la lista');
+  }
+  throw error;
+}
+
+export async function transferirValor(input: TransferenciaInput, prisma: PrismaClient): Promise<TransferenciaResultado> {
+  await validarResponsables(prisma, input);
+  // Regla 3 (AGENTS.md): validación, correlativo y expediente en la misma transacción.
+  return prisma.$transaction((t) => recibir(t, input)).catch(comoConflicto);
+}
+
+// Cada valor en su propia transacción: uno que falla no revierte a los demás (el resultado lo informa).
 export async function transferirMasivo(
-  input: { valorIds: number[]; ejecutorId: number; auxiliarId: number; tipoGestionId?: number; usuarioId: number },
-  tx: PrismaClient
+  input: Responsables & { valorIds: number[] },
+  prisma: PrismaClient,
 ): Promise<{ exitosos: TransferenciaResultado[]; fallidos: { valorId: number; error: string }[] }> {
+  await validarResponsables(prisma, input);
   const exitosos: TransferenciaResultado[] = [];
   const fallidos: { valorId: number; error: string }[] = [];
 
-  for (const valorId of input.valorIds) {
+  for (const valorId of idsUnicos(input.valorIds)) {
     try {
-      const resultado = await transferirValor(
-        {
-          valorId,
-          ejecutorId: input.ejecutorId,
-          auxiliarId: input.auxiliarId,
-          tipoGestionId: input.tipoGestionId,
-          usuarioId: input.usuarioId,
-        },
-        tx
-      );
-      exitosos.push(resultado);
+      const datos = { ...input, valorId };
+      exitosos.push(await prisma.$transaction((t) => recibir(t, datos)).catch(comoConflicto));
     } catch (error) {
-      fallidos.push({
-        valorId,
-        error: error instanceof Error ? error.message : 'Error desconocido',
-      });
+      fallidos.push({ valorId, error: error instanceof Error ? error.message : 'Error desconocido' });
     }
   }
 
   return { exitosos, fallidos };
 }
 
-export async function getValoresTransferibles(
-  tx: PrismaClient,
-  filtros: {
-    anio?: number;
-    tipo?: string;
-    contribuyente?: string;
-    estado?: string;
-    fechaDesde?: string;
-    fechaHasta?: string;
-    memorandumId?: number;
-    page: number;
-    limit: number;
-  }
-): Promise<{ data: ValorCab[]; total: number; page: number; limit: number }> {
-  const where: Prisma.ValorCabWhereInput = {
-    expedientes: {
-      none: {},
-    },
-    OR: [
-      { estado: EstadoValor.COACTIVO },
-      {
-        estado: EstadoValor.EMITIDO,
-        fechaNotificacion: {
-          lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        },
+export interface FiltroRecibibles {
+  anio?: number;
+  tipo?: string;
+  contribuyente?: string;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  memorandumId?: number;
+  page: number;
+  limit: number;
+}
+
+// Filtros en AND sobre WHERE_RECIBIBLE: ninguno puede ampliar lo que es recibible.
+export function whereRecibibles(f: FiltroRecibibles): Prisma.ValorCabWhereInput {
+  const and: Prisma.ValorCabWhereInput[] = [WHERE_RECIBIBLE];
+  if (f.memorandumId) and.push({ memorandumId: f.memorandumId });
+  if (f.anio) and.push({ anio: f.anio });
+  if (f.tipo) and.push({ tipo: f.tipo as Prisma.ValorCabWhereInput['tipo'] });
+  if (f.contribuyente) {
+    and.push({
+      contribuyente: {
+        OR: [
+          { numDoc: { contains: f.contribuyente } },
+          { nombreCompleto: { contains: f.contribuyente, mode: 'insensitive' } },
+          { codigoLegacy: { contains: f.contribuyente } },
+        ],
       },
-    ],
-  };
-
-  if (filtros.memorandumId) {
-    where.memorandumId = filtros.memorandumId;
+    });
   }
-
-  if (filtros.anio) {
-    where.anio = filtros.anio;
+  if (f.fechaDesde || f.fechaHasta) {
+    and.push({
+      fechaEmision: {
+        ...(f.fechaDesde ? { gte: new Date(f.fechaDesde) } : {}),
+        ...(f.fechaHasta ? { lte: new Date(f.fechaHasta) } : {}),
+      },
+    });
   }
+  return { AND: and };
+}
 
-  if (filtros.tipo) {
-    where.tipo = filtros.tipo as any;
-  }
-
-  if (filtros.contribuyente) {
-    where.OR = [
-      { contribuyente: { numDoc: { contains: filtros.contribuyente } } },
-      { contribuyente: { nombreCompleto: { contains: filtros.contribuyente, mode: 'insensitive' } } },
-      { contribuyente: { codigoLegacy: { contains: filtros.contribuyente } } },
-    ];
-  }
-
-  if (filtros.estado) {
-    where.estado = filtros.estado as EstadoValor;
-  }
-
-  if (filtros.fechaDesde || filtros.fechaHasta) {
-    where.fechaEmision = {};
-    if (filtros.fechaDesde) {
-      (where.fechaEmision as any).gte = new Date(filtros.fechaDesde);
-    }
-    if (filtros.fechaHasta) {
-      (where.fechaEmision as any).lte = new Date(filtros.fechaHasta);
-    }
-  }
-
+export async function getValoresTransferibles(
+  prisma: PrismaClient,
+  filtros: FiltroRecibibles,
+): Promise<{ data: ValorCab[]; total: number; page: number; limit: number }> {
+  const where = whereRecibibles(filtros);
   const [data, total] = await Promise.all([
-    tx.valorCab.findMany({
+    prisma.valorCab.findMany({
       where,
       include: {
         contribuyente: {
@@ -221,17 +197,14 @@ export async function getValoresTransferibles(
       skip: (filtros.page - 1) * filtros.limit,
       take: filtros.limit,
     }),
-    tx.valorCab.count({ where }),
+    prisma.valorCab.count({ where }),
   ]);
 
   return { data, total, page: filtros.page, limit: filtros.limit };
 }
 
-export async function getValorDetalle(
-  tx: PrismaClient,
-  valorId: number
-): Promise<ValorCab | null> {
-  return tx.valorCab.findUnique({
+export async function getValorDetalle(prisma: PrismaClient, valorId: number): Promise<ValorCab | null> {
+  return prisma.valorCab.findUnique({
     where: { id: valorId },
     include: {
       contribuyente: {
@@ -260,22 +233,22 @@ export async function getValorDetalle(
   });
 }
 
-export async function getEjecutoresActivos(tx: PrismaClient) {
-  return tx.ejecutorCoactivo.findMany({
+export async function getEjecutoresActivos(prisma: PrismaClient) {
+  return prisma.ejecutorCoactivo.findMany({
     where: { activo: true },
     orderBy: { nombre: 'asc' },
   });
 }
 
-export async function getAuxiliaresActivos(tx: PrismaClient) {
-  return tx.auxiliarCoactivo.findMany({
+export async function getAuxiliaresActivos(prisma: PrismaClient) {
+  return prisma.auxiliarCoactivo.findMany({
     where: { activo: true },
     orderBy: { nombre: 'asc' },
   });
 }
 
-export async function getTiposGestionActivos(tx: PrismaClient) {
-  return tx.tipoGestionCoactiva.findMany({
+export async function getTiposGestionActivos(prisma: PrismaClient) {
+  return prisma.tipoGestionCoactiva.findMany({
     where: { activo: true },
     orderBy: { descripcion: 'asc' },
   });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../../rentas/maestros/maestrosApi'
 import { TablaSoloLectura, type Columna } from '../recepcion-transferencia/TablaSoloLectura'
@@ -50,36 +50,56 @@ export function AsignarValores() {
   const [error, setError] = useState<string | null>(null)
   const [isAsigning, setIsAsigning] = useState(false)
 
-  const cargarMemorandums = async () => {
-    try {
-      const { data } = await api.get('/coactiva/asignar-valores/memorandums')
-      setMemorandums(data)
-    } catch (err) {
-      setError(mensajeError(err))
-    }
-  }
+  const [recarga, setRecarga] = useState(0)
 
-  const cargarAuxiliares = async () => {
-    try {
-      const { data } = await api.get('/coactiva/asignar-valores/auxiliares')
-      setAuxiliares(data)
-    } catch (err) {
-      setError(mensajeError(err))
-    }
-  }
-
-  const cargarValores = async (memorandumId: number) => {
-    setIsLoading(true)
+  // Cambiar de memorándum limpia la tabla aquí (no en un efecto) y dispara la carga.
+  const elegirMemorandum = (id: number | null) => {
+    setSelectedMemorandum(id)
+    setSelectedIds([])
+    setValores([])
     setError(null)
-    try {
-      const { data } = await api.get('/coactiva/asignar-valores/valores/' + memorandumId)
-      setValores(data)
-    } catch (err) {
-      setError(mensajeError(err))
-    } finally {
-      setIsLoading(false)
-    }
+    setIsLoading(id !== null)
   }
+
+  useEffect(() => {
+    let cancelado = false
+    async function cargarMaestros() {
+      try {
+        const [memos, aux] = await Promise.all([
+          api.get<Memorandum[]>('/coactiva/asignar-valores/memorandums'),
+          api.get<Auxiliar[]>('/coactiva/asignar-valores/auxiliares'),
+        ])
+        if (cancelado) return
+        setMemorandums(memos.data)
+        setAuxiliares(aux.data)
+      } catch (err) {
+        if (!cancelado) setError(mensajeError(err))
+      }
+    }
+    void cargarMaestros()
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedMemorandum === null) return
+    let cancelado = false
+    async function cargarValores(memorandumId: number) {
+      try {
+        const { data } = await api.get<ValorAsignable[]>('/coactiva/asignar-valores/valores/' + memorandumId)
+        if (!cancelado) setValores(data)
+      } catch (err) {
+        if (!cancelado) setError(mensajeError(err))
+      } finally {
+        if (!cancelado) setIsLoading(false)
+      }
+    }
+    void cargarValores(selectedMemorandum)
+    return () => {
+      cancelado = true
+    }
+  }, [selectedMemorandum, recarga])
 
   const manejarAsignar = async () => {
     if (!selectedIds.length || !auxiliarSeleccionado) {
@@ -90,13 +110,17 @@ export function AsignarValores() {
     setIsAsigning(true)
     setError(null)
     try {
-      await api.post('/coactiva/asignar-valores/asignar', {
-        valorIds: selectedIds,
-        auxiliarId: auxiliarSeleccionado,
-      })
-      if (selectedMemorandum) {
-        await cargarValores(selectedMemorandum)
+      const { data } = await api.post<{ exitosos: number; fallidos: { valorId: number; error: string }[] }>(
+        '/coactiva/asignar-valores/asignar',
+        { valorIds: selectedIds, auxiliarId: auxiliarSeleccionado },
+      )
+      // El backend rechaza valores no recibidos o que ya salieron de coactiva: se informan, no se ocultan.
+      if (data.fallidos.length > 0) {
+        const detalle = data.fallidos.map((f) => `valor ${f.valorId}: ${f.error}`).join('; ')
+        setError(`${data.exitosos} asignado(s). No se asignaron ${data.fallidos.length}: ${detalle}`)
       }
+      setIsLoading(true)
+      setRecarga((n) => n + 1)
       setSelectedIds([])
     } catch (err) {
       setError(mensajeError(err))
@@ -129,61 +153,32 @@ export function AsignarValores() {
     return null
   }
 
-  useEffect(() => {
-    cargarMemorandums()
-    cargarAuxiliares()
-  }, [])
-
-  useEffect(() => {
-    if (selectedMemorandum) {
-      cargarValores(selectedMemorandum)
-    } else {
-      setValores([])
-      setSelectedIds([])
-    }
-  }, [selectedMemorandum])
-
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-7xl">
-        <Link
-          to="/coactivo"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Cobranza Coactiva
-        </Link>
-
-        <header className="mb-6 mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-person-check" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-mar-profundo">Cobranza Coactiva</h1>
-              <p className="text-sm text-slate-500">Asignar Valores a Auxiliares</p>
-            </div>
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <div className="mb-6">
+          <PageHeader
+            titulo="Asignar valores a auxiliares"
+            descripcion="Elige un memorándum y asigna sus valores recibidos a un auxiliar coactivo."
+            volverA={{ etiqueta: 'Cobranza Coactiva', ruta: '/coactivo' }}
+          />
+        </div>
 
         {error && (
-          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mb-4 rounded-md bg-ladrillo/5 px-4 py-3 text-sm text-ladrillo" role="alert">
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
           {/* Panel de memorandums */}
-          <aside className="rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10 h-fit">
+          <aside className="rounded-panel border border-borde bg-white p-4 h-fit">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-mar-profundo">Memorandums</h2>
               {selectedMemorandum && (
                 <button
                   type="button"
-                  onClick={() => { setSelectedMemorandum(null); setSelectedIds([]); }}
+                  onClick={() => elegirMemorandum(null)}
                   className="text-xs text-mar hover:text-mar-profundo"
                 >
                   Limpiar
@@ -199,8 +194,7 @@ export function AsignarValores() {
                   key={m.id}
                   type="button"
                   onClick={() => {
-                    setSelectedMemorandum(selectedMemorandum === m.id ? null : m.id)
-                    setSelectedIds([])
+                    elegirMemorandum(selectedMemorandum === m.id ? null : m.id)
                     setAuxiliarSeleccionado(null)
                   }}
                   className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors ${
@@ -223,7 +217,7 @@ export function AsignarValores() {
             {selectedMemorandum ? (
               <>
                 {/* Selector de auxiliar */}
-                <div className="rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10">
+                <div className="rounded-panel border border-borde bg-white p-4">
                   <label htmlFor="auxiliar-select" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
                     Auxiliar Asignado
                   </label>
@@ -246,7 +240,7 @@ export function AsignarValores() {
                 </div>
 
                 {/* Tabla de valores */}
-                <section className="rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10 overflow-hidden">
+                <section className="rounded-panel border border-borde bg-white overflow-hidden">
                   <TablaSoloLectura<ValorAsignable>
                     columnas={COL_VALORES}
                     datos={valores}
@@ -282,7 +276,7 @@ export function AsignarValores() {
                 </section>
               </>
             ) : (
-              <div className="rounded-xl bg-white p-8 text-center shadow-md ring-1 ring-mar-profundo/10">
+              <div className="rounded-panel border border-borde bg-white p-8 text-center">
                 <i aria-hidden="true" className="bi bi-folder2-open text-3xl text-slate-300" />
                 <p className="mt-3 text-sm font-medium text-slate-600">Seleccione un memorándum</p>
                 <p className="mt-1 text-xs text-slate-400">Elija un memorándum de la lista para ver y asignar sus valores.</p>

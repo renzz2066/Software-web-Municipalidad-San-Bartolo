@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { FiltroValoresDto, TransferenciaIndividualDto, TransferenciaMasivaDto } from './dto/recepcion-transferencia.dto.js';
 import {
@@ -28,7 +28,6 @@ export class RecepcionTransferenciaService {
       anio: filtros.anio,
       tipo: filtros.tipo,
       contribuyente: filtros.contribuyente,
-      estado: filtros.estado,
       fechaDesde: filtros.fechaDesde,
       fechaHasta: filtros.fechaHasta,
       memorandumId: filtros.memorandumId,
@@ -40,34 +39,22 @@ export class RecepcionTransferenciaService {
   async getValor(id: number) {
     const valor = await getValorDetalle(this.prisma, id);
     if (!valor) {
-      return null;
+      throw new NotFoundException('Valor no encontrado');
     }
     return valor;
   }
 
-  async transferirIndividual(id: number, dto: TransferenciaIndividualDto, usuarioId: number): Promise<TransferenciaResultado> {
+  async transferirIndividual(id: number, dto: TransferenciaIndividualDto): Promise<TransferenciaResultado> {
     return transferirValor(
-      {
-        valorId: id,
-        ejecutorId: dto.ejecutorId,
-        auxiliarId: dto.auxiliarId,
-        tipoGestionId: dto.tipoGestionId,
-        usuarioId,
-      },
-      this.prisma
+      { valorId: id, ejecutorId: dto.ejecutorId, auxiliarId: dto.auxiliarId, tipoGestionId: dto.tipoGestionId },
+      this.prisma,
     );
   }
 
-  async transferirMasivo(dto: TransferenciaMasivaDto, usuarioId: number) {
+  async transferirMasivo(dto: TransferenciaMasivaDto) {
     return transferirMasivo(
-      {
-        valorIds: dto.valorIds,
-        ejecutorId: dto.ejecutorId,
-        auxiliarId: dto.auxiliarId,
-        tipoGestionId: dto.tipoGestionId,
-        usuarioId,
-      },
-      this.prisma
+      { valorIds: dto.valorIds, ejecutorId: dto.ejecutorId, auxiliarId: dto.auxiliarId, tipoGestionId: dto.tipoGestionId },
+      this.prisma,
     );
   }
 
