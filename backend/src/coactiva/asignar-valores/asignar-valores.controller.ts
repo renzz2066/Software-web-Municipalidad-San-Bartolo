@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { AsignarValoresService } from './asignar-valores.service.js';
 import { AsignarValoresDto } from './dto/asignar-valores.dto.js';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard.js';
@@ -24,13 +24,13 @@ export class AsignarValoresController {
 
   @Get('valores/:memorandumId')
   @RequireNivel('coactivo.asignar-valores')
-  async getValoresByMemorandum(@Param('memorandumId') memorandumId: string) {
-    return this.service.getValoresByMemorandum(parseInt(memorandumId, 10));
+  async getValoresByMemorandum(@Param('memorandumId', ParseIntPipe) memorandumId: number) {
+    return this.service.getValoresByMemorandum(memorandumId);
   }
 
   @Post('asignar')
   @RequireNivel('coactivo.asignar-valores')
-  async asignarValores(@Body() dto: AsignarValoresDto, @Req() req: any) {
-    return this.service.asignarValores(dto, req.user.id);
+  async asignarValores(@Body() dto: AsignarValoresDto) {
+    return this.service.asignarValores(dto);
   }
 }

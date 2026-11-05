@@ -1,6 +1,7 @@
-import { IsInt, IsOptional, IsString, Min, IsIn, IsDateString } from 'class-validator';
+import { ArrayMaxSize, ArrayNotEmpty, IsArray, IsDateString, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
+// Solo se listan valores recibibles (COACTIVO transferidos por Rentas): no hay filtro de estado.
 export class FiltroValoresDto {
   @IsOptional()
   @Type(() => Number)
@@ -10,17 +11,12 @@ export class FiltroValoresDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['OP', 'RD'])
+  @IsIn(['OP', 'RD', 'RM'])
   tipo?: string;
 
   @IsOptional()
   @IsString()
   contribuyente?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['EMITIDO', 'NOTIFICADO', 'COACTIVO', 'CANCELADO', 'ANULADO'])
-  estado?: string;
 
   @IsOptional()
   @IsDateString()
@@ -40,6 +36,7 @@ export class FiltroValoresDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limit?: number = 20;
 
   @IsOptional()
@@ -61,6 +58,9 @@ export class TransferenciaIndividualDto {
 }
 
 export class TransferenciaMasivaDto {
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(500)
   @IsInt({ each: true })
   valorIds: number[];
 
