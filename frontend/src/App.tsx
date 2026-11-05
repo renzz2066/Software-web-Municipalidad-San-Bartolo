@@ -36,6 +36,7 @@ import { ReciboImprimible } from './pages/caja/ReciboImprimible'
 import { Extornos } from './pages/caja/Extornos'
 import { Reportes } from './pages/caja/Reportes'
 import { CierreCaja, CierreImprimible } from './pages/caja/CierreCaja'
+import { AppShell } from './components/layout/AppShell'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { RequireNivel } from './routes/RequireNivel'
 
@@ -56,304 +57,246 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad"
-        element={
-          <ProtectedRoute>
+      {/* Zona autenticada: todo se muestra dentro de AppShell (barra lateral + barra superior).
+          /login queda fuera y sin cambios; RequireNivel sigue por ruta. */}
+      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+        <Route
+          path="/"
+          element={<Dashboard />}
+        />
+        <Route
+          path="/accesibilidad"
+          element={
             <RequireNivel codigo="accesibilidad">
               <Accesibilidad />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/usuarios"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/usuarios"
+          element={
             <RequireNivel codigo="accesibilidad.usuarios">
               <Usuarios />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/usuarios/nuevo"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/usuarios/nuevo"
+          element={
             <RequireNivel codigo="accesibilidad.usuarios">
               <NuevoUsuario />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/usuarios/:id/editar"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/usuarios/:id/editar"
+          element={
             <RequireNivel codigo="accesibilidad.usuarios">
               <EditarUsuario />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/roles"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/roles"
+          element={
             <RequireNivel codigo="accesibilidad.roles">
               <Roles />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/roles/nuevo"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/roles/nuevo"
+          element={
             <RequireNivel codigo="accesibilidad.roles">
               <NuevoRol />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/roles/:id/editar"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/roles/:id/editar"
+          element={
             <RequireNivel codigo="accesibilidad.roles">
               <EditarRol />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/niveles"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/niveles"
+          element={
             <RequireNivel codigo="accesibilidad.niveles">
               <Niveles />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accesibilidad/accesos-por-rol"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accesibilidad/accesos-por-rol"
+          element={
             <RequireNivel codigo="accesibilidad.accesos-por-rol">
               <AccesosPorRol />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/contribuyentes/nuevo"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/contribuyentes/nuevo"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <ContribuyenteForm />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/contribuyentes/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/contribuyentes/:id"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <FichaContribuyente />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/contribuyentes/:id/editar"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/contribuyentes/:id/editar"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <ContribuyenteForm key="editar" />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/contribuyentes/:id/estado-cuenta"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/contribuyentes/:id/estado-cuenta"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <EstadoCuentaImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/predios/nuevo"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/predios/nuevo"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <DeclaracionForm key="nuevo" />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/predios/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/predios/:id"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <Predio />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/predios/:id/declaracion"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/predios/:id/declaracion"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <DeclaracionForm key="declaracion" />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/control-recaudacion/valores/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/control-recaudacion/valores/:id"
+          element={
             <RequireNivel codigo="rentas.control-recaudacion">
               <ValorImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/control-recaudacion/convenios/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/control-recaudacion/convenios/:id"
+          element={
             <RequireNivel codigo="rentas.control-recaudacion">
               <ConvenioImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/control-recaudacion/transferencias/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/control-recaudacion/transferencias/:id"
+          element={
             <RequireNivel codigo="rentas.control-recaudacion">
               <MemorandumImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/fiscalizacion/expedientes/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/fiscalizacion/expedientes/:id"
+          element={
             <RequireNivel codigo="rentas.fiscalizacion">
               <Expediente />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/fiscalizacion/expedientes/:id/fichas/:predioId"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/fiscalizacion/expedientes/:id/fichas/:predioId"
+          element={
             <RequireNivel codigo="rentas.fiscalizacion">
               <FichaInspeccion />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/registro-tributario/valores/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/valores/:id"
+          element={
             <RequireNivel codigo="rentas.registro-tributario">
               <ValorImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/fiscalizacion/valores/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/fiscalizacion/valores/:id"
+          element={
             <RequireNivel codigo="rentas.fiscalizacion">
               <ValorImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/rentas/fiscalizacion/expedientes/:id/requerimiento"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rentas/fiscalizacion/expedientes/:id/requerimiento"
+          element={
             <RequireNivel codigo="rentas.fiscalizacion">
               <RequerimientoImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/caja/cierre"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/caja/cierre"
+          element={
             <RequireNivel codigo="caja">
               <CierreCaja />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/caja/cierres/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/caja/cierres/:id"
+          element={
             <RequireNivel codigo="caja">
               <CierreImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/caja/recibos/:id"
-        element={
-          <ProtectedRoute>
+          }
+        />
+        <Route
+          path="/caja/recibos/:id"
+          element={
             <RequireNivel codigo="caja">
               <ReciboImprimible />
             </RequireNivel>
-          </ProtectedRoute>
-        }
-      />
-      {MODULOS.map((modulo) => (
-        <Route
-          key={modulo.codigo}
-          path={`/${modulo.codigo}`}
-          element={
-            <ProtectedRoute>
+          }
+        />
+        {MODULOS.map((modulo) => (
+          <Route
+            key={modulo.codigo}
+            path={`/${modulo.codigo}`}
+            element={
               <RequireNivel codigo={modulo.codigo}>
                 <ModuloHub modulo={modulo} />
               </RequireNivel>
-            </ProtectedRoute>
-          }
-        />
-      ))}
-      {MODULOS.flatMap((modulo) =>
-        modulo.submodulos.map((sub) => (
-          <Route
-            key={`${modulo.codigo}.${sub.slug}`}
-            path={`/${modulo.codigo}/${sub.slug}`}
-            element={
-              <ProtectedRoute>
+            }
+          />
+        ))}
+        {MODULOS.flatMap((modulo) =>
+          modulo.submodulos.map((sub) => (
+            <Route
+              key={`${modulo.codigo}.${sub.slug}`}
+              path={`/${modulo.codigo}/${sub.slug}`}
+              element={
                 <RequireNivel codigo={`${modulo.codigo}.${sub.slug}`}>
                   {PAGINAS_SUBMODULO[`${modulo.codigo}.${sub.slug}`] ?? (
                     <ModuloPlaceholder
@@ -365,11 +308,11 @@ function App() {
                     />
                   )}
                 </RequireNivel>
-              </ProtectedRoute>
-            }
-          />
-        )),
-      )}
+              }
+            />
+          )),
+        )}
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
