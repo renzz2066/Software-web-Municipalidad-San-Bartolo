@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
+import { PageHeader } from '../../components/layout/PageHeader'
 
 export function NuevoRol() {
   const navigate = useNavigate()
@@ -55,32 +56,15 @@ export function NuevoRol() {
     'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-mar focus:ring-2 focus:ring-turquesa/40 focus-visible:outline-3 focus-visible:outline-turquesa'
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-2xl">
-        <Link
-          to="/accesibilidad/roles"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Roles
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Nuevo rol"
+          descripcion="El id se genera automáticamente."
+          volverA={{ etiqueta: 'Roles', ruta: '/accesibilidad/roles' }}
+        />
 
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-person-plus" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-mar-profundo">Nuevo rol</h1>
-              <p className="text-sm text-slate-500">El id se genera automáticamente.</p>
-            </div>
-          </div>
-        </header>
-
-        <main className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10 sm:p-8">
+        <main className="mx-auto mt-6 max-w-2xl rounded-panel border border-borde bg-white p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="nuevo-rol-nombre" className="mb-1.5 block text-sm font-semibold text-mar-profundo">
@@ -123,7 +107,7 @@ export function NuevoRol() {
             </p>
 
             {error && (
-              <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700">
+              <p role="alert" className="rounded-lg border border-ladrillo/30 bg-ladrillo/5 px-3 py-2.5 text-sm font-medium text-ladrillo">
                 {error}
               </p>
             )}
@@ -132,7 +116,7 @@ export function NuevoRol() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="rounded-lg bg-gradient-to-r from-mar-profundo to-mar px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-md transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-3 focus-visible:outline-turquesa"
+                className="rounded-lg bg-gradient-to-r from-mar-profundo to-mar px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-3 focus-visible:outline-turquesa"
               >
                 {isSubmitting ? 'Creando…' : 'Crear'}
               </button>

@@ -69,7 +69,7 @@ export function EliminarRolModal({ id, nombre, onClose, onDeleted }: EliminarRol
         aria-labelledby="eliminar-rol-titulo"
         aria-describedby="eliminar-rol-desc"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl ring-2 ring-amber-500"
+        className="w-full max-w-sm rounded-panel bg-white p-6 ring-2 ring-amber-500"
       >
         <div className="flex items-center gap-3">
           <span
@@ -89,7 +89,7 @@ export function EliminarRolModal({ id, nombre, onClose, onDeleted }: EliminarRol
         </p>
 
         {error && (
-          <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-3 rounded-lg border border-ladrillo/30 bg-ladrillo/5 px-3 py-2 text-sm font-medium text-ladrillo">
             {error}
           </p>
         )}

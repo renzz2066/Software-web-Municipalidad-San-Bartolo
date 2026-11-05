@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
+import { PageHeader } from '../../components/layout/PageHeader'
 
 interface RolResumen {
   id: number
@@ -185,41 +186,22 @@ export function AccesosPorRol() {
   }
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to="/accesibilidad"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Accesibilidad
-        </Link>
-
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-key" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-mar-profundo">Accesos por Roles</h1>
-              <p className="text-sm text-slate-500">
-                Único lugar donde se asignan niveles a los roles.
-              </p>
-            </div>
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Accesos por Roles"
+          descripcion="Único lugar donde se asignan niveles a los roles."
+          volverA={{ etiqueta: 'Accesibilidad', ruta: '/accesibilidad' }}
+        />
 
         <main className="mt-6">
           {isLoading ? (
-            <p className="rounded-xl bg-white p-8 text-center text-sm text-slate-500 shadow-md ring-1 ring-mar-profundo/10" role="status">
+            <p className="rounded-panel border border-borde bg-white p-8 text-center text-sm text-slate-500" role="status">
               Cargando accesos…
             </p>
           ) : error && roles.length === 0 ? (
-            <div className="rounded-xl bg-white p-8 text-center shadow-md ring-1 ring-mar-profundo/10">
-              <p role="alert" className="text-sm font-medium text-red-700">
+            <div className="rounded-panel border border-borde bg-white p-8 text-center">
+              <p role="alert" className="text-sm font-medium text-ladrillo">
                 {error}
               </p>
               <Link
@@ -233,7 +215,7 @@ export function AccesosPorRol() {
             <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
               <section
                 aria-label="Roles"
-                className="rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10"
+                className="rounded-panel border border-borde bg-white p-4"
               >
                 <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-mar-profundo">
                   Roles
@@ -264,7 +246,7 @@ export function AccesosPorRol() {
 
               <section
                 aria-label="Niveles del rol"
-                className="rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10 sm:p-6"
+                className="rounded-panel border border-borde bg-white p-4 sm:p-6"
               >
                 <h2 className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
                   Niveles de {rolSeleccionado ? <span>{rolSeleccionado.nombre}</span> : '…'}
@@ -312,7 +294,7 @@ export function AccesosPorRol() {
                 )}
 
                 {error && (
-                  <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700">
+                  <p role="alert" className="mt-4 rounded-lg border border-ladrillo/30 bg-ladrillo/5 px-3 py-2.5 text-sm font-medium text-ladrillo">
                     {error}
                   </p>
                 )}
@@ -328,7 +310,7 @@ export function AccesosPorRol() {
                     disabled={!modificado || isSaving || isSwitching || seleccionados.length === 0}
                     onClick={handleGrabar}
                     title={seleccionados.length === 0 ? 'Selecciona al menos un nivel' : undefined}
-                    className="rounded-lg bg-gradient-to-r from-mar-profundo to-mar px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white shadow-md transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-3 focus-visible:outline-turquesa"
+                    className="rounded-lg bg-gradient-to-r from-mar-profundo to-mar px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-3 focus-visible:outline-turquesa"
                   >
                     {isSaving ? 'Grabando…' : 'Grabar'}
                   </button>
