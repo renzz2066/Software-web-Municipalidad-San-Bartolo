@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { AuditoriaDetalle, CeldaUsuario } from './AuditoriaDetalle'
 import {
   ACCIONES,
@@ -156,37 +157,18 @@ export function Auditoria() {
   const totalPaginas = pagina ? Math.max(1, Math.ceil(pagina.total / pagina.pageSize)) : 1
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-6xl">
-        <Link
-          to="/tablero"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Tablero Gerencial
-        </Link>
-
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-journal-text" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-mar-profundo">Auditoría</h1>
-              <p className="text-sm text-slate-500">
-                Movimientos de datos y sesiones registrados. Solo lectura.
-              </p>
-            </div>
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Auditoría"
+          descripcion="Movimientos de datos y sesiones registrados. Solo lectura."
+          volverA={{ etiqueta: 'Tablero Gerencial', ruta: '/tablero' }}
+        />
 
         <form
           onSubmit={handleBuscar}
           aria-label="Filtros de auditoría"
-          className="mt-6 rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10 sm:p-6"
+          className="mt-6 rounded-panel border border-borde bg-white p-4 sm:p-6"
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
@@ -298,7 +280,7 @@ export function Auditoria() {
           </div>
 
           {errorFiltro && (
-            <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+            <p role="alert" className="mt-3 rounded-lg border border-ladrillo/30 bg-ladrillo/5 px-3 py-2 text-sm font-medium text-ladrillo">
               {errorFiltro}
             </p>
           )}
@@ -321,14 +303,14 @@ export function Auditoria() {
           </div>
         </form>
 
-        <main className="mt-6 rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10">
+        <main className="mt-6 rounded-panel border border-borde bg-white">
           {isLoading && !pagina ? (
             <p className="p-8 text-center text-sm text-slate-500" role="status">
               Cargando auditoría…
             </p>
           ) : error ? (
             <div className="p-8 text-center">
-              <p role="alert" className="text-sm font-medium text-red-700">
+              <p role="alert" className="text-sm font-medium text-ladrillo">
                 {error}
               </p>
               <button
