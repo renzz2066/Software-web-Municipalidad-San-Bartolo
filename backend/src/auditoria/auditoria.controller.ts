@@ -11,7 +11,7 @@ import { FiltroAuditoriaDto } from './dto/filtro-auditoria.dto.js';
 // Exige rol ADMIN Y el nivel (specs/auditoria-pantalla-v1.md, D1).
 @UseGuards(JwtAuthGuard, RolesGuard, NivelGuard)
 @Roles('ADMIN')
-@RequireNivel('accesibilidad.auditoria')
+@RequireNivel('tablero.auditoria')
 @Controller('auditoria')
 export class AuditoriaController {
   constructor(private readonly auditoriaService: AuditoriaService) {}
