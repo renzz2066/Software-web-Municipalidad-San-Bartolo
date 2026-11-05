@@ -111,6 +111,9 @@ export const NIVELES_CATALOGO: NivelDef[] = [
   ]),
   ...modulo('utilitarios', 'Utilitarios', 'Herramientas de apoyo.', 5, [
     ['calculadora', 'Calculadora'],
+    ['calendario', 'Calendario Tributario'],
+    ['buscador', 'Buscador Universal'],
+    ['exportar', 'Exportación de Datos'],
   ]),
   ...modulo('multas', 'Multas Administrativas', 'Registro de multas administrativas.', 6, [
     ['registro', 'Registro de Multas'],
