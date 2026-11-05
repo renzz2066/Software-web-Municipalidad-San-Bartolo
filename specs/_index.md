@@ -11,3 +11,4 @@
 - `rentas-valores-v1.md`: activa. OP/RD, notificación, fraccionamiento, transferencia a coactivo.
 - `caja-v1.md`: activa. Cobros en ventanilla, recibo correlativo, extornos y cierre diario por cajero.
 - `rentas-fiscalizacion-v1.md`: activa. Expediente de fiscalización, ficha, RD por diferencias y multas (RM).
+- `app-shell-v1.md`: activa. Barra lateral, barra superior, `PageHeader` con "Volver a…" y tokens visuales (`@theme`).
