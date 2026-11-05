@@ -67,7 +67,7 @@ function Formulario({ expediente, predioId, catalogos }: { expediente: Expedient
       </Bloque>
       <div className="rounded-panel border border-borde bg-white p-6">
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-red-700">
+          <p role="alert" className="mb-3 text-sm font-medium text-ladrillo">
             {error}
           </p>
         )}
@@ -118,7 +118,7 @@ export function FichaInspeccion() {
           volverA={{ etiqueta: 'Expediente', ruta: `${RUTA_EXPEDIENTES}/${id}` }}
         />
         {error ? (
-          <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !expediente ? (
@@ -126,11 +126,11 @@ export function FichaInspeccion() {
             Cargando expediente…
           </p>
         ) : !fila ? (
-          <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
             El predio no forma parte de este expediente.
           </p>
         ) : expediente.estado !== 'ABIERTO' && expediente.estado !== 'INSPECCIONADO' ? (
-          <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
             El expediente está {expediente.estado.toLowerCase()}: la ficha ya no se puede modificar.
           </p>
         ) : (

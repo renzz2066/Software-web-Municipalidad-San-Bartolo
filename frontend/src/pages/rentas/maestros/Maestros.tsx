@@ -250,7 +250,7 @@ export function Maestros() {
             </p>
           )}
           {error && (
-            <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+            <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
               {error}
             </p>
           )}
@@ -406,7 +406,7 @@ export function Maestros() {
 
 function Dato({ titulo, valor, falta }: { titulo: string; valor: string | number; falta: boolean }) {
   return (
-    <div className={`rounded-md px-3 py-2 ${falta ? 'bg-red-50 text-red-800' : 'bg-mar-profundo/5 text-mar-profundo'}`}>
+    <div className={`rounded-md px-3 py-2 ${falta ? 'bg-ladrillo/5 text-ladrillo' : 'bg-mar-profundo/5 text-mar-profundo'}`}>
       <dt className="text-xs uppercase tracking-wider opacity-70">{titulo}</dt>
       <dd className="font-semibold">{falta ? 'Falta' : valor}</dd>
     </div>
@@ -508,7 +508,7 @@ function FormUit({
       </div>
       <div className="sm:col-span-2">
         {mensaje && (
-          <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-red-700'}`}>
+          <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-ladrillo'}`}>
             {mensaje.texto}
           </p>
         )}

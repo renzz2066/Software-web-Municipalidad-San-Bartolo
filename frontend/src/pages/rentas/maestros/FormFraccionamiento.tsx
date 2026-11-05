@@ -152,7 +152,7 @@ export function FormFraccionamiento({ anio }: { anio: number }) {
       </div>
       <div className="sm:col-span-2">
         {mensaje && (
-          <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-red-700'}`}>
+          <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-ladrillo'}`}>
             {mensaje.texto}
           </p>
         )}

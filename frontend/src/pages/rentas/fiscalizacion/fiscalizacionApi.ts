@@ -30,7 +30,7 @@ export const ESTILO_ESTADO: Record<EstadoFiscalizacion, string> = {
   INSPECCIONADO: 'bg-amber-50 text-amber-800',
   RESUELTO: 'bg-emerald-50 text-emerald-800',
   SIN_DIFERENCIAS: 'bg-slate-100 text-slate-700',
-  ANULADO: 'bg-red-50 text-red-700',
+  ANULADO: 'bg-ladrillo/5 text-ladrillo',
 }
 
 export const etiquetaTipo = (t: TipoFiscalizacion) => TIPOS.find((x) => x.value === t)?.label ?? t

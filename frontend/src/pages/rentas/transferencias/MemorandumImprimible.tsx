@@ -43,7 +43,7 @@ export function MemorandumImprimible() {
 
         <main className="mt-4 rounded-panel border border-borde bg-white p-6 text-sm print:mt-0 print:rounded-none print:border-0 print:p-0">
           {error ? (
-            <p role="alert" className="font-medium text-red-700">
+            <p role="alert" className="font-medium text-ladrillo">
               {error}
             </p>
           ) : !m ? (

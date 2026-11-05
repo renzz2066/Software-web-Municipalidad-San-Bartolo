@@ -46,7 +46,7 @@ export function ConvenioImprimible() {
 
         <main className="mt-4 rounded-panel border border-borde bg-white p-6 text-sm print:mt-0 print:rounded-none print:border-0 print:p-0">
           {error ? (
-            <p role="alert" className="font-medium text-red-700">
+            <p role="alert" className="font-medium text-ladrillo">
               {error}
             </p>
           ) : !c ? (
@@ -139,7 +139,7 @@ export function ConvenioImprimible() {
                 </p>
               </section>
 
-              {c.estado === 'ANULADO' && c.motivoAnulacion && <p className="mt-3 font-medium text-red-700">Anulado: {c.motivoAnulacion}</p>}
+              {c.estado === 'ANULADO' && c.motivoAnulacion && <p className="mt-3 font-medium text-ladrillo">Anulado: {c.motivoAnulacion}</p>}
 
               <footer className="mt-12 grid gap-8 text-center text-xs text-slate-500 sm:grid-cols-2">
                 <div className="border-t border-slate-400 pt-1">Subgerencia de Rentas · firma y sello</div>
@@ -182,7 +182,7 @@ function FormAnulacion({ convenio, alAnular }: { convenio: Convenio; alAnular: (
 
   return (
     <form onSubmit={(e) => void anular(e)} className="mt-3 max-w-xl rounded-panel border border-ladrillo/40 bg-white p-5 print:hidden">
-      <h2 className="font-semibold text-red-800">Anular convenio</h2>
+      <h2 className="font-semibold text-ladrillo">Anular convenio</h2>
       <p className="mt-1 text-xs text-slate-500">Solo sin cuotas pagadas. La deuda original vuelve a quedar pendiente con su mora.</p>
       <label htmlFor="conv-motivo" className="mt-3 block text-xs font-semibold uppercase tracking-wider text-slate-500">
         Motivo
@@ -197,14 +197,14 @@ function FormAnulacion({ convenio, alAnular }: { convenio: Convenio; alAnular: (
         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100"
       />
       {error && (
-        <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-2 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
       <button
         type="submit"
         disabled={isSaving}
-        className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+        className="mt-3 rounded-md border border-ladrillo/40 px-4 py-2 text-sm font-medium text-ladrillo hover:bg-ladrillo/5 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
       >
         <i aria-hidden="true" className="bi bi-x-circle mr-1" />
         {isSaving ? 'Anulando…' : 'Anular convenio'}

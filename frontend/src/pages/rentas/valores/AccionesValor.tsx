@@ -131,7 +131,7 @@ function FormNotificacion({ valor, alCambiar }: { valor: Valor; alCambiar: (v: V
         )}
       </div>
       {mensaje && (
-        <p role={mensaje.ok ? 'status' : 'alert'} className={`mt-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-red-700'}`}>
+        <p role={mensaje.ok ? 'status' : 'alert'} className={`mt-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-ladrillo'}`}>
           {mensaje.texto}
         </p>
       )}
@@ -175,7 +175,7 @@ function FormAnulacion({ valor, alCambiar }: { valor: Valor; alCambiar: (v: Valo
 
   return (
     <form onSubmit={(e) => void anular(e)} className="rounded-panel border border-ladrillo/40 bg-white p-5">
-      <h2 className="font-semibold text-red-800">Anular valor</h2>
+      <h2 className="font-semibold text-ladrillo">Anular valor</h2>
       <p className="mt-1 text-xs text-slate-500">
         Por error en la determinación o en la declaración. No se borra: queda anulado con su motivo y en la auditoría.
       </p>
@@ -192,14 +192,14 @@ function FormAnulacion({ valor, alCambiar }: { valor: Valor; alCambiar: (v: Valo
         className={CAMPO}
       />
       {error && (
-        <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-2 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
       <button
         type="submit"
         disabled={isSaving}
-        className="mt-3 rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+        className="mt-3 rounded-md border border-ladrillo/40 px-4 py-2 text-sm font-medium text-ladrillo hover:bg-ladrillo/5 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
       >
         <i aria-hidden="true" className="bi bi-x-circle mr-1" />
         {isSaving ? 'Anulando…' : 'Anular valor'}

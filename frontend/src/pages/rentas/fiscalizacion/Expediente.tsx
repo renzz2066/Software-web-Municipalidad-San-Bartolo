@@ -163,7 +163,7 @@ function Requerimiento({ expediente: e, alGuardar }: { expediente: ExpedienteApi
             </div>
           )}
           {error && (
-            <p role="alert" className="text-sm font-medium text-red-700">
+            <p role="alert" className="text-sm font-medium text-ladrillo">
               {error}
             </p>
           )}
@@ -207,7 +207,7 @@ function TablaLiquidacion({ liquidacion: l }: { liquidacion: Liquidacion }) {
                   <td className="px-2 py-1.5">{t.tributo}</td>
                   <td className="px-2 py-1.5 text-right">{soles(t.declarado)}</td>
                   <td className="px-2 py-1.5 text-right">{soles(t.fiscalizado)}</td>
-                  <td className={`px-2 py-1.5 text-right font-semibold ${Number(t.omitido) > 0 ? 'text-red-700' : 'text-slate-500'}`}>
+                  <td className={`px-2 py-1.5 text-right font-semibold ${Number(t.omitido) > 0 ? 'text-ladrillo' : 'text-slate-500'}`}>
                     {soles(t.omitido)}
                   </td>
                 </tr>
@@ -338,7 +338,7 @@ function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; 
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-3 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
@@ -409,7 +409,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-turquesa"
+          className="rounded-md border border-ladrillo/40 px-4 py-2 text-sm font-medium text-ladrillo hover:bg-ladrillo/5 focus-visible:outline-3 focus-visible:outline-turquesa"
         >
           Anular expediente
         </button>
@@ -418,7 +418,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
   }
   return (
     <section aria-labelledby="anular-titulo" className="mt-6 rounded-xl bg-white p-6 ring-2 ring-ladrillo/40">
-      <h2 id="anular-titulo" className="text-sm font-bold uppercase tracking-wider text-red-800">
+      <h2 id="anular-titulo" className="text-sm font-bold uppercase tracking-wider text-ladrillo">
         Anular expediente FIS {e.numero}
       </h2>
       <label htmlFor="anular-motivo" className={`mt-3 ${ETIQUETA}`}>
@@ -426,7 +426,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
       </label>
       <textarea id="anular-motivo" rows={2} maxLength={200} value={motivo} onChange={(x) => setMotivo(x.target.value)} className={CAMPO} />
       {error && (
-        <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-2 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
@@ -438,7 +438,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
           type="button"
           onClick={() => void anular()}
           disabled={procesando}
-          className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+          className="rounded-md bg-ladrillo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
         >
           {procesando ? 'Anulando…' : 'Confirmar anulación'}
         </button>
@@ -465,7 +465,7 @@ export function Expediente() {
         />
 
         {error ? (
-          <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !e ? (
@@ -498,7 +498,7 @@ export function Expediente() {
               </dl>
               {e.observacion && <p className="mt-3 text-sm text-slate-600">{e.observacion}</p>}
               {e.estado === 'ANULADO' && (
-                <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">Anulado. Motivo: {e.motivoAnulacion}</p>
+                <p className="mt-3 rounded-md bg-ladrillo/5 px-3 py-2 text-sm text-ladrillo">Anulado. Motivo: {e.motivoAnulacion}</p>
               )}
             </div>
 

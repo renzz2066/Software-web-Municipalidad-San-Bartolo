@@ -67,7 +67,7 @@ export function BuscadorContribuyente({ id, label, alElegir, excluir = [] }: Pro
         </button>
       </div>
       {error && (
-        <p role="alert" className="mt-1 text-xs font-medium text-red-700">
+        <p role="alert" className="mt-1 text-xs font-medium text-ladrillo">
           {error}
         </p>
       )}

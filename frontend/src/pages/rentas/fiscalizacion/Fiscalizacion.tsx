@@ -209,7 +209,7 @@ function Apertura({ alCancelar }: { alCancelar: () => void }) {
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-3 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
@@ -300,7 +300,7 @@ export function Fiscalizacion() {
           </div>
           <div className="mt-4 overflow-x-auto">
             {error ? (
-              <p role="alert" className="text-sm font-medium text-red-700">
+              <p role="alert" className="text-sm font-medium text-ladrillo">
                 {error}
               </p>
             ) : !expedientes ? (

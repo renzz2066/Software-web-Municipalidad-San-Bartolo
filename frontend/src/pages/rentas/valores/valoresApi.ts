@@ -23,7 +23,7 @@ export const NOMBRE_VALOR: Record<TipoValor, string> = {
 export const ESTILO_VALOR: Record<EstadoValor, string> = {
   EMITIDO: 'bg-mar/10 text-mar-profundo',
   NOTIFICADO: 'bg-amber-50 text-amber-800',
-  COACTIVO: 'bg-red-50 text-red-800',
+  COACTIVO: 'bg-ladrillo/5 text-ladrillo',
   CANCELADO: 'bg-emerald-50 text-emerald-800',
   ANULADO: 'bg-slate-100 text-slate-600',
 }

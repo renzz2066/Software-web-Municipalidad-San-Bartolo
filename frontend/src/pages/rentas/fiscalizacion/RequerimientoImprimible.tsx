@@ -24,7 +24,7 @@ export function RequerimientoImprimible() {
 
         <main className="mt-4 rounded-panel border border-borde bg-white p-8 text-sm leading-relaxed print:mt-0 print:rounded-none print:border-0 print:p-0">
           {error ? (
-            <p role="alert" className="font-medium text-red-700">
+            <p role="alert" className="font-medium text-ladrillo">
               {error}
             </p>
           ) : !e ? (
@@ -32,7 +32,7 @@ export function RequerimientoImprimible() {
               Cargando…
             </p>
           ) : !e.inspeccion ? (
-            <p role="alert" className="font-medium text-red-700">
+            <p role="alert" className="font-medium text-ladrillo">
               Programa la fecha y hora de la inspección antes de imprimir el requerimiento.
             </p>
           ) : (

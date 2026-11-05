@@ -109,7 +109,7 @@ export function NuevoConvenio({ contribuyenteId, alGrabar }: { contribuyenteId: 
 
   if (!deudas) {
     return error ? (
-      <p role="alert" className="text-sm font-medium text-red-700">
+      <p role="alert" className="text-sm font-medium text-ladrillo">
         {error}
       </p>
     ) : (
@@ -229,7 +229,7 @@ export function NuevoConvenio({ contribuyenteId, alGrabar }: { contribuyenteId: 
       </div>
 
       {error && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}

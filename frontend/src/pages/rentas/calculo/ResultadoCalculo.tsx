@@ -89,7 +89,7 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
                 <tr key={p.predioId} className="border-b border-slate-100">
                   <td className="px-2 py-2">#{p.predioId}</td>
                   {p.error ? (
-                    <td colSpan={4} className="px-2 py-2 text-red-700">
+                    <td colSpan={4} className="px-2 py-2 text-ladrillo">
                       {p.error}
                     </td>
                   ) : (
@@ -119,7 +119,7 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
       ))}
 
       {r.totalErrores > 0 && (
-        <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+        <div role="alert" className="rounded-md bg-ladrillo/5 p-3 text-sm text-ladrillo">
           <p className="font-semibold">
             {r.totalErrores} predio(s) sin datos suficientes: a sus contribuyentes no se les calcula el predial (su deuda actual no se toca).
           </p>

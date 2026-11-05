@@ -116,7 +116,7 @@ export function CamposPredio({ catalogos, datos, setDatos, pisos, setPisos, inst
                   <td className="w-28 px-1 py-1"><input aria-label={`Categorías piso ${i + 1}`} maxLength={7} value={p.categorias} onChange={(e) => cambiarPiso(i, 'categorias', e.target.value.toUpperCase())} className={`${CLASE} font-mono tracking-widest`} /></td>
                   <td className="w-24 px-1 py-1"><input aria-label={`Área piso ${i + 1}`} type="number" step="0.01" min="0" value={p.areaConstruida} onChange={(e) => cambiarPiso(i, 'areaConstruida', e.target.value)} className={CLASE} /></td>
                   <td className="px-1 py-1">
-                    <button type="button" aria-label={`Quitar piso ${i + 1}`} onClick={() => setPisos((ps) => ps.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700">
+                    <button type="button" aria-label={`Quitar piso ${i + 1}`} onClick={() => setPisos((ps) => ps.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-slate-500 hover:bg-ladrillo/5 hover:text-ladrillo">
                       <i aria-hidden="true" className="bi bi-trash" />
                     </button>
                   </td>
@@ -140,7 +140,7 @@ export function CamposPredio({ catalogos, datos, setDatos, pisos, setPisos, inst
             <input aria-label={`Descripción instalación ${i + 1}`} placeholder="Cerco perimétrico" maxLength={150} value={o.descripcion} onChange={(e) => setInstalaciones((xs) => xs.map((x, j) => (j === i ? { ...x, descripcion: e.target.value } : x)))} className={CLASE} />
             <input aria-label={`Unidad instalación ${i + 1}`} placeholder="ML" maxLength={10} value={o.unidad} onChange={(e) => setInstalaciones((xs) => xs.map((x, j) => (j === i ? { ...x, unidad: e.target.value } : x)))} className={CLASE} />
             <input aria-label={`Cantidad instalación ${i + 1}`} type="number" step="0.01" min="0" value={o.cantidad} onChange={(e) => setInstalaciones((xs) => xs.map((x, j) => (j === i ? { ...x, cantidad: e.target.value } : x)))} className={CLASE} />
-            <button type="button" aria-label={`Quitar instalación ${i + 1}`} onClick={() => setInstalaciones((xs) => xs.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700">
+            <button type="button" aria-label={`Quitar instalación ${i + 1}`} onClick={() => setInstalaciones((xs) => xs.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-slate-500 hover:bg-ladrillo/5 hover:text-ladrillo">
               <i aria-hidden="true" className="bi bi-trash" />
             </button>
           </div>

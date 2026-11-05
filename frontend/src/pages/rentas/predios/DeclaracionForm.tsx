@@ -250,7 +250,7 @@ export function DeclaracionForm() {
                         <input type="number" step="0.01" min="0" max="100" value={c.porcentaje} onChange={(e) => setCondominos((cs) => cs.map((x) => (x.id === c.id ? { ...x, porcentaje: e.target.value } : x)))} className={`${CLASE} w-24 text-right`} />
                         %
                       </label>
-                      <button type="button" aria-label={`Quitar a ${c.nombre}`} onClick={() => setCondominos((cs) => cs.filter((x) => x.id !== c.id))} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700">
+                      <button type="button" aria-label={`Quitar a ${c.nombre}`} onClick={() => setCondominos((cs) => cs.filter((x) => x.id !== c.id))} className="rounded-md p-1.5 text-slate-500 hover:bg-ladrillo/5 hover:text-ladrillo">
                         <i aria-hidden="true" className="bi bi-x-lg" />
                       </button>
                     </li>
@@ -273,7 +273,7 @@ export function DeclaracionForm() {
 
           <div className="rounded-panel border border-borde bg-white p-6">
             {error && (
-              <p role="alert" className="mb-3 text-sm font-medium text-red-700">
+              <p role="alert" className="mb-3 text-sm font-medium text-ladrillo">
                 {error}
               </p>
             )}
@@ -282,7 +282,7 @@ export function DeclaracionForm() {
                 type="submit"
                 disabled={isSaving}
                 className={`rounded-md px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40 ${
-                  esBaja ? 'bg-red-700' : 'bg-mar-profundo'
+                  esBaja ? 'bg-ladrillo' : 'bg-mar-profundo'
                 }`}
               >
                 {isSaving ? 'Registrando…' : esBaja ? 'Registrar baja del predio' : 'Registrar declaración'}

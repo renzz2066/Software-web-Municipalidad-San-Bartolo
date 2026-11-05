@@ -259,7 +259,7 @@ export function ContribuyenteForm() {
 
               <div className="sm:col-span-2">
                 {error && (
-                  <p role="alert" className="mb-3 text-sm font-medium text-red-700">
+                  <p role="alert" className="mb-3 text-sm font-medium text-ladrillo">
                     {error}
                   </p>
                 )}
@@ -288,7 +288,7 @@ export function ContribuyenteForm() {
 }
 
 const CLASE_INPUT =
-  'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa aria-[invalid=true]:border-red-500'
+  'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa aria-[invalid=true]:border-ladrillo'
 
 function Campo({ label, id, error, children }: { label: string; id: string; error?: string; children: React.ReactNode }) {
   return (
@@ -298,7 +298,7 @@ function Campo({ label, id, error, children }: { label: string; id: string; erro
       </label>
       {children}
       {error && (
-        <p className="mt-1 text-xs font-medium text-red-700" role="alert">
+        <p className="mt-1 text-xs font-medium text-ladrillo" role="alert">
           {error}
         </p>
       )}
