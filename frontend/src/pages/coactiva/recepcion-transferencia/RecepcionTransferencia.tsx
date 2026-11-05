@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../../rentas/maestros/maestrosApi'
 import { TablaSoloLectura, type Columna } from './TablaSoloLectura'
@@ -205,35 +205,16 @@ export function RecepcionTransferencia() {
   }
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-7xl">
-        <Link
-          to="/coactivo"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Cobranza Coactiva
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Recepción de valores"
+          descripcion="Valores transferidos por Rentas pendientes de recibir en Cobranza Coactiva."
+          volverA={{ etiqueta: 'Cobranza Coactiva', ruta: '/coactivo' }}
+        />
 
-        <header className="mb-6 mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-              >
-                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </span>
-              <div>
-                <h1 className="text-lg font-bold text-mar-profundo">Cobranza Coactiva</h1>
-                <p className="text-sm text-slate-500">Recepción y Transferencia de Valores</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <section aria-label="Filtros" className="mb-6 mt-4 rounded-panel border border-borde bg-white p-4 sm:p-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label htmlFor="filtro-anio" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Año
@@ -330,17 +311,17 @@ export function RecepcionTransferencia() {
               Limpiar
             </button>
           </div>
-        </header>
+        </section>
 
         {error && (
-          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mb-4 rounded-md bg-ladrillo/5 px-4 py-3 text-sm text-ladrillo" role="alert">
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
           {/* Panel de memorandums */}
-          <aside className="rounded-xl bg-white p-4 shadow-md ring-1 ring-mar-profundo/10 h-fit">
+          <aside className="rounded-panel border border-borde bg-white p-4 h-fit">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-mar-profundo">Memorandums</h2>
               {selectedMemorandum && (
@@ -382,7 +363,7 @@ export function RecepcionTransferencia() {
           </aside>
 
           {/* Tabla dinámica de valores */}
-          <section className="rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10 overflow-hidden">
+          <section className="rounded-panel border border-borde bg-white overflow-hidden">
           <TablaSoloLectura<ValorTransferible>
             columnas={COL_VALORES}
             datos={valores}
@@ -482,7 +463,7 @@ function TransferenciaModal({
   if (resultado) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <div className="w-full max-w-md rounded-panel border border-borde bg-white p-6">
           <h2 className="mb-4 text-lg font-bold text-mar-profundo">{titulo}</h2>
           <div className="space-y-3">
             <div className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -491,7 +472,7 @@ function TransferenciaModal({
               <p>Fallidos: {resultado.fallidos}</p>
             </div>
             {resultado.errores.length > 0 && (
-              <div className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 max-h-40 overflow-y-auto">
+              <div className="rounded-md bg-ladrillo/5 px-4 py-3 text-sm text-ladrillo max-h-40 overflow-y-auto">
                 <p className="font-medium mb-2">Errores:</p>
                 <ul className="list-disc list-inside space-y-1">
                   {resultado.errores.map((err, i) => (
@@ -517,12 +498,12 @@ function TransferenciaModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-md rounded-panel border border-borde bg-white p-6">
         <h2 className="mb-4 text-lg font-bold text-mar-profundo">{titulo}</h2>
         <div className="space-y-4">
           <div>
             <label htmlFor="modal-ejecutor" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Ejecutor <span className="text-red-500">*</span>
+              Ejecutor <span className="text-ladrillo">*</span>
             </label>
             <select
               id="modal-ejecutor"
@@ -540,7 +521,7 @@ function TransferenciaModal({
           </div>
           <div>
             <label htmlFor="modal-auxiliar" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Auxiliar <span className="text-red-500">*</span>
+              Auxiliar <span className="text-ladrillo">*</span>
             </label>
             <select
               id="modal-auxiliar"
