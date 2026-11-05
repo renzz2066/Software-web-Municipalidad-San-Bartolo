@@ -93,3 +93,13 @@ export const MODULOS: Modulo[] = [
     ],
   },
 ]
+
+// Accesibilidad no es un módulo SIMUN del catálogo pero sí tiene nivel propio:
+// lo listan el Dashboard y la barra lateral del app shell.
+export const ACCESIBILIDAD: Modulo = {
+  codigo: 'accesibilidad',
+  titulo: 'Accesibilidad',
+  descripcion: 'Usuarios, roles, niveles y accesos por rol.',
+  icono: 'bi bi-shield-lock',
+  submodulos: [],
+}
