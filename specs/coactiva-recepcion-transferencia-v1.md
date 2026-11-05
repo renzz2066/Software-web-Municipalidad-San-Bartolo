@@ -14,11 +14,12 @@ maestros de ejecutores/auxiliares por UI (se cargan por seed); los POST son de s
   ya recibidos a un auxiliar, para que quede trazado el destino de cada valor.
 - [x] K1 `GET /coactiva/recepcion-transferencia/{valores,valores/:id,memorandums,ejecutores,auxiliares,tipos-gestion}` → 200.
 - [x] K2 `GET /coactiva/asignar-valores/{memorandums,auxiliares,valores/:memorandumId}` → 200.
-- [x] K3 Transferencia marca `valorCab.estado = COACTIVO`, crea `coactivo_exp` con nº correlativo y
-  sus detalles, y enlaza `ejecutorId/auxiliarId/tipoGestionId` (texto libre → maestros normalizados).
-- [x] K4 Asignación enlaza `valorCab.auxiliarAsignadoId`; los GET nunca escriben (solo lectura en v1).
-- [ ] K5 Errores: 401 sin token, 404 valor/memorándum inexistente, 409 si el valor ya está en coactivo.
-- [ ] K6 Escrituras multi-tabla en `$transaction` (regla 3) y auditoría por triggers en tablas nuevas.
+- [x] K3 Recepción: solo valores `COACTIVO` con `transferenciaId` (transferidos por Rentas, V7), sin expediente y con
+  cuotas `COACTIVO`; crea `coactivo_exp` (nº correlativo bajo advisory lock) con esas cuotas, sin tocar el valor
+  (estado, `transferenciaId`, `fechaNotificacion`) y enlaza `ejecutorId/auxiliarId/tipoGestionId` activos.
+- [x] K4 Asignación enlaza `valorCab.auxiliarAsignadoId` solo en valores recibidos y aún `COACTIVO`; los GET nunca escriben.
+- [x] K5 Errores: 401 sin token, 404 valor/memorándum inexistente, 409 si no es recibible o ya tiene expediente.
+- [x] K6 Escrituras multi-tabla en `$transaction` (regla 3) y auditoría por triggers (sin `creadoPorId`/`modificadoPorId`).
 
 ## 2. Archivos afectados
 - Frontend: `frontend/src/pages/coactiva/**` (nuevo), `frontend/src/App.tsx` (2 imports + 2 entradas
@@ -47,7 +48,7 @@ huérfano `20261012120000_usuarios_oficina_texto` (`usuarios.oficinaNombre` no e
 - [x] `lint` + `build` + `test` backend y frontend.
 
 ## 5. Verificación
-`cd backend && npm run lint && npm run build && npm run test` (163/163) · `npx prisma migrate status`
+`cd backend && npm run lint && npm run build && npm run test` (192/192, incl. `coactiva/**/*.spec.ts`) · `npx prisma migrate status`
 (15, up to date) · `npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-url $DIRECT_URL --script`
 → vacío · `cd frontend && npm run lint && npm run build` · `npm run start:dev` y smoke:
 login `admin/admin123`, regresión de 7 GET previos + los 9 GET nuevos de `/coactiva/**` → 200 ·
