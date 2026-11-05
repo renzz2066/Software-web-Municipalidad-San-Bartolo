@@ -77,7 +77,7 @@ export function ConsultaRecibos() {
 
       <div className="mt-4">
         {error ? (
-          <p role="alert" className="text-sm font-medium text-red-700">
+          <p role="alert" className="text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !recibos ? (

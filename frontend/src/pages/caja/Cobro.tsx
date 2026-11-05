@@ -1,6 +1,7 @@
 import { isAxiosError } from 'axios'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { api } from '../../lib/api'
 import { BuscadorContribuyente } from '../rentas/contribuyentes/BuscadorContribuyente'
 import { soles } from '../rentas/contribuyentes/tipos'
@@ -118,40 +119,18 @@ export function Cobro() {
   const ayudaMedio = MEDIOS_PAGO.find((m) => m.value === medio)?.ayuda
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-6xl">
-        <Link
-          to="/caja"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Caja
-        </Link>
-
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex flex-wrap items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-cash-stack" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-mar-profundo">Cancelaciones del Día</h1>
-              <p className="text-sm text-slate-500">
-                Elige las cuotas que paga el contribuyente. La mora y el reajuste se calculan a hoy; las cuotas de un convenio se
-                pagan en orden.
-              </p>
-            </div>
-            <Link
-              to={RUTA_CIERRE}
-              className="rounded-md border border-mar-profundo/30 px-4 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
-            >
-              <i aria-hidden="true" className="bi bi-lock mr-1" />
-              {cajaCerrada ? 'Ver mi cierre' : 'Cerrar mi caja'}
-            </Link>
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Cancelaciones del Día"
+          descripcion="Elige las cuotas que paga el contribuyente. La mora y el reajuste se calculan a hoy; las cuotas de un convenio se pagan en orden."
+          volverA={{ etiqueta: 'Caja', ruta: '/caja' }}
+          accion={{
+            etiqueta: cajaCerrada ? 'Ver mi cierre' : 'Cerrar mi caja',
+            icono: 'bi bi-lock',
+            to: RUTA_CIERRE,
+          }}
+        />
 
         {cajaCerrada && (
           <p role="status" className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700">
@@ -167,7 +146,7 @@ export function Cobro() {
           </p>
         )}
 
-        <section aria-labelledby="cobro-contribuyente" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <section aria-labelledby="cobro-contribuyente" className="mt-6 rounded-panel border border-borde bg-white p-6">
           <h2 id="cobro-contribuyente" className="sr-only">
             Contribuyente
           </h2>
@@ -198,13 +177,13 @@ export function Cobro() {
         </section>
 
         {contribuyenteId && (
-          <section aria-labelledby="cobro-deuda" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+          <section aria-labelledby="cobro-deuda" className="mt-6 rounded-panel border border-borde bg-white p-6">
             <h2 id="cobro-deuda" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
               Deuda al {datos?.fecha ?? hoyIso()}
             </h2>
             <div className="mt-3">
               {error ? (
-                <p role="alert" className="text-sm font-medium text-red-700">
+                <p role="alert" className="text-sm font-medium text-ladrillo">
                   {error}
                 </p>
               ) : isLoading || !datos ? (
@@ -217,7 +196,7 @@ export function Cobro() {
             </div>
 
             {errorCobro && !liquidacion && (
-              <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <p role="alert" className="mt-3 rounded-md bg-ladrillo/5 px-3 py-2 text-sm font-medium text-ladrillo">
                 {errorCobro}
               </p>
             )}
@@ -248,7 +227,7 @@ export function Cobro() {
         )}
 
         {liquidacion && (
-          <section aria-labelledby="cobro-confirmar" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-2 ring-mar">
+          <section aria-labelledby="cobro-confirmar" className="mt-6 rounded-xl bg-white p-6 ring-2 ring-mar">
             <h2 id="cobro-confirmar" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
               Confirmar cobro
             </h2>
@@ -305,7 +284,7 @@ export function Cobro() {
                   </div>
                   <div aria-live="polite">
                     <p className={ESTILO_ETIQUETA}>Vuelto</p>
-                    <p className={`mt-1 py-2 text-lg font-semibold ${vuelto !== null && vuelto < 0 ? 'text-red-700' : 'text-mar-profundo'}`}>
+                    <p className={`mt-1 py-2 text-lg font-semibold ${vuelto !== null && vuelto < 0 ? 'text-ladrillo' : 'text-mar-profundo'}`}>
                       {vuelto === null ? '—' : vuelto < 0 ? `Faltan ${soles(-vuelto)}` : soles(vuelto)}
                     </p>
                   </div>
@@ -329,7 +308,7 @@ export function Cobro() {
             </div>
 
             {errorCobro && (
-              <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              <p role="alert" className="mt-4 rounded-md bg-ladrillo/5 px-3 py-2 text-sm font-medium text-ladrillo">
                 {errorCobro}
               </p>
             )}
@@ -356,13 +335,13 @@ export function Cobro() {
           </section>
         )}
 
-        <section aria-labelledby="cobro-recibos" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <section aria-labelledby="cobro-recibos" className="mt-6 rounded-panel border border-borde bg-white p-6">
           <h2 id="cobro-recibos" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
             Mis recibos de hoy
           </h2>
           <div className="mt-3">
             {errorRecibos ? (
-              <p role="alert" className="text-sm font-medium text-red-700">
+              <p role="alert" className="text-sm font-medium text-ladrillo">
                 {errorRecibos}
               </p>
             ) : !recibos ? (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { api } from '../../lib/api'
 import { hoyLocal } from '../../lib/fechas'
 import { soles } from '../rentas/contribuyentes/tipos'
@@ -58,7 +59,7 @@ function CierresDelDia() {
 
       <div className="mt-4">
         {error ? (
-          <p role="alert" className="text-sm font-medium text-red-700">
+          <p role="alert" className="text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !datos ? (
@@ -108,7 +109,7 @@ function CierresDelDia() {
                           </td>
                           <td className="px-2 py-1.5 text-right">{c.cantidadRecibos}</td>
                           <td className="px-2 py-1.5 text-right">{c.cantidadExtornos}</td>
-                          <td className={`whitespace-nowrap px-2 py-1.5 text-right ${dif !== null && dif < 0 ? 'text-red-700' : ''}`}>
+                          <td className={`whitespace-nowrap px-2 py-1.5 text-right ${dif !== null && dif < 0 ? 'text-ladrillo' : ''}`}>
                             {dif === null ? '—' : dif === 0 ? 'Cuadra' : `${dif > 0 ? '+' : '−'}${soles(Math.abs(dif))}`}
                           </td>
                           <td className="whitespace-nowrap px-2 py-1.5 text-right font-medium">{soles(c.total)}</td>
@@ -140,30 +141,13 @@ export function Reportes() {
   const actual = PESTANAS.find((p) => p.id === pestana)!
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-6xl">
-        <Link
-          to="/caja"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Caja
-        </Link>
-
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-bar-chart" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-mar-profundo">Reportes de Caja</h1>
-              <p className="text-sm text-slate-500">{actual.ayuda}</p>
-            </div>
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Reportes de Caja"
+          descripcion={actual.ayuda}
+          volverA={{ etiqueta: 'Caja', ruta: '/caja' }}
+        />
 
         <nav aria-label="Reportes de caja" role="tablist" className="mt-6 flex gap-1 overflow-x-auto">
           {PESTANAS.map((p) => (
@@ -174,7 +158,7 @@ export function Reportes() {
               aria-selected={pestana === p.id}
               onClick={() => setParams({ tab: p.id })}
               className={`whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium focus-visible:outline-3 focus-visible:outline-turquesa ${
-                pestana === p.id ? 'bg-white text-mar-profundo shadow-sm' : 'text-slate-600 hover:bg-white/60'
+                pestana === p.id ? 'bg-white text-mar-profundo' : 'text-slate-600 hover:bg-white/60'
               }`}
             >
               {p.titulo}
@@ -182,7 +166,7 @@ export function Reportes() {
           ))}
         </nav>
 
-        <main role="tabpanel" className="rounded-b-xl rounded-tr-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <main role="tabpanel" className="rounded-panel border border-borde bg-white p-6">
           {pestana === 'cierres' ? <CierresDelDia /> : <ConsultaRecibos />}
         </main>
       </div>
