@@ -227,7 +227,7 @@ export function TablaEditable({ url, columnas, bloqueado = false, conOrdenanza =
                     onClick={() => quitar(i)}
                     disabled={deshabilitado}
                     aria-label={`Quitar fila ${i + 1}`}
-                    className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+                    className="rounded-md p-1.5 text-slate-500 hover:bg-ladrillo/5 hover:text-ladrillo focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
                   >
                     <i aria-hidden="true" className="bi bi-trash" />
                   </button>
@@ -239,7 +239,7 @@ export function TablaEditable({ url, columnas, bloqueado = false, conOrdenanza =
       </div>
 
       {error && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}

@@ -51,7 +51,7 @@ export function PanelExtorno({ recibo, alExtornar }: { recibo: Recibo; alExtorna
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-turquesa"
+          className="rounded-md border border-ladrillo/40 px-4 py-2 text-sm font-medium text-ladrillo hover:bg-ladrillo/5 focus-visible:outline-3 focus-visible:outline-turquesa"
         >
           <i aria-hidden="true" className="bi bi-arrow-counterclockwise mr-1" />
           Extornar recibo
@@ -61,8 +61,8 @@ export function PanelExtorno({ recibo, alExtornar }: { recibo: Recibo; alExtorna
   }
 
   return (
-    <section aria-labelledby="extorno-titulo" className="mt-3 rounded-xl bg-white p-5 shadow-md ring-2 ring-red-300 print:hidden">
-      <h2 id="extorno-titulo" className="text-sm font-bold uppercase tracking-wider text-red-800">
+    <section aria-labelledby="extorno-titulo" className="mt-3 rounded-xl bg-white p-5 ring-2 ring-ladrillo/40 print:hidden">
+      <h2 id="extorno-titulo" className="text-sm font-bold uppercase tracking-wider text-ladrillo">
         Extornar recibo {recibo.numero}
       </h2>
       <p className="mt-1 text-sm text-slate-600">
@@ -82,7 +82,7 @@ export function PanelExtorno({ recibo, alExtornar }: { recibo: Recibo; alExtorna
         className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-50"
       />
       {error && (
-        <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-2 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
@@ -100,7 +100,7 @@ export function PanelExtorno({ recibo, alExtornar }: { recibo: Recibo; alExtorna
             type="button"
             onClick={() => void extornar()}
             disabled={procesando}
-            className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+            className="rounded-md bg-ladrillo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
           >
             {procesando ? 'Extornando…' : `Confirmar extorno de ${soles(recibo.total)}`}
           </button>
@@ -108,7 +108,7 @@ export function PanelExtorno({ recibo, alExtornar }: { recibo: Recibo; alExtorna
           <button
             type="button"
             onClick={revisar}
-            className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
+            className="rounded-md bg-ladrillo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
           >
             Extornar
           </button>

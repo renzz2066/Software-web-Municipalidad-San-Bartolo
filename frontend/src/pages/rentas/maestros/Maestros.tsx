@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { CLASIFICACIONES, CONCEPTOS_ARBITRIO, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { Catalogo } from './Catalogo'
@@ -189,30 +189,16 @@ export function Maestros() {
   const bloqueado = resumen?.bloqueado ?? false
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to="/rentas"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Rentas
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Maestros de Rentas"
+          descripcion="Parámetros del año para calcular predial y arbitrios."
+          volverA={{ etiqueta: 'Rentas', ruta: '/rentas' }}
+        />
 
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <div className="mt-4 rounded-panel border border-borde bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-              >
-                <i className="bi bi-table" />
-              </span>
-              <div>
-                <h1 className="text-lg font-bold text-mar-profundo">Maestros de Rentas</h1>
-                <p className="text-sm text-slate-500">Parámetros del año para calcular predial y arbitrios.</p>
-              </div>
-            </div>
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <label htmlFor="anio" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -264,11 +250,11 @@ export function Maestros() {
             </p>
           )}
           {error && (
-            <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+            <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
               {error}
             </p>
           )}
-        </header>
+        </div>
 
         <nav aria-label="Tablas de maestros" className="mt-6 flex gap-1 overflow-x-auto" role="tablist">
           {PESTANAS.map((p) => (
@@ -279,7 +265,7 @@ export function Maestros() {
               aria-selected={pestana === p.id}
               onClick={() => setPestana(p.id)}
               className={`whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium focus-visible:outline-3 focus-visible:outline-turquesa ${
-                pestana === p.id ? 'bg-white text-mar-profundo shadow-sm' : 'text-slate-600 hover:bg-white/60'
+                pestana === p.id ? 'bg-white text-mar-profundo' : 'text-slate-600 hover:bg-white/60'
               }`}
             >
               {p.titulo}
@@ -287,7 +273,7 @@ export function Maestros() {
           ))}
         </nav>
 
-        <main role="tabpanel" className="rounded-b-xl rounded-tr-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <main role="tabpanel" className="rounded-panel border border-borde bg-white p-6">
           {pestana === 'uit' && <FormUit key={`${anio}-${resumen?.uit?.valor ?? ''}`} anio={anio} resumen={resumen} bloqueado={bloqueado} alGuardar={refrescar} />}
           {pestana === 'escala' && (
             <TablaEditable
@@ -420,7 +406,7 @@ export function Maestros() {
 
 function Dato({ titulo, valor, falta }: { titulo: string; valor: string | number; falta: boolean }) {
   return (
-    <div className={`rounded-md px-3 py-2 ${falta ? 'bg-red-50 text-red-800' : 'bg-mar-profundo/5 text-mar-profundo'}`}>
+    <div className={`rounded-md px-3 py-2 ${falta ? 'bg-ladrillo/5 text-ladrillo' : 'bg-mar-profundo/5 text-mar-profundo'}`}>
       <dt className="text-xs uppercase tracking-wider opacity-70">{titulo}</dt>
       <dd className="font-semibold">{falta ? 'Falta' : valor}</dd>
     </div>
@@ -522,7 +508,7 @@ function FormUit({
       </div>
       <div className="sm:col-span-2">
         {mensaje && (
-          <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-red-700'}`}>
+          <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-ladrillo'}`}>
             {mensaje.texto}
           </p>
         )}

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { EliminarUsuarioModal } from './EliminarUsuarioModal'
 
 interface OficinaResumen {
@@ -62,50 +63,27 @@ export function Usuarios() {
   const seleccionado = usuarios.find((u) => u.id === selectedId) ?? null
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to="/accesibilidad"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Accesibilidad
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Gestión de Usuarios"
+          descripcion="Administración de usuarios del sistema."
+          volverA={{ etiqueta: 'Accesibilidad', ruta: '/accesibilidad' }}
+          accion={{
+            etiqueta: 'Nuevo usuario',
+            icono: 'bi bi-plus-lg',
+            to: '/accesibilidad/usuarios/nuevo',
+          }}
+        />
 
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-              >
-                <i className="bi bi-people" />
-              </span>
-              <div>
-                <h1 className="text-lg font-bold text-mar-profundo">Gestión de Usuarios</h1>
-                <p className="text-sm text-slate-500">
-                  Administración de usuarios del sistema.
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/accesibilidad/usuarios/nuevo"
-              className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
-            >
-              <i aria-hidden="true" className="bi bi-plus-lg mr-1" />
-              Nuevo usuario
-            </Link>
-          </div>
-        </header>
-
-        <main className="mt-6 rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10">
+        <main className="mt-6 rounded-panel border border-borde bg-white">
           {isLoading ? (
             <p className="p-8 text-center text-sm text-slate-500" role="status">
               Cargando usuarios…
             </p>
           ) : error ? (
             <div className="p-8 text-center">
-              <p role="alert" className="text-sm font-medium text-red-700">
+              <p role="alert" className="text-sm font-medium text-ladrillo">
                 {error}
               </p>
               <Link
@@ -208,7 +186,7 @@ export function Usuarios() {
                               <button
                                 type="button"
                                 onClick={() => setShowDelete(true)}
-                                className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 focus-visible:outline-3 focus-visible:outline-turquesa"
+                                className="rounded-md bg-ladrillo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
                               >
                                 <i aria-hidden="true" className="bi bi-trash mr-1" />
                                 Eliminar

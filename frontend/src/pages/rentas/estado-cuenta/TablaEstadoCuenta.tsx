@@ -78,7 +78,7 @@ export function TablaEstadoCuenta({ datos, seleccion }: { datos: EstadoCuenta; s
                   )}
                 </td>
                 <td className="px-2 py-1.5">{l.cuota || 'Anual'}</td>
-                <td className={`px-2 py-1.5 ${l.diasAtraso > 0 ? 'text-red-700' : ''}`}>
+                <td className={`px-2 py-1.5 ${l.diasAtraso > 0 ? 'text-ladrillo' : ''}`}>
                   {l.vencimiento ?? '—'}
                   {l.diasAtraso > 0 && <span className="block text-xs">{l.diasAtraso} días</span>}
                 </td>

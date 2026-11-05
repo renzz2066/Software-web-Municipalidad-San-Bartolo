@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { CLASIFICACIONES, COMPONENTES_CORTOS, ESTADOS_CONSERVACION, MATERIALES, etiqueta } from '../catalogosConstruccion'
 import { RUTA_BASE } from '../contribuyentes/tipos'
@@ -35,18 +36,19 @@ export function Predio() {
   const activo = predio?.estado !== 'BAJA'
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to={titular ? `${RUTA_BASE}/contribuyentes/${titular.id}` : RUTA_BASE}
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          {titular ? titular.nombreCompleto : 'Registro Tributario'}
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo={predio ? direccion(predio) : 'Predio'}
+          volverA={
+            titular
+              ? { etiqueta: titular.nombreCompleto, ruta: `${RUTA_BASE}/contribuyentes/${titular.id}` }
+              : { etiqueta: 'Registro Tributario', ruta: RUTA_BASE }
+          }
+        />
 
         {error ? (
-          <p role="alert" className="mt-6 rounded-xl bg-white p-8 text-center text-sm font-medium text-red-700 shadow-md">
+          <p role="alert" className="mt-6 rounded-panel border border-borde bg-white p-8 text-center text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !predio ? (
@@ -55,15 +57,14 @@ export function Predio() {
           </p>
         ) : (
           <>
-            <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+            <div className="mt-4 rounded-panel border border-borde bg-white p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <p className="font-mono text-xs text-slate-500">
                     Predio #{predio.id}
                     {predio.codigoLegacy && ` · SIMUN ${predio.codigoLegacy}`}
                     {predio.codigoCatastro && ` · Catastro ${predio.codigoCatastro}`}
                   </p>
-                  <h1 className="text-xl font-bold text-mar-profundo">{direccion(predio)}</h1>
                   <p className="text-sm text-slate-600">
                     {predio.zona ? `Zona ${predio.zona.codigo} · ` : ''}Uso {predio.usoPredio ?? '—'} · Terreno {predio.areaTerreno ?? '—'} m² ·
                     Construido {predio.areaConstruida ?? '—'} m²
@@ -90,7 +91,7 @@ export function Predio() {
                   </div>
                 )}
               </div>
-            </header>
+            </div>
 
             <Seccion titulo="Titulares">
               {predio.contribuyentes.length === 0 ? (
@@ -189,7 +190,7 @@ export function Predio() {
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <section className="mt-6 rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10" aria-label={titulo}>
+    <section className="mt-6 rounded-panel border border-borde bg-white" aria-label={titulo}>
       <h2 className="border-b border-slate-100 px-4 py-3 font-semibold text-mar-profundo">{titulo}</h2>
       {children}
     </section>

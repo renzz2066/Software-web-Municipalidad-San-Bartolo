@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { hoyLocal } from '../../../lib/fechas'
 import { BuscadorContribuyente } from '../contribuyentes/BuscadorContribuyente'
@@ -150,15 +151,16 @@ export function DeclaracionForm() {
   const volver = id ? `${RUTA_BASE}/predios/${id}` : declarante ? `${RUTA_BASE}/contribuyentes/${declarante.id}` : RUTA_BASE
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to={volver}
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Volver
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo={id ? 'Declaración jurada' : 'Inscripción de predio'}
+          descripcion={id && predio ? direccion(predio) : undefined}
+          volverA={{
+            etiqueta: id ? 'Predio' : declarante ? 'Ficha del contribuyente' : 'Registro Tributario',
+            ruta: volver,
+          }}
+        />
 
         <form onSubmit={(e) => void enviar(e)} noValidate className="mt-3 space-y-6">
           <Bloque titulo={id ? `Declaración jurada · ${predio ? direccion(predio) : `Predio #${id}`}` : 'Declaración jurada · Inscripción de predio'}>
@@ -248,7 +250,7 @@ export function DeclaracionForm() {
                         <input type="number" step="0.01" min="0" max="100" value={c.porcentaje} onChange={(e) => setCondominos((cs) => cs.map((x) => (x.id === c.id ? { ...x, porcentaje: e.target.value } : x)))} className={`${CLASE} w-24 text-right`} />
                         %
                       </label>
-                      <button type="button" aria-label={`Quitar a ${c.nombre}`} onClick={() => setCondominos((cs) => cs.filter((x) => x.id !== c.id))} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-700">
+                      <button type="button" aria-label={`Quitar a ${c.nombre}`} onClick={() => setCondominos((cs) => cs.filter((x) => x.id !== c.id))} className="rounded-md p-1.5 text-slate-500 hover:bg-ladrillo/5 hover:text-ladrillo">
                         <i aria-hidden="true" className="bi bi-x-lg" />
                       </button>
                     </li>
@@ -269,9 +271,9 @@ export function DeclaracionForm() {
             </>
           )}
 
-          <div className="rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+          <div className="rounded-panel border border-borde bg-white p-6">
             {error && (
-              <p role="alert" className="mb-3 text-sm font-medium text-red-700">
+              <p role="alert" className="mb-3 text-sm font-medium text-ladrillo">
                 {error}
               </p>
             )}
@@ -280,7 +282,7 @@ export function DeclaracionForm() {
                 type="submit"
                 disabled={isSaving}
                 className={`rounded-md px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40 ${
-                  esBaja ? 'bg-red-700' : 'bg-mar-profundo'
+                  esBaja ? 'bg-ladrillo' : 'bg-mar-profundo'
                 }`}
               >
                 {isSaving ? 'Registrando…' : esBaja ? 'Registrar baja del predio' : 'Registrar declaración'}

@@ -30,7 +30,7 @@ export function ExpedientesContribuyente({ contribuyenteId }: { contribuyenteId:
   return (
     <div className="space-y-4 p-6">
       {error ? (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-ladrillo">
           {error}
         </p>
       ) : !expedientes ? (

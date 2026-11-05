@@ -101,7 +101,7 @@ export function MultaDJ({ dj, alCambiar }: { dj: DJ; alCambiar: () => void }) {
         </span>
       )}
       {error && (
-        <span role="alert" className="mt-1 block font-medium text-red-700">
+        <span role="alert" className="mt-1 block font-medium text-ladrillo">
           {error}
         </span>
       )}

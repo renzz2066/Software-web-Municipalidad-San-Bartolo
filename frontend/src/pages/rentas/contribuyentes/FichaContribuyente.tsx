@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { useAccesos } from '../../../context/AccesosContext'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { PanelCalculo } from '../calculo/PanelCalculo'
 import { ValoresContribuyente } from '../valores/ValoresContribuyente'
 import { ConveniosContribuyente } from '../fraccionamiento/ConveniosContribuyente'
@@ -110,67 +111,69 @@ export function FichaContribuyente() {
   const c = datos?.contribuyente
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to={RUTA_BASE}
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Registro Tributario
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo={c?.nombreCompleto ?? 'Ficha del contribuyente'}
+          descripcion={
+            c ? `${c.tipoDoc} ${c.numDoc}${c.codigoLegacy ? ` · SIMUN ${c.codigoLegacy}` : ''}` : undefined
+          }
+          volverA={{ etiqueta: 'Registro Tributario', ruta: RUTA_BASE }}
+          accion={
+            c && c.estado !== 'BAJA'
+              ? {
+                  etiqueta: 'Inscribir predio',
+                  icono: 'bi bi-house-add',
+                  to: `${RUTA_BASE}/predios/nuevo?declarante=${c.id}`,
+                }
+              : undefined
+          }
+        />
 
         {error ? (
-          <p role="alert" className="mt-6 rounded-xl bg-white p-8 text-center text-sm font-medium text-red-700 shadow-md">
+          <p
+            role="alert"
+            className="mt-6 rounded-panel border border-borde bg-white p-8 text-center text-sm font-medium text-ladrillo"
+          >
             {error}
           </p>
         ) : !datos || !c ? (
-          <p role="status" className="mt-6 text-center text-sm text-slate-500">
+          <p role="status" className="mt-6 text-center text-sm text-tinta-suave">
             Cargando ficha…
           </p>
         ) : (
           <>
-            <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="font-mono text-xs text-slate-500">
-                    {c.tipoDoc} {c.numDoc}
-                    {c.codigoLegacy && ` · SIMUN ${c.codigoLegacy}`}
-                  </p>
-                  <h1 className="text-xl font-bold text-mar-profundo">{c.nombreCompleto}</h1>
-                  <p className="text-sm text-slate-600">{c.direccionFiscal ?? 'Sin domicilio fiscal registrado'}</p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span className={`rounded-md px-2 py-0.5 font-semibold ${ESTILO_ESTADO[c.estado]}`}>{c.estado}</span>
-                    {TIPOS_PERSONA.find((t) => t.value === c.tipoPersona)?.label}
-                    {c.celular && <span>· Cel. {c.celular}</span>}
-                    {c.email && <span>· {c.email}</span>}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Insoluto pendiente</p>
-                  <p className={`text-2xl font-bold ${Number(datos.totalDeuda) > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-                    {soles(datos.totalDeuda)}
-                  </p>
-                  <p className="text-xs text-slate-500">Sin mora; ver pestaña Deuda</p>
-                  <Link
-                    to={`${RUTA_BASE}/contribuyentes/${c.id}/editar`}
-                    className="mt-2 inline-block rounded-md border border-mar-profundo/30 px-3 py-1.5 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
-                  >
-                    <i aria-hidden="true" className="bi bi-pencil mr-1" />
-                    Editar datos
-                  </Link>
-                  {c.estado !== 'BAJA' && (
-                    <Link
-                      to={`${RUTA_BASE}/predios/nuevo?declarante=${c.id}`}
-                      className="ml-2 mt-2 inline-block rounded-md bg-mar-profundo px-3 py-1.5 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
-                    >
-                      <i aria-hidden="true" className="bi bi-house-add mr-1" />
-                      Inscribir predio
-                    </Link>
-                  )}
-                </div>
+            <div className="mt-4 flex flex-wrap items-start justify-between gap-4 rounded-panel border border-borde bg-white p-5">
+              <div className="min-w-0">
+                <p className="text-sm text-slate-600">
+                  {c.direccionFiscal ?? 'Sin domicilio fiscal registrado'}
+                </p>
+                <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span className={`rounded-md px-2 py-0.5 font-semibold ${ESTILO_ESTADO[c.estado]}`}>{c.estado}</span>
+                  {TIPOS_PERSONA.find((t) => t.value === c.tipoPersona)?.label}
+                  {c.celular && <span>· Cel. {c.celular}</span>}
+                  {c.email && <span>· {c.email}</span>}
+                </p>
               </div>
-            </header>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-wider text-slate-500">Insoluto pendiente</p>
+                <p
+                  className={`font-serif text-2xl font-bold ${
+                    Number(datos.totalDeuda) > 0 ? 'text-ladrillo' : 'text-ok'
+                  }`}
+                >
+                  {soles(datos.totalDeuda)}
+                </p>
+                <p className="text-xs text-slate-500">Sin mora; ver pestaña Deuda</p>
+                <Link
+                  to={`${RUTA_BASE}/contribuyentes/${c.id}/editar`}
+                  className="mt-2 inline-block rounded-md border border-mar-profundo/30 px-3 py-1.5 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
+                >
+                  <i aria-hidden="true" className="bi bi-pencil mr-1" />
+                  Editar datos
+                </Link>
+              </div>
+            </div>
 
             <nav aria-label="Secciones de la ficha" role="tablist" className="mt-6 flex gap-1 overflow-x-auto">
               {PESTANAS.filter((p) => !('nivel' in p) || tiene(p.nivel)).map((p) => (
@@ -181,7 +184,7 @@ export function FichaContribuyente() {
                   aria-selected={pestana === p.id}
                   onClick={() => setPestana(p.id)}
                   className={`whitespace-nowrap rounded-t-md px-4 py-2 text-sm font-medium focus-visible:outline-3 focus-visible:outline-turquesa ${
-                    pestana === p.id ? 'bg-white text-mar-profundo shadow-sm' : 'text-slate-600 hover:bg-white/60'
+                    pestana === p.id ? 'bg-white text-mar-profundo' : 'text-slate-600 hover:bg-white/60'
                   }`}
                 >
                   {p.titulo}
@@ -194,7 +197,7 @@ export function FichaContribuyente() {
               ))}
             </nav>
 
-            <main role="tabpanel" className="overflow-x-auto rounded-b-xl rounded-tr-xl bg-white shadow-md ring-1 ring-mar-profundo/10">
+            <main role="tabpanel" className="overflow-x-auto rounded-panel border border-borde bg-white">
               {pestana === 'predios' &&
                 (datos.predios.length === 0 ? (
                   <Vacio texto="Sin predios registrados." />
@@ -312,7 +315,7 @@ function DeudaALaFecha({ contribuyenteId, refreshKey }: { contribuyenteId: numbe
         </Link>
       </div>
       {error ? (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-ladrillo">
           {error}
         </p>
       ) : isLoading || !datos ? (

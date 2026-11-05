@@ -35,7 +35,7 @@ export function ValoresContribuyente({ contribuyenteId, alEmitir }: { contribuye
   return (
     <div className="space-y-6 p-6">
       {error ? (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-ladrillo">
           {error}
         </p>
       ) : !valores ? (

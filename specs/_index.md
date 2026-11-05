@@ -12,4 +12,5 @@
 - `caja-v1.md`: activa. Cobros en ventanilla, recibo correlativo, extornos y cierre diario por cajero.
 - `utilitarios-v1.md`: activa. Herramientas de apoyo: calculadora (UIT, mora, DNI/RUC, efectivo), calendario, buscador y exportación CSV.
 - `rentas-fiscalizacion-v1.md`: activa. Expediente de fiscalización, ficha, RD por diferencias y multas (RM).
+- `app-shell-v1.md`: activa. Barra lateral, barra superior, `PageHeader` con "Volver a…" y tokens visuales (`@theme`).
 - `coactiva-recepcion-transferencia-v1.md`: activa. Recepción/transferencia de valores a coactiva y asignación a auxiliar (port de `feat/coactiva-recepcion-transferencia`).

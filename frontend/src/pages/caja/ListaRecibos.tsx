@@ -51,7 +51,7 @@ export function ListaRecibos({ recibos, volverA, mostrarCajero = false }: { reci
               <td className={`whitespace-nowrap px-2 py-1.5 text-right font-medium ${r.estado === 'EXTORNADO' ? 'line-through' : ''}`}>{soles(r.total)}</td>
               <td className="px-2 py-1.5">
                 {r.estado === 'EXTORNADO' ? (
-                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-xs font-semibold text-red-700">EXTORNADO</span>
+                  <span className="rounded bg-ladrillo/5 px-1.5 py-0.5 text-xs font-semibold text-ladrillo">EXTORNADO</span>
                 ) : (
                   <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700">COBRADO</span>
                 )}

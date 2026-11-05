@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { hoyLocal } from '../../../lib/fechas'
 import { mensajeError } from '../maestros/maestrosApi'
@@ -24,7 +25,7 @@ import {
 
 const CAMPO = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa'
 const ETIQUETA = 'block text-xs font-semibold uppercase tracking-wider text-slate-500'
-const TARJETA = 'mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10'
+const TARJETA = 'mt-6 rounded-panel border border-borde bg-white p-6'
 const BOTON = 'rounded-md bg-mar-profundo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40'
 const BOTON_SEC =
   'rounded-md border border-mar-profundo/30 px-4 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40'
@@ -162,7 +163,7 @@ function Requerimiento({ expediente: e, alGuardar }: { expediente: ExpedienteApi
             </div>
           )}
           {error && (
-            <p role="alert" className="text-sm font-medium text-red-700">
+            <p role="alert" className="text-sm font-medium text-ladrillo">
               {error}
             </p>
           )}
@@ -206,7 +207,7 @@ function TablaLiquidacion({ liquidacion: l }: { liquidacion: Liquidacion }) {
                   <td className="px-2 py-1.5">{t.tributo}</td>
                   <td className="px-2 py-1.5 text-right">{soles(t.declarado)}</td>
                   <td className="px-2 py-1.5 text-right">{soles(t.fiscalizado)}</td>
-                  <td className={`px-2 py-1.5 text-right font-semibold ${Number(t.omitido) > 0 ? 'text-red-700' : 'text-slate-500'}`}>
+                  <td className={`px-2 py-1.5 text-right font-semibold ${Number(t.omitido) > 0 ? 'text-ladrillo' : 'text-slate-500'}`}>
                     {soles(t.omitido)}
                   </td>
                 </tr>
@@ -273,7 +274,7 @@ function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; 
   }
 
   return (
-    <section aria-labelledby="liq-titulo" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-2 ring-mar">
+    <section aria-labelledby="liq-titulo" className="mt-6 rounded-xl bg-white p-6 ring-2 ring-mar">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="liq-titulo" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
           Liquidación de diferencias
@@ -337,7 +338,7 @@ function Resolucion({ expediente: e, alResolver }: { expediente: ExpedienteApi; 
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-3 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
@@ -408,7 +409,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
         <button
           type="button"
           onClick={() => setAbierto(true)}
-          className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-3 focus-visible:outline-turquesa"
+          className="rounded-md border border-ladrillo/40 px-4 py-2 text-sm font-medium text-ladrillo hover:bg-ladrillo/5 focus-visible:outline-3 focus-visible:outline-turquesa"
         >
           Anular expediente
         </button>
@@ -416,8 +417,8 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
     )
   }
   return (
-    <section aria-labelledby="anular-titulo" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-2 ring-red-300">
-      <h2 id="anular-titulo" className="text-sm font-bold uppercase tracking-wider text-red-800">
+    <section aria-labelledby="anular-titulo" className="mt-6 rounded-xl bg-white p-6 ring-2 ring-ladrillo/40">
+      <h2 id="anular-titulo" className="text-sm font-bold uppercase tracking-wider text-ladrillo">
         Anular expediente FIS {e.numero}
       </h2>
       <label htmlFor="anular-motivo" className={`mt-3 ${ETIQUETA}`}>
@@ -425,7 +426,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
       </label>
       <textarea id="anular-motivo" rows={2} maxLength={200} value={motivo} onChange={(x) => setMotivo(x.target.value)} className={CAMPO} />
       {error && (
-        <p role="alert" className="mt-2 text-sm font-medium text-red-700">
+        <p role="alert" className="mt-2 text-sm font-medium text-ladrillo">
           {error}
         </p>
       )}
@@ -437,7 +438,7 @@ function Anulacion({ expediente: e, alAnular }: { expediente: ExpedienteApi; alA
           type="button"
           onClick={() => void anular()}
           disabled={procesando}
-          className="rounded-md bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+          className="rounded-md bg-ladrillo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
         >
           {procesando ? 'Anulando…' : 'Confirmar anulación'}
         </button>
@@ -451,18 +452,20 @@ export function Expediente() {
   const { expediente: e, setExpediente, error } = useExpediente(id)
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to={RUTA_FISCALIZACION}
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Fiscalización Tributaria
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo={e ? `FIS ${e.numero}` : 'Expediente'}
+          descripcion={
+            e
+              ? `${etiquetaTipo(e.tipo)} · años ${e.anioDesde === e.anioHasta ? e.anioDesde : `${e.anioDesde} a ${e.anioHasta}`}`
+              : undefined
+          }
+          volverA={{ etiqueta: 'Fiscalización Tributaria', ruta: RUTA_FISCALIZACION }}
+        />
 
         {error ? (
-          <p role="alert" className="mt-4 text-sm font-medium text-red-700">
+          <p role="alert" className="mt-4 text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !e ? (
@@ -471,15 +474,8 @@ export function Expediente() {
           </p>
         ) : (
           <>
-            <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Expediente de fiscalización</p>
-                  <h1 className="font-mono text-xl font-bold text-mar-profundo">FIS {e.numero}</h1>
-                  <p className="text-sm text-slate-600">
-                    {etiquetaTipo(e.tipo)} · años {e.anioDesde === e.anioHasta ? e.anioDesde : `${e.anioDesde} a ${e.anioHasta}`}
-                  </p>
-                </div>
+            <div className="mt-4 rounded-panel border border-borde bg-white p-6">
+              <div className="flex flex-wrap items-start justify-end gap-3">
                 <span className={`rounded px-2 py-1 text-sm font-semibold ${ESTILO_ESTADO[e.estado]}`}>{ETIQUETA_ESTADO[e.estado]}</span>
               </div>
               <dl className="mt-4 grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr_auto_1fr]">
@@ -502,9 +498,9 @@ export function Expediente() {
               </dl>
               {e.observacion && <p className="mt-3 text-sm text-slate-600">{e.observacion}</p>}
               {e.estado === 'ANULADO' && (
-                <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">Anulado. Motivo: {e.motivoAnulacion}</p>
+                <p className="mt-3 rounded-md bg-ladrillo/5 px-3 py-2 text-sm text-ladrillo">Anulado. Motivo: {e.motivoAnulacion}</p>
               )}
-            </header>
+            </div>
 
             <Requerimiento key={`${e.inspeccion?.fecha}-${e.notificacion?.fecha}`} expediente={e} alGuardar={setExpediente} />
 

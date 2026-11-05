@@ -16,9 +16,9 @@ export const ACCION_TEXTO: Record<Accion, string> = {
 export const ACCION_ESTILO: Record<Accion, string> = {
   CREATE: 'bg-green-100 text-green-800',
   UPDATE: 'bg-sky-100 text-sky-800',
-  DELETE: 'bg-red-100 text-red-800',
+  DELETE: 'bg-ladrillo/10 text-ladrillo',
   LOGIN: 'bg-teal-100 text-teal-800',
-  LOGIN_FALLIDO: 'bg-red-100 text-red-800',
+  LOGIN_FALLIDO: 'bg-ladrillo/10 text-ladrillo',
   LOGOUT: 'bg-slate-200 text-slate-700',
 }
 

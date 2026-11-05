@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { api } from '../../lib/api'
+import { PageHeader } from '../../components/layout/PageHeader'
 
 interface Subnivel {
   id: number
@@ -51,41 +52,22 @@ export function Niveles() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-4xl">
-        <Link
-          to="/accesibilidad"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Accesibilidad
-        </Link>
-
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-diagram-3" />
-            </span>
-            <div>
-              <h1 className="text-lg font-bold text-mar-profundo">Niveles</h1>
-              <p className="text-sm text-slate-500">
-                Los niveles los registra el sistema automáticamente. No se pueden crear ni modificar.
-              </p>
-            </div>
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Niveles"
+          descripcion="Los niveles los registra el sistema automáticamente. No se pueden crear ni modificar."
+          volverA={{ etiqueta: 'Accesibilidad', ruta: '/accesibilidad' }}
+        />
 
         <main className="mt-6 space-y-4">
           {isLoading ? (
-            <p className="rounded-xl bg-white p-8 text-center text-sm text-slate-500 shadow-md ring-1 ring-mar-profundo/10" role="status">
+            <p className="rounded-panel border border-borde bg-white p-8 text-center text-sm text-slate-500" role="status">
               Cargando niveles…
             </p>
           ) : error ? (
-            <div className="rounded-xl bg-white p-8 text-center shadow-md ring-1 ring-mar-profundo/10">
-              <p role="alert" className="text-sm font-medium text-red-700">
+            <div className="rounded-panel border border-borde bg-white p-8 text-center">
+              <p role="alert" className="text-sm font-medium text-ladrillo">
                 {error}
               </p>
               <Link
@@ -96,7 +78,7 @@ export function Niveles() {
               </Link>
             </div>
           ) : modulos.length === 0 ? (
-            <p className="rounded-xl bg-white p-8 text-center text-sm text-slate-500 shadow-md ring-1 ring-mar-profundo/10">
+            <p className="rounded-panel border border-borde bg-white p-8 text-center text-sm text-slate-500">
               No hay niveles registrados.
             </p>
           ) : (
@@ -104,7 +86,7 @@ export function Niveles() {
               <section
                 key={modulo.id}
                 aria-label={modulo.nombre}
-                className="rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10"
+                className="rounded-panel border border-borde bg-white"
               >
                 <div className="flex items-center gap-3 border-b border-slate-200 p-4 sm:px-6">
                   <span className="rounded-md bg-mar-profundo px-2 py-1 text-xs font-bold uppercase tracking-wider text-white">

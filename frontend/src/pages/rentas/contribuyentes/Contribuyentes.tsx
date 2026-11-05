@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { ESTILO_ESTADO, RUTA_BASE, type ContribuyenteResumen } from './tipos'
 
 // Registro Tributario → búsqueda única de contribuyentes (C1).
@@ -72,72 +73,55 @@ export function Contribuyentes() {
   const totalPaginas = datos ? Math.max(1, Math.ceil(datos.total / datos.pageSize)) : 1
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to="/rentas"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Registro Tributario"
+          descripcion="Contribuyentes, sus predios, deuda y declaraciones juradas."
+          volverA={{ etiqueta: 'Rentas', ruta: '/rentas' }}
+          accion={{
+            etiqueta: 'Nuevo contribuyente',
+            icono: 'bi bi-person-plus',
+            to: `${RUTA_BASE}/contribuyentes/nuevo`,
+          }}
+        />
+
+        <form
+          onSubmit={buscar}
+          role="search"
+          className="mt-6 flex flex-wrap gap-2 rounded-panel border border-borde bg-white p-4"
         >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Rentas
-        </Link>
+          <label htmlFor="buscar" className="sr-only">
+            Buscar contribuyente
+          </label>
+          <input
+            id="buscar"
+            type="search"
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="DNI, RUC, nombre, dirección o código SIMUN"
+            className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-mar px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
+          >
+            <i aria-hidden="true" className="bi bi-search mr-1" />
+            Buscar
+          </button>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={incluirBaja} onChange={alternarBaja} className="h-4 w-4" />
+            Incluir dados de baja
+          </label>
+        </form>
 
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-              >
-                <i className="bi bi-journal-text" />
-              </span>
-              <div>
-                <h1 className="text-lg font-bold text-mar-profundo">Registro Tributario</h1>
-                <p className="text-sm text-slate-500">Contribuyentes, sus predios, deuda y declaraciones juradas.</p>
-              </div>
-            </div>
-            <Link
-              to={`${RUTA_BASE}/contribuyentes/nuevo`}
-              className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
-            >
-              <i aria-hidden="true" className="bi bi-person-plus mr-1" />
-              Nuevo contribuyente
-            </Link>
-          </div>
-
-          <form onSubmit={buscar} role="search" className="mt-4 flex flex-wrap gap-2">
-            <label htmlFor="buscar" className="sr-only">
-              Buscar contribuyente
-            </label>
-            <input
-              id="buscar"
-              type="search"
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              placeholder="DNI, RUC, nombre, dirección o código SIMUN"
-              className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-mar px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
-            >
-              <i aria-hidden="true" className="bi bi-search mr-1" />
-              Buscar
-            </button>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input type="checkbox" checked={incluirBaja} onChange={alternarBaja} className="h-4 w-4" />
-              Incluir dados de baja
-            </label>
-          </form>
-        </header>
-
-        <main className="mt-6 rounded-xl bg-white shadow-md ring-1 ring-mar-profundo/10">
+        <main className="mt-6 rounded-panel border border-borde bg-white">
           {isLoading ? (
             <p className="p-8 text-center text-sm text-slate-500" role="status">
               Buscando…
             </p>
           ) : error ? (
-            <p role="alert" className="p-8 text-center text-sm font-medium text-red-700">
+            <p role="alert" className="p-8 text-center text-sm font-medium text-ladrillo">
               {error}
             </p>
           ) : !datos || datos.items.length === 0 ? (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { api } from '../../lib/api'
 import { soles } from '../rentas/contribuyentes/tipos'
 import { mensajeError } from '../rentas/maestros/maestrosApi'
@@ -38,34 +39,26 @@ export function ReciboImprimible() {
   const r = recibo
   const extornado = r?.estado === 'EXTORNADO'
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8 print:bg-white print:p-0">
+    <div className="p-4 sm:p-8 print:bg-white print:p-0">
       <style>{'@page { size: A5; margin: 8mm; }'}</style>
-      <div className="mx-auto max-w-2xl">
-        <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Recibo de caja"
+          descripcion={r ? `N° ${r.numero}` : undefined}
+          volverA={{
+            etiqueta: estado?.volverA ? 'Reportes de Caja' : 'Cancelaciones del Día',
+            ruta: estado?.volverA ?? (r ? `${RUTA_COBRO}?contribuyente=${r.contribuyente.id}` : RUTA_COBRO),
+          }}
+          accion={{ etiqueta: 'Imprimir / PDF', icono: 'bi bi-printer', onClick: () => window.print(), disabled: !r }}
+        />
+
+        <div className="mt-4 flex flex-wrap justify-end gap-2 print:hidden">
           <Link
-            to={estado?.volverA ?? (r ? `${RUTA_COBRO}?contribuyente=${r.contribuyente.id}` : RUTA_COBRO)}
-            className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+            to={RUTA_COBRO}
+            className="rounded-md border border-mar-profundo/30 px-4 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
           >
-            <i aria-hidden="true" className="bi bi-arrow-left" />
-            {estado?.volverA ? 'Volver a la lista' : 'Volver al cobro'}
+            Nuevo cobro
           </Link>
-          <div className="flex gap-2">
-            <Link
-              to={RUTA_COBRO}
-              className="rounded-md border border-mar-profundo/30 px-4 py-2 text-sm font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
-            >
-              Nuevo cobro
-            </Link>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              disabled={!r}
-              className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
-            >
-              <i aria-hidden="true" className="bi bi-printer mr-1" />
-              Imprimir / PDF
-            </button>
-          </div>
         </div>
 
         {original && r?.estado === 'CANCELADO' && (
@@ -74,9 +67,9 @@ export function ReciboImprimible() {
           </p>
         )}
 
-        <main className="relative mt-3 overflow-hidden rounded-xl bg-white p-6 text-sm shadow-md ring-1 ring-mar-profundo/10 print:mt-0 print:rounded-none print:p-0 print:text-xs print:shadow-none print:ring-0">
+        <main className="relative mt-4 overflow-hidden rounded-panel border border-borde bg-white p-6 text-sm print:mt-0 print:rounded-none print:border-0 print:p-0 print:text-xs">
           {error ? (
-            <p role="alert" className="font-medium text-red-700">
+            <p role="alert" className="font-medium text-ladrillo">
               {error}
             </p>
           ) : !r ? (
@@ -168,7 +161,7 @@ export function ReciboImprimible() {
               </dl>
 
               {r.extorno && (
-                <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                <p className="mt-3 rounded-md border border-ladrillo/40 bg-ladrillo/5 px-3 py-2 text-xs text-ladrillo">
                   Extornado el {r.extorno.fecha ? new Date(r.extorno.fecha).toLocaleString('es-PE', { timeZone: 'America/Lima' }) : '—'}
                   {r.extorno.por && ` por ${r.extorno.por}`}. Motivo: {r.extorno.motivo}
                 </p>

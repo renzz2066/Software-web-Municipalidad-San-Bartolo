@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { api } from '../../lib/api'
 import { hoyLocal } from '../../lib/fechas'
 import { soles } from '../rentas/contribuyentes/tipos'
@@ -15,30 +16,38 @@ const BOTON_SECUNDARIO =
 const BOTON_PRIMARIO =
   'rounded-md bg-mar-profundo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40'
 
-function Marco({ volverA, volverTexto, imprimible, children }: { volverA: string; volverTexto: string; imprimible: boolean; children: ReactNode }) {
+function Marco({
+  titulo,
+  volverA,
+  volverTexto,
+  imprimible,
+  children,
+}: {
+  titulo: string
+  volverA: string
+  volverTexto: string
+  imprimible: boolean
+  children: ReactNode
+}) {
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8 print:bg-white print:p-0">
-      <div className="mx-auto max-w-3xl">
-        <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
-          <Link
-            to={volverA}
-            className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-          >
-            <i aria-hidden="true" className="bi bi-arrow-left" />
-            {volverTexto}
-          </Link>
-          <button type="button" onClick={() => window.print()} disabled={!imprimible} className={BOTON_PRIMARIO}>
-            <i aria-hidden="true" className="bi bi-printer mr-1" />
-            Imprimir / PDF
-          </button>
-        </div>
+    <div className="p-4 sm:p-8 print:bg-white print:p-0">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo={titulo}
+          volverA={{ etiqueta: volverTexto, ruta: volverA }}
+          accion={
+            imprimible
+              ? { etiqueta: 'Imprimir / PDF', icono: 'bi bi-printer', onClick: () => window.print() }
+              : undefined
+          }
+        />
         {children}
       </div>
     </div>
   )
 }
 
-const TARJETA = 'mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10 print:mt-0 print:rounded-none print:p-0 print:shadow-none print:ring-0'
+const TARJETA = 'mt-3 rounded-panel border border-borde bg-white p-6 print:mt-0 print:rounded-none print:border-0 print:p-0'
 
 export function CierreCaja() {
   const [params, setParams] = useSearchParams()
@@ -69,7 +78,7 @@ export function CierreCaja() {
   const esHoy = fecha === hoyLocal()
 
   return (
-    <Marco volverA={RUTA_COBRO} volverTexto="Cancelaciones del Día" imprimible={!!cierre?.cerrado}>
+    <Marco titulo="Cierre de Caja" volverA={RUTA_COBRO} volverTexto="Cancelaciones del Día" imprimible={!!cierre?.cerrado}>
       {cierre?.diasSinCerrar && cierre.diasSinCerrar.length > 0 && (
         <div role="status" className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 print:hidden">
           Tienes días con cobros sin cerrar:{' '}
@@ -94,7 +103,7 @@ export function CierreCaja() {
 
       <main className={TARJETA}>
         {error ? (
-          <p role="alert" className="text-sm font-medium text-red-700">
+          <p role="alert" className="text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !cierre ? (
@@ -107,7 +116,7 @@ export function CierreCaja() {
       </main>
 
       {cierre && !cierre.cerrado && (
-        <section aria-labelledby="cierre-cerrar" className="mt-4 rounded-xl bg-white p-6 shadow-md ring-2 ring-mar print:hidden">
+        <section aria-labelledby="cierre-cerrar" className="mt-4 rounded-xl bg-white p-6 ring-2 ring-mar print:hidden">
           <h2 id="cierre-cerrar" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
             Cerrar caja del {fecha}
           </h2>
@@ -140,7 +149,7 @@ export function CierreCaja() {
             </p>
           </div>
           {errorCierre && (
-            <p role="alert" className="mt-3 text-sm font-medium text-red-700">
+            <p role="alert" className="mt-3 text-sm font-medium text-ladrillo">
               {errorCierre}
             </p>
           )}
@@ -191,10 +200,10 @@ export function CierreImprimible() {
   }, [id])
 
   return (
-    <Marco volverA={volverA} volverTexto="Volver" imprimible={!!cierre}>
+    <Marco titulo="Cierre de Caja" volverA={volverA} volverTexto="Reportes de Caja" imprimible={!!cierre}>
       <main className={TARJETA}>
         {error ? (
-          <p role="alert" className="text-sm font-medium text-red-700">
+          <p role="alert" className="text-sm font-medium text-ladrillo">
             {error}
           </p>
         ) : !cierre ? (

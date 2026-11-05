@@ -91,7 +91,7 @@ export function DetalleCierre({ cierre: c }: { cierre: Cierre }) {
             {diferencia !== null && (
               <>
                 <dt className="text-slate-500">Diferencia</dt>
-                <dd className={`font-semibold ${diferencia < 0 ? 'text-red-700' : diferencia > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                <dd className={`font-semibold ${diferencia < 0 ? 'text-ladrillo' : diferencia > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
                   {diferencia === 0 ? 'Cuadra' : `${diferencia > 0 ? 'Sobrante' : 'Faltante'} ${soles(Math.abs(diferencia))}`}
                 </dd>
               </>
