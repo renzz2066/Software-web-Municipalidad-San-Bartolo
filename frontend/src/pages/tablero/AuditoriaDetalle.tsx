@@ -100,7 +100,7 @@ export function AuditoriaDetalle({ item, onClose }: { item: AuditoriaItem; onClo
         aria-modal="true"
         aria-labelledby="auditoria-detalle-titulo"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-xl ring-1 ring-mar-profundo/10"
+        className="w-full max-w-3xl rounded-panel border border-borde bg-white p-6"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -165,7 +165,7 @@ export function AuditoriaDetalle({ item, onClose }: { item: AuditoriaItem; onClo
                           {c.tipo === 'agregado' ? (
                             <span className="text-xs text-slate-400">—</span>
                           ) : (
-                            <Valor valor={c.antes} estilo="bg-red-50 text-red-800 line-through decoration-red-400" />
+                            <Valor valor={c.antes} estilo="bg-ladrillo/5 text-ladrillo line-through decoration-ladrillo/60" />
                           )}
                         </td>
                         <td className="px-3 py-2">
@@ -206,7 +206,7 @@ export function CeldaUsuario({ item }: { item: AuditoriaItem }) {
   }
   if (etiqueta.tipo === 'intento') {
     return (
-      <span className="italic text-red-800">
+      <span className="italic text-ladrillo">
         Intento: «{etiqueta.texto}»
       </span>
     )
