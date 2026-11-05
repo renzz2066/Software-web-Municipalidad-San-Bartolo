@@ -25,12 +25,11 @@ export class AsignarValoresService {
     return getValoresByMemorandum(this.prisma, memorandumId);
   }
 
-  async asignarValores(dto: AsignarValoresDto, usuarioId: number): Promise<AsignarValoresResultado> {
+  async asignarValores(dto: AsignarValoresDto): Promise<AsignarValoresResultado> {
     return asignarValores(
       {
         valorIds: dto.valorIds,
         auxiliarId: dto.auxiliarId,
-        usuarioId,
       },
       this.prisma
     );
