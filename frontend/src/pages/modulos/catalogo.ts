@@ -73,7 +73,12 @@ export const MODULOS: Modulo[] = [
     titulo: 'Utilitarios',
     descripcion: 'Herramientas de apoyo.',
     icono: 'bi bi-tools',
-    submodulos: [{ slug: 'calculadora', titulo: 'Calculadora', icono: 'bi bi-calculator' }],
+    submodulos: [
+      { slug: 'calculadora', titulo: 'Calculadora', icono: 'bi bi-calculator' },
+      { slug: 'calendario', titulo: 'Calendario Tributario', icono: 'bi bi-calendar-week' },
+      { slug: 'buscador', titulo: 'Buscador Universal', icono: 'bi bi-binoculars' },
+      { slug: 'exportar', titulo: 'Exportación de Datos', icono: 'bi bi-file-earmark-spreadsheet' },
+    ],
   },
   {
     codigo: 'multas',
