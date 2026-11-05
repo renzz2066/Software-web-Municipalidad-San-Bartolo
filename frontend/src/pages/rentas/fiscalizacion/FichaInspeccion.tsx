@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
 import { Bloque, Campo, CamposPredio } from '../predios/DatosPredioCampos'
@@ -64,7 +65,7 @@ function Formulario({ expediente, predioId, catalogos }: { expediente: Expedient
           <textarea id="ficha-obs" rows={3} maxLength={500} value={observacion} onChange={(e) => setObservacion(e.target.value)} className={CLASE} />
         </Campo>
       </Bloque>
-      <div className="rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+      <div className="rounded-panel border border-borde bg-white p-6">
         {error && (
           <p role="alert" className="mb-3 text-sm font-medium text-red-700">
             {error}
@@ -109,15 +110,13 @@ export function FichaInspeccion() {
 
   const fila = expediente?.predios.find((p) => p.predioId === Number(predioId))
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <Link
-          to={`${RUTA_EXPEDIENTES}/${id}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Expediente
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Ficha de inspección"
+          descripcion={fila ? direccion(fila.predio) : undefined}
+          volverA={{ etiqueta: 'Expediente', ruta: `${RUTA_EXPEDIENTES}/${id}` }}
+        />
         {error ? (
           <p role="alert" className="mt-4 text-sm font-medium text-red-700">
             {error}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { BuscadorContribuyente } from '../contribuyentes/BuscadorContribuyente'
 import { mensajeError } from '../maestros/maestrosApi'
@@ -88,7 +89,7 @@ function Apertura({ alCancelar }: { alCancelar: () => void }) {
 
   const anios = opciones?.aniosConParametros ?? []
   return (
-    <section aria-labelledby="apertura" className="mt-6 rounded-xl bg-white p-6 shadow-md ring-2 ring-mar">
+    <section aria-labelledby="apertura" className="mt-6 rounded-xl bg-white p-6 ring-2 ring-mar">
       <h2 id="apertura" className="text-sm font-bold uppercase tracking-wider text-mar-profundo">
         Apertura de expediente
       </h2>
@@ -260,47 +261,22 @@ export function Fiscalizacion() {
   }, [estado])
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-6xl">
-        <Link
-          to="/rentas"
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          Rentas
-        </Link>
-
-        <header className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <div className="flex flex-wrap items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br from-mar-profundo to-mar text-xl text-white"
-            >
-              <i className="bi bi-search" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-mar-profundo">Fiscalización Tributaria</h1>
-              <p className="text-sm text-slate-500">
-                Expedientes de fiscalización de predios: requerimiento de inspección, ficha de lo verificado en campo y
-                determinación de diferencias contra lo declarado.
-              </p>
-            </div>
-            {!abriendo && (
-              <button
-                type="button"
-                onClick={() => setAbriendo(true)}
-                className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-semibold text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa"
-              >
-                <i aria-hidden="true" className="bi bi-folder-plus mr-1" />
-                Abrir expediente
-              </button>
-            )}
-          </div>
-        </header>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Fiscalización Tributaria"
+          descripcion="Expedientes de fiscalización de predios: requerimiento de inspección, ficha de lo verificado en campo y determinación de diferencias contra lo declarado."
+          volverA={{ etiqueta: 'Rentas', ruta: '/rentas' }}
+          accion={
+            !abriendo
+              ? { etiqueta: 'Abrir expediente', icono: 'bi bi-folder-plus', onClick: () => setAbriendo(true) }
+              : undefined
+          }
+        />
 
         {abriendo && <Apertura alCancelar={() => setAbriendo(false)} />}
 
-        <main className="mt-6 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
+        <main className="mt-6 rounded-panel border border-borde bg-white p-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-mar-profundo">Expedientes</h2>
             <div>

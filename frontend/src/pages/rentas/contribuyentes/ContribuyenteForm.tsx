@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
 import {
@@ -129,19 +130,14 @@ export function ContribuyenteForm() {
   const volver = editando ? `${RUTA_BASE}/contribuyentes/${id}` : RUTA_BASE
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8">
-      <div className="mx-auto max-w-3xl">
-        <Link
-          to={volver}
-          className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-        >
-          <i aria-hidden="true" className="bi bi-arrow-left" />
-          {editando ? 'Ficha del contribuyente' : 'Registro Tributario'}
-        </Link>
+    <div className="p-4 sm:p-8">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo={editando ? 'Editar contribuyente' : 'Nuevo contribuyente'}
+          volverA={{ etiqueta: editando ? 'Ficha del contribuyente' : 'Registro Tributario', ruta: volver }}
+        />
 
-        <main className="mt-3 rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10">
-          <h1 className="text-lg font-bold text-mar-profundo">{editando ? 'Editar contribuyente' : 'Nuevo contribuyente'}</h1>
-
+        <main className="mt-4 rounded-panel border border-borde bg-white p-6">
           {isLoading ? (
             <p className="mt-6 text-sm text-slate-500" role="status">
               Cargando…

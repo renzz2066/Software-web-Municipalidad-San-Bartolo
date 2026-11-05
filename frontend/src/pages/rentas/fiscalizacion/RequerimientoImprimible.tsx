@@ -1,4 +1,5 @@
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { PageHeader } from '../../../components/layout/PageHeader'
 import { direccion } from '../predios/tipos'
 import { MODALIDADES } from '../valores/valoresApi'
 import { RUTA_EXPEDIENTES, etiquetaTipo, useExpediente } from './fiscalizacionApi'
@@ -12,28 +13,16 @@ export function RequerimientoImprimible() {
   const { expediente: e, error } = useExpediente(id)
 
   return (
-    <div className="min-h-screen bg-arena-claro p-4 sm:p-8 print:bg-white print:p-0">
-      <div className="mx-auto max-w-3xl">
-        <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
-          <Link
-            to={`${RUTA_EXPEDIENTES}/${id}`}
-            className="inline-flex items-center gap-1 text-sm font-medium text-mar hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
-          >
-            <i aria-hidden="true" className="bi bi-arrow-left" />
-            Expediente
-          </Link>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            disabled={!e?.inspeccion}
-            className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
-          >
-            <i aria-hidden="true" className="bi bi-printer mr-1" />
-            Imprimir / PDF
-          </button>
-        </div>
+    <div className="p-4 sm:p-8 print:bg-white print:p-0">
+      <div className="mx-auto max-w-content">
+        <PageHeader
+          titulo="Requerimiento de inspección"
+          descripcion={e ? `Expediente FIS ${e.numero}` : undefined}
+          volverA={{ etiqueta: 'Expediente', ruta: `${RUTA_EXPEDIENTES}/${id}` }}
+          accion={{ etiqueta: 'Imprimir / PDF', icono: 'bi bi-printer', onClick: () => window.print(), disabled: !e?.inspeccion }}
+        />
 
-        <main className="mt-3 rounded-xl bg-white p-8 text-sm leading-relaxed shadow-md ring-1 ring-mar-profundo/10 print:mt-0 print:rounded-none print:p-0 print:shadow-none print:ring-0">
+        <main className="mt-4 rounded-panel border border-borde bg-white p-8 text-sm leading-relaxed print:mt-0 print:rounded-none print:border-0 print:p-0">
           {error ? (
             <p role="alert" className="font-medium text-red-700">
               {error}

@@ -160,7 +160,7 @@ export function CamposPredio({ catalogos, datos, setDatos, pisos, setPisos, inst
 
 export function Bloque({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl bg-white p-6 shadow-md ring-1 ring-mar-profundo/10" aria-label={titulo}>
+    <section className="rounded-panel border border-borde bg-white p-6" aria-label={titulo}>
       <h2 className="mb-4 font-semibold text-mar-profundo">{titulo}</h2>
       {children}
     </section>

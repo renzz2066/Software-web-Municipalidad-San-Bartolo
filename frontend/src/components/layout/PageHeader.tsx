@@ -5,8 +5,8 @@ export interface PageHeaderProps {
   descripcion?: string
   /** Etiqueta y ruta del botón "Volver a {pantalla anterior}" (arriba a la izquierda). */
   volverA?: { etiqueta: string; ruta: string }
-  /** Acción primaria de la pantalla (una sola; opcional). */
-  accion?: { etiqueta: string; icono?: string; to?: string; onClick?: () => void }
+  /** Acción primaria de la pantalla (una sola; opcional). `disabled` aplica a botones (p. ej. Imprimir sin datos). */
+  accion?: { etiqueta: string; icono?: string; to?: string; onClick?: () => void; disabled?: boolean }
 }
 
 // Cabecera de toda pantalla interna (spec criterio 4): degradado azul con la
@@ -14,7 +14,7 @@ export interface PageHeaderProps {
 // acción primaria a la derecha. Se oculta al imprimir (pantallas imprimibles).
 export function PageHeader({ titulo, descripcion, volverA, accion }: PageHeaderProps) {
   const claseBoton =
-    'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-mar-profundo transition hover:bg-arena-suave focus-visible:outline-3 focus-visible:outline-turquesa'
+    'inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-mar-profundo transition hover:bg-arena-suave focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40'
 
   return (
     <header className="relative overflow-hidden rounded-panel bg-gradient-to-r from-mar-profundo via-mar-medio to-mar px-4 py-5 text-white print:hidden sm:px-6">
@@ -42,7 +42,7 @@ export function PageHeader({ titulo, descripcion, volverA, accion }: PageHeaderP
               {accion.etiqueta}
             </Link>
           ) : (
-            <button type="button" onClick={accion.onClick} className={claseBoton}>
+            <button type="button" onClick={accion.onClick} disabled={accion.disabled} className={claseBoton}>
               {accion.icono && <i aria-hidden="true" className={accion.icono} />}
               {accion.etiqueta}
             </button>

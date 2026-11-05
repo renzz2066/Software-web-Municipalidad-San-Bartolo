@@ -69,7 +69,7 @@ function FormNotificacion({ valor, alCambiar }: { valor: Valor; alCambiar: (v: V
   }
 
   return (
-    <form onSubmit={(e) => void guardar(e)} className="rounded-xl bg-white p-5 shadow-md ring-1 ring-mar-profundo/10">
+    <form onSubmit={(e) => void guardar(e)} className="rounded-panel border border-borde bg-white p-5">
       <h2 className="font-semibold text-mar-profundo">{valor.fechaNotificacion ? 'Corregir notificación' : 'Registrar notificación'}</h2>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
@@ -174,7 +174,7 @@ function FormAnulacion({ valor, alCambiar }: { valor: Valor; alCambiar: (v: Valo
   }
 
   return (
-    <form onSubmit={(e) => void anular(e)} className="rounded-xl bg-white p-5 shadow-md ring-1 ring-red-200">
+    <form onSubmit={(e) => void anular(e)} className="rounded-panel border border-ladrillo/40 bg-white p-5">
       <h2 className="font-semibold text-red-800">Anular valor</h2>
       <p className="mt-1 text-xs text-slate-500">
         Por error en la determinación o en la declaración. No se borra: queda anulado con su motivo y en la auditoría.
