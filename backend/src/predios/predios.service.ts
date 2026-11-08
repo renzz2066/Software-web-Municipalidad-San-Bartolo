@@ -32,6 +32,21 @@ export const INCLUDE_PREDIO = {
   },
 } satisfies Prisma.PredioInclude;
 
+// El código catastral identifica al predio (IDCATASTRO, único). Sin esta validación el duplicado
+// llega a Prisma como P2002 y el usuario ve un 500 con stack en vez de un aviso claro.
+export async function asegurarCodigoCatastroUnico(tx: Tx, codigoCatastro: string | null, predioId: number | null) {
+  if (!codigoCatastro) return;
+  const otro = await tx.predio.findFirst({
+    where: { codigoCatastro, ...(predioId ? { NOT: { id: predioId } } : {}) },
+    select: { id: true },
+  });
+  if (otro) {
+    throw new ConflictException(
+      `Ya existe un predio con el código catastral ${codigoCatastro} (predio #${otro.id}). Edita ese predio o usa otro código.`,
+    );
+  }
+}
+
 @Injectable()
 export class PrediosService {
   constructor(private readonly prisma: PrismaService) {}
@@ -140,6 +155,7 @@ export class PrediosService {
         });
       } else {
         const datos = this.datosPredio(dto.predio!, dto);
+        await asegurarCodigoCatastroUnico(tx, datos.codigoCatastro, actual?.id ?? null);
         predioId = actual
           ? (await tx.predio.update({ where: { id: actual.id }, data: datos })).id
           : (await tx.predio.create({ data: datos })).id;
@@ -171,7 +187,9 @@ export class PrediosService {
     tx: Tx,
     e: { predioId: number; contribuyenteId: number; anio: number; fecha: string; ficha: Construccion & { predio: DatosPredioDto }; observacion: string },
   ) {
-    await tx.predio.update({ where: { id: e.predioId }, data: this.datosPredio(e.ficha.predio, e.ficha) });
+    const datosFicha = this.datosPredio(e.ficha.predio, e.ficha);
+    await asegurarCodigoCatastroUnico(tx, datosFicha.codigoCatastro, e.predioId);
+    await tx.predio.update({ where: { id: e.predioId }, data: datosFicha });
     await this.reemplazarConstruccion(tx, e.predioId, e.ficha);
     const snapshot = await tx.predio.findUniqueOrThrow({ where: { id: e.predioId }, include: INCLUDE_PREDIO });
     const dj = await tx.declaracionJurada.create({
