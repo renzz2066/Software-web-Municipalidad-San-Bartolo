@@ -1,0 +1,22 @@
+[
+  { "pregunta": "¿Cómo emito una OP?", "fuentes": ["05-valores-op-rd.md#Cómo emitir una OP o RD (masivo)"] },
+  { "pregunta": "¿Cómo extorno un recibo?", "fuentes": ["08-caja-cobro-extorno-cierre.md#Cómo extornar un recibo"] },
+  { "pregunta": "¿Qué pasa si el contribuyente no paga las cuotas del fraccionamiento?", "fuentes": ["06-fraccionamiento.md#Qué pasa si no se pagan las cuotas"] },
+  { "pregunta": "¿Cómo cierro mi caja al final del día?", "fuentes": ["08-caja-cobro-extorno-cierre.md#Cómo cerrar la caja al final del día"] },
+  { "pregunta": "El vecino quiere pagar con Yape, ¿se puede?", "fuentes": ["08-caja-cobro-extorno-cierre.md#Medios de pago"] },
+  { "pregunta": "¿Desde cuándo es exigible una RD?", "fuentes": ["05-valores-op-rd.md#Cuándo un valor es exigible"] },
+  { "pregunta": "¿Cómo registro la notificación de una orden de pago?", "fuentes": ["05-valores-op-rd.md#Cómo registrar la notificación"] },
+  { "pregunta": "¿Cómo paso valores a cobranza coactiva?", "fuentes": ["07-transferencia-coactivo.md#Cómo transferir valores a coactivo (Rentas)"] },
+  { "pregunta": "¿Cómo inscribo un predio nuevo?", "fuentes": ["02-contribuyente-y-predio.md#Cómo inscribir un predio (DJ de inscripción)"] },
+  { "pregunta": "¿Cómo le doy acceso al chat a los cajeros?", "fuentes": ["01-inicio-y-roles.md#Cómo dar o quitar accesos a un rol (ADMIN)", "01-inicio-y-roles.md#Niveles de acceso"] },
+  { "pregunta": "¿Qué años puedo fiscalizar?", "fuentes": ["09-fiscalizacion.md#Qué años se pueden fiscalizar"] },
+  { "pregunta": "¿Cuánto es la multa por no presentar la declaración jurada a tiempo?", "fuentes": ["09-fiscalizacion.md#Multas tributarias (RM)", "02-contribuyente-y-predio.md#DJ presentada fuera de plazo (multa 176.1)"] },
+  { "pregunta": "¿Por qué la deuda de ayer salía menos que hoy?", "fuentes": ["04-estado-de-cuenta.md#Por qué cambia el total de un día a otro"] },
+  { "pregunta": "¿Puedo volver a calcular el predial si ya emití la OP?", "fuentes": ["03-calculo-y-apertura-anio.md#Qué pasa si vuelvo a ejecutar el cálculo", "05-valores-op-rd.md#Reglas al emitir"] },
+  { "pregunta": "¿Cómo preparo los parámetros del año 2027?", "fuentes": ["03-calculo-y-apertura-anio.md#Cómo abrir un año nuevo"] },
+  { "pregunta": "¿Qué es el insoluto?", "fuentes": ["glosario.md#Montos y tasas", "04-estado-de-cuenta.md#Qué significa cada columna"] },
+  { "pregunta": "¿Cómo anulo un convenio de fraccionamiento?", "fuentes": ["06-fraccionamiento.md#Cómo anular un convenio"] },
+  { "pregunta": "¿Cómo recibo en coactiva los valores que mandó Rentas?", "fuentes": ["07-transferencia-coactivo.md#Cómo recibir valores en Cobranza Coactiva"] },
+  { "pregunta": "¿Quién ganó el mundial?", "fuentes": [] },
+  { "pregunta": "Dame una receta de ceviche", "fuentes": [] }
+]

@@ -13,6 +13,7 @@ import { CoactivaModule } from './coactiva/coactiva.module.js';
 import { ContribuyentesModule } from './contribuyentes/contribuyentes.module.js';
 import { PrediosModule } from './predios/predios.module.js';
 import { CajaModule } from './caja/caja.module.js';
+import { IaModule } from './ia/ia.module.js';
 import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.middleware.js';
 
 @Module({
@@ -29,6 +30,7 @@ import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.midd
     ContribuyentesModule,
     PrediosModule,
     CajaModule,
+    IaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
