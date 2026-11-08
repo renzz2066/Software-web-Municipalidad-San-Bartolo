@@ -114,4 +114,6 @@ export const NIVELES_CATALOGO: NivelDef[] = [
     ['resumen', 'Resumen'],
     ['auditoria', 'Auditoría'],
   ]),
+  // Chat IA (specs/ia-chat-v1.md): no va al sidebar; solo habilita el botón flotante.
+  ...modulo('ayuda', 'Ayuda', 'Asistente IA de trámites municipales.', 9, [['chat', 'Chat IA']]),
 ];

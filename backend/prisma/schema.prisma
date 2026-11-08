@@ -230,11 +230,12 @@ model Usuario {
   modificadoPorId Int?
   modificadoPor   Usuario? @relation("UsuarioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
-  recibosCobrados   Recibo[]      @relation("CajeroRecibos")
-  recibosExtornados Recibo[]      @relation("ReciboExtornadoPor")
-  cierresCaja       CierreCaja[]
-  conveniosCreados  ConvenioCab[] @relation("CreadorConvenio")
-  auditorias        Auditoria[]
+  recibosCobrados    Recibo[]           @relation("CajeroRecibos")
+  recibosExtornados  Recibo[]           @relation("ReciboExtornadoPor")
+  cierresCaja        CierreCaja[]
+  conveniosCreados   ConvenioCab[]      @relation("CreadorConvenio")
+  auditorias         Auditoria[]
+  chatConversaciones ChatConversacion[]
 
   // Autoría (creadoPor/modificadoPor) de las tablas principales
   usuariosCreados            Usuario[]           @relation("UsuarioCreadoPor")
@@ -1100,25 +1101,25 @@ model ValorDet {
 }
 
 model CoactivoExp {
-  id              Int           @id @default(autoincrement())
+  id              Int               @id @default(autoincrement())
   anioExpediente  Int
-  numExpediente   String        @db.VarChar(15)
+  numExpediente   String            @db.VarChar(15)
   valorId         Int?
-  valor           ValorCab?     @relation(fields: [valorId], references: [id], onDelete: SetNull)
+  valor           ValorCab?         @relation(fields: [valorId], references: [id], onDelete: SetNull)
   contribuyenteId Int
-  contribuyente   Contribuyente       @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  contribuyente   Contribuyente     @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
   ejecutorId      Int?
-  ejecutor        EjecutorCoactivo?   @relation(fields: [ejecutorId], references: [id])
+  ejecutor        EjecutorCoactivo? @relation(fields: [ejecutorId], references: [id])
   auxiliarId      Int?
-  auxiliar        AuxiliarCoactivo?   @relation(fields: [auxiliarId], references: [id])
+  auxiliar        AuxiliarCoactivo? @relation(fields: [auxiliarId], references: [id])
   tipoGestionId   Int? // sin FK: la BD no la tiene (la rama tampoco la declara)
-  estado          EstadoValor         @default(EMITIDO)
-  fechaGeneracion DateTime      @default(now()) @db.Date
-  createdAt       DateTime      @default(now())
+  estado          EstadoValor       @default(EMITIDO)
+  fechaGeneracion DateTime          @default(now()) @db.Date
+  createdAt       DateTime          @default(now())
   creadoPorId     Int?
-  creadoPor       Usuario?      @relation("ExpedienteCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  creadoPor       Usuario?          @relation("ExpedienteCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
   modificadoPorId Int?
-  modificadoPor   Usuario?      @relation("ExpedienteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+  modificadoPor   Usuario?          @relation("ExpedienteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   detalles CoactivoDet[]
 
@@ -1177,14 +1178,14 @@ model AuxiliarCoactivo {
 
 // Memorándum de recepción: origen de la transferencia de valores a coactiva
 model MemorandumCoactiva {
-  id             Int          @id @default(autoincrement())
-  numero         String       @unique @db.VarChar(20)
+  id             Int        @id @default(autoincrement())
+  numero         String     @unique @db.VarChar(20)
   anio           Int
-  areaOrigen     String       @db.VarChar(100)
-  fechaRecepcion DateTime     @db.Date
-  activo         Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  areaOrigen     String     @db.VarChar(100)
+  fechaRecepcion DateTime   @db.Date
+  activo         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   valores        ValorCab[]
 
   @@index([anio])
@@ -1243,4 +1244,67 @@ model Licencia {
   @@index([contribuyenteId])
   @@index([estado])
   @@map("licencias")
+}
+
+// ============================================================
+// IA — Chat San Bartolo (specs/ia-chat-v1.md)
+// ============================================================
+
+enum RolMensajeChat {
+  USER
+  IA
+}
+
+// Guía de docs/ia/*.md ingerida (re-ingesta por hash).
+model IaDocumento {
+  id            Int           @id @default(autoincrement())
+  archivo       String        @unique @db.VarChar(150)
+  titulo        String        @db.VarChar(200)
+  hash          String        @db.VarChar(64)
+  actualizadoEn DateTime      @default(now()) @updatedAt
+  fragmentos    IaFragmento[]
+
+  @@map("ia_documento")
+}
+
+// Fragmento de una guía con su embedding (lectura/escritura vía $queryRaw).
+model IaFragmento {
+  id          Int                         @id @default(autoincrement())
+  documentoId Int
+  documento   IaDocumento                 @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+  titulo      String                      @db.VarChar(200)
+  seccion     String                      @db.VarChar(200)
+  posicion    Int
+  contenido   String
+  embedding   Unsupported("vector(768)")?
+
+  @@index([documentoId])
+  @@map("ia_fragmento")
+}
+
+model ChatConversacion {
+  id              Int           @id @default(autoincrement())
+  usuarioId       Int
+  usuario         Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  titulo          String        @db.VarChar(120)
+  creadoEn        DateTime      @default(now())
+  ultimoMensajeEn DateTime      @default(now())
+  mensajes        ChatMensaje[]
+
+  @@index([usuarioId, ultimoMensajeEn])
+  @@map("chat_conversacion")
+}
+
+model ChatMensaje {
+  id             Int              @id @default(autoincrement())
+  conversacionId Int
+  conversacion   ChatConversacion @relation(fields: [conversacionId], references: [id], onDelete: Restrict)
+  rol            RolMensajeChat
+  contenido      String
+  fragmentosJson Json?
+  tokens         Int?
+  createdAt      DateTime         @default(now())
+
+  @@index([conversacionId, createdAt])
+  @@map("chat_mensaje")
 }

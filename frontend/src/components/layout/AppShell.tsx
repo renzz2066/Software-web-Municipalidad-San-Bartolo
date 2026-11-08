@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { ChatDrawer } from '../chat/ChatDrawer'
 
 // Envoltorio de toda la zona autenticada (specs/app-shell-v1.md):
 // Ruta autenticada -> RequireNivel -> AppShell(Sidebar + Topbar) -> PageHeader + contenido.
@@ -35,6 +36,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <ChatDrawer />
     </div>
   )
 }
