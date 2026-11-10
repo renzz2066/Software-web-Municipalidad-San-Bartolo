@@ -22,6 +22,7 @@ cp .env.example .env
 | `DIRECT_URL` | Misma pantalla → Connection string directa (puerto **5432**) | Solo para `prisma migrate` |
 | `JWT_SECRET` | Inventa uno largo aleatorio | Firmar JWT propio |
 | `JWT_EXPIRES_IN` | `8h` por defecto | Expiración del token |
+| `IDENTIDAD_API_KEY` | Opcional. Token gratis en https://apiperu.dev → `Api Tokens` | Autocompletar el formulario de contribuyentes (specs/consulta-identidad-v1.md). **Sin clave el botón "Buscar datos" avisa y se sigue a mano** |
 
 > Sin `DIRECT_URL` las migraciones fallan con Supabase + pgbouncer. No lo omitas.
 

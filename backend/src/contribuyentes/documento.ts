@@ -48,3 +48,16 @@ export function validarDocumento(tipoDoc: string, numDoc: string, tipoPersona: T
 export function normalizarDocumento(numDoc: string): string {
   return numDoc.replace(/\s+/g, '').toUpperCase();
 }
+
+// Dónde hay una API de identidad que pueda resolver el documento (specs/consulta-identidad-v1.md).
+// CE y pasaporte no: ningún proveedor los resuelve, el botón de consulta no aparece.
+export function formatoConsultable(tipoDoc: string, numDoc: string): boolean {
+  if (tipoDoc === 'DNI') return /^\d{8}$/.test(numDoc);
+  if (tipoDoc === 'RUC') return rucValido(numDoc);
+  return false;
+}
+
+// Una persona jurídica se registra con RUC 20; el resto de los RUC son personas naturales.
+export function tipoPersonaDeRuc(ruc: string): TipoPersona {
+  return ruc.startsWith('20') ? TipoPersona.JURIDICA : TipoPersona.NATURAL;
+}

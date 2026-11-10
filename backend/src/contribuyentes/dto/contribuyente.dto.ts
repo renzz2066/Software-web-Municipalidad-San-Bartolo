@@ -223,6 +223,24 @@ export class UpdateContribuyenteDto {
   estado?: EstadoRegistro;
 }
 
+// Consulta de identidad para autocompletar el formulario (specs/consulta-identidad-v1.md).
+export class ConsultarIdentidadDto {
+  @IsIn(TIPOS_DOC, { message: 'Tipo de documento no válido' })
+  tipoDoc: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El número de documento es obligatorio' })
+  @MaxLength(20)
+  numDoc: string;
+
+  // Al editar, el propio registro no debe leerse como "ya inscrito".
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  excluirId?: number;
+}
+
 export class BuscarUbigeosDto {
   @IsOptional()
   @IsString()
