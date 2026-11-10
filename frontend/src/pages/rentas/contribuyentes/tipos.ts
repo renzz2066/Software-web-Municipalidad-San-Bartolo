@@ -105,6 +105,8 @@ export interface ConsultaIdentidad {
   estado: string | null
   condicion?: string | null
   direccionExterna?: string | null
+  // Solo RUC: ubigeo del domicilio fiscal, ya validado contra el catálogo local.
+  ubigeo?: string | null
   consultadoEn?: string
 }
 

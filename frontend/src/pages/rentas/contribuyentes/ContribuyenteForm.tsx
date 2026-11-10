@@ -90,9 +90,16 @@ interface EstadoConsulta {
   mensaje: string | null
   datos: ConsultaIdentidad | null
   rellenado: boolean
+  ubigeoRellenado: boolean
 }
 
-const CONSULTA_IDLE: EstadoConsulta = { estado: 'idle', mensaje: null, datos: null, rellenado: false }
+const CONSULTA_IDLE: EstadoConsulta = {
+  estado: 'idle',
+  mensaje: null,
+  datos: null,
+  rellenado: false,
+  ubigeoRellenado: false,
+}
 
 function validar(f: Form, ubigeoResuelto: Ubigeo | null): Errores {
   const e: Errores = {}
@@ -142,6 +149,7 @@ function estadoDeError(err: unknown): EstadoConsulta {
     mensaje,
     datos: null,
     rellenado: false,
+    ubigeoRellenado: false,
   })
   if (isAxiosError(err)) {
     const message = err.response?.data?.message
@@ -298,7 +306,7 @@ export function ContribuyenteForm() {
     const numDoc = form.numDoc.replace(/\s+/g, '').toUpperCase()
     if (!formatoConsultable(form.tipoDoc, numDoc)) return
     docConsultado.current = numDoc
-    setConsulta({ estado: 'consultando', mensaje: null, datos: null, rellenado: false })
+    setConsulta({ estado: 'consultando', mensaje: null, datos: null, rellenado: false, ubigeoRellenado: false })
     try {
       const { data } = await api.get<ConsultaIdentidad>('/contribuyentes/identidad', {
         params: { tipoDoc: form.tipoDoc, numDoc, ...(editando ? { excluirId: Number(id) } : {}) },
@@ -308,10 +316,17 @@ export function ContribuyenteForm() {
         return
       }
       if (data.origen === 'propia') {
-        setConsulta({ estado: 'propia', mensaje: null, datos: data, rellenado: false })
+        setConsulta({ estado: 'propia', mensaje: null, datos: data, rellenado: false, ubigeoRellenado: false })
         return
       }
-      setConsulta({ estado: 'ok', mensaje: null, datos: data, rellenado: rellenar(data) })
+      const completados = rellenar(data)
+      setConsulta({
+        estado: 'ok',
+        mensaje: null,
+        datos: data,
+        rellenado: completados.nombre,
+        ubigeoRellenado: completados.ubigeo,
+      })
     } catch (err) {
       // Si mientras respondía se siguió escribiendo, la respuesta ya no corresponde al documento.
       setConsulta(docConsultado.current === numDoc ? estadoDeError(err) : CONSULTA_IDLE)
@@ -319,18 +334,32 @@ export function ContribuyenteForm() {
   }
 
   // Solo campos vacíos: lo que el funcionario ya escribió no se pisa jamás.
-  function rellenar(datos: ConsultaIdentidad): boolean {
+  // El ubigeo nace en UBIGEO_DEFECTO, o sea que "vacío" para él significa "sigue en el default":
+  // es el único campo obligatorio y el único donde el default no es una decisión del funcionario.
+  function rellenar(datos: ConsultaIdentidad): { nombre: boolean; ubigeo: boolean } {
     const sinNombre = !form.nombreCompleto.trim()
-    if (!sinNombre || !datos.nombreCompleto.trim()) return false
-    setForm((f) => ({
-      ...f,
-      nombreCompleto: datos.nombreCompleto,
-      // El tipo de persona lo deduce el documento; solo se aplica si aún no se escribió nada,
-      // porque con nombre ya escrito el tipo lo eligió el funcionario a mano.
-      tipoPersona: sinNombre ? datos.tipoPersona : f.tipoPersona,
-    }))
-    setErrores((e) => ({ ...e, nombreCompleto: undefined }))
-    return true
+    const nombre = sinNombre && Boolean(datos.nombreCompleto.trim())
+    const ubigeo =
+      form.ubigeo === UBIGEO_DEFECTO && typeof datos.ubigeo === 'string' && datos.ubigeo !== form.ubigeo
+        ? datos.ubigeo
+        : null
+
+    if (nombre) {
+      setForm((f) => ({
+        ...f,
+        nombreCompleto: datos.nombreCompleto,
+        // El tipo de persona lo deduce el documento; solo se aplica si aún no se escribió nada,
+        // porque con nombre ya escrito el tipo lo eligió el funcionario a mano.
+        tipoPersona: sinNombre ? datos.tipoPersona : f.tipoPersona,
+      }))
+      setErrores((e) => ({ ...e, nombreCompleto: undefined }))
+    }
+    if (ubigeo) {
+      setForm((f) => ({ ...f, ubigeo }))
+      // Recalcula departamento/provincia/distrito y el preview de la dirección fiscal.
+      void resolver(ubigeo)
+    }
+    return { nombre, ubigeo: Boolean(ubigeo) }
   }
 
   async function guardar(e: React.FormEvent) {
@@ -744,7 +773,7 @@ function Campo({ label, id, error, children }: { label: string; id: string; erro
 
 // Lo que se cuenta debajo del botón "Buscar datos": encontró, ya estaba, no existe o falló.
 function AvisoConsulta({ consulta }: { consulta: EstadoConsulta }) {
-  const { estado, mensaje, datos, rellenado } = consulta
+  const { estado, mensaje, datos, rellenado, ubigeoRellenado } = consulta
   if (estado === 'idle') return null
   if (estado === 'consultando') {
     return (
@@ -766,10 +795,13 @@ function AvisoConsulta({ consulta }: { consulta: EstadoConsulta }) {
   if (estado === 'ok' && datos) {
     const fecha = datos.consultadoEn ? new Date(datos.consultadoEn).toLocaleDateString('es-PE') : null
     const fuente = datos.origen === 'cache' ? 'la caché de consultas' : 'el padrón de identidad'
+    const completados = [rellenado ? 'el nombre' : null, ubigeoRellenado ? 'el ubigeo' : null].filter(Boolean)
     return (
       <div className="mt-1 text-xs text-emerald-700" role="status">
         <p>
-          {rellenado ? `Se completó el nombre desde ${fuente}.` : 'El formulario ya tenía datos escritos: no se modificó nada.'}{' '}
+          {completados.length > 0
+            ? `Se completó ${completados.join(' y ')} desde ${fuente}.`
+            : 'El formulario ya tenía datos escritos: no se modificó nada.'}{' '}
           {fecha && <span className="text-slate-400">Consulta del {fecha}.</span>}
         </p>
         {datos.direccionExterna && (

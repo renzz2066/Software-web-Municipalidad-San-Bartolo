@@ -27,8 +27,10 @@ export interface DatosIdentidad {
   // Solo RUC: estado y condición del padrón SUNAT (informativo, no se guarda).
   estado: string | null;
   condicion: string | null;
-  // Solo RUC: el padrón resumido no trae ubigeo, así que la dirección va como texto de apoyo.
+  // Solo RUC: el domicilio fiscal como texto de apoyo, para completar a mano.
   direccionExterna: string | null;
+  // Solo RUC: ubigeo del domicilio fiscal en SUNAT (6 dígitos). El DNI del plan gratuito no trae.
+  ubigeo: string | null;
 }
 
 interface RespuestaExterna {
@@ -117,11 +119,14 @@ export class IdentidadProvider {
       if (!razonSocial) {
         throw new IdentidadError('PROVEEDOR', 'El servicio de identidad no devolvió la razón social');
       }
+      // `ubigeo` viene como array ["15","1501","150101"]; el que sirve es `ubigeo_sunat`.
+      const ubigeo = texto(data.ubigeo_sunat);
       return {
         nombreCompleto: razonSocial,
         estado: texto(data.estado),
         condicion: texto(data.condicion),
-        direccionExterna: texto(data.direccion),
+        direccionExterna: texto(data.direccion_completa) ?? texto(data.direccion),
+        ubigeo: ubigeo && /^\d{6}$/.test(ubigeo) ? ubigeo : null,
       };
     }
     // El DNI del plan gratuito solo trae nombres: sin dirección, teléfono ni correo.
@@ -134,6 +139,6 @@ export class IdentidadProvider {
     if (!nombre) {
       throw new IdentidadError('PROVEEDOR', 'El servicio de identidad no devolvió el nombre');
     }
-    return { nombreCompleto: nombre, estado: null, condicion: null, direccionExterna: null };
+    return { nombreCompleto: nombre, estado: null, condicion: null, direccionExterna: null, ubigeo: null };
   }
 }

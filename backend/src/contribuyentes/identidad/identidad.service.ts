@@ -4,6 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -22,6 +23,8 @@ interface ConsultaCache {
   estado: string | null;
   condicion: string | null;
   direccionExterna: string | null;
+  // Solo RUC: ubigeo del domicilio fiscal, ya validado contra el catálogo local.
+  ubigeo: string | null;
 }
 
 // Lo que rellena el formulario cuando el documento salió del padrón o de la caché.
@@ -32,6 +35,7 @@ interface DatosParaFormulario {
   estado: string | null;
   condicion: string | null;
   direccionExterna: string | null;
+  ubigeo: string | null;
 }
 
 // Lo que ve el formulario. `origen` dice de dónde salió y si sirve para rellenar o solo para avisar.
@@ -51,11 +55,14 @@ export type ResultadoIdentidad =
       estado: string | null;
       condicion: string | null;
       direccionExterna: string | null;
+      ubigeo: string | null;
       consultadoEn: string;
     };
 
 @Injectable()
 export class IdentidadService {
+  private readonly logger = new Logger(IdentidadService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly proveedor: IdentidadProvider,
@@ -105,12 +112,26 @@ export class IdentidadService {
       throw e;
     }
 
-    await this.guardar(tipoDoc, numDoc, this.payload(tipoDoc, numDoc, datos));
+    // El ubigeo del RUC solo sirve si existe en el catálogo local: si no, el formulario no podría
+    // resolver departamento/provincia/distrito y el campo quedaría a medias. Se descarta y ya.
+    const payload = this.payload(tipoDoc, numDoc, {
+      ...datos,
+      ubigeo: await this.ubigeoCatalogado(datos.ubigeo),
+    });
+
+    await this.guardar(tipoDoc, numDoc, payload);
     return {
-      ...this.desdeCache(this.payload(tipoDoc, numDoc, datos)),
+      ...this.desdeCache(payload),
       origen: 'externa',
       consultadoEn: new Date().toISOString(),
     };
+  }
+
+  private async ubigeoCatalogado(codigo: string | null): Promise<string | null> {
+    if (!codigo) return null;
+    const existe = await this.prisma.ubigeo.findUnique({ where: { codigo }, select: { codigo: true } });
+    if (!existe) this.logger.warn(`El proveedor devolvió el ubigeo ${codigo}, que no está en el catálogo local`);
+    return existe ? codigo : null;
   }
 
   private desdeCache(datos: ConsultaCache): DatosParaFormulario {
@@ -121,6 +142,8 @@ export class IdentidadService {
       estado: datos.estado,
       condicion: datos.condicion,
       direccionExterna: datos.direccionExterna,
+      // Filas guardadas antes de que existiera el campo: mejor null que undefined en la respuesta.
+      ubigeo: datos.ubigeo ?? null,
     };
   }
 
@@ -137,6 +160,7 @@ export class IdentidadService {
       estado: datos.estado,
       condicion: datos.condicion,
       direccionExterna: datos.direccionExterna,
+      ubigeo: datos.ubigeo,
     };
   }
 
@@ -165,6 +189,11 @@ export class IdentidadService {
         // Nest no trae excepción para 429: se arma a mano con HttpStatus.
         return new HttpException(e.message, HttpStatus.TOO_MANY_REQUESTS);
       case 'SIN_KEY':
+        // El detalle técnico no le sirve al funcionario: va al log, y la respuesta va en llano.
+        this.logger.warn(`Consulta de identidad sin configurar: ${e.message}`);
+        return new ServiceUnavailableException(
+          'La consulta de identidad no está configurada en el servidor. Pídele al administrador que la active.',
+        );
       case 'REINTENTAR':
         return new ServiceUnavailableException(e.message);
       case 'PROVEEDOR':

@@ -28,6 +28,7 @@ describe('IdentidadProvider', () => {
       estado: null,
       condicion: null,
       direccionExterna: null,
+      ubigeo: null,
     });
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.test/dni');
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer k');
@@ -60,8 +61,46 @@ describe('IdentidadProvider', () => {
       estado: 'ACTIVO',
       condicion: 'HABIDO',
       direccionExterna: 'AV. LOS ROSALES 123',
+      ubigeo: null,
     });
     expect(String(fetchMock.mock.calls[0][0])).toBe('https://api.test/ruc');
+  });
+
+  it('RUC → prefiere direccion_completa y lee ubigeo_sunat (6 dígitos)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      respuesta(
+        200,
+        ok({
+          ruc: '20131312955',
+          nombre_o_razon_social: 'MUNICIPALIDAD DE SAN BARTOLO',
+          estado: 'ACTIVO',
+          condicion: 'HABIDO',
+          direccion: 'AV. LOS ROSALES 123',
+          direccion_completa: 'AV. LOS ROSALES 123, SAN BARTOLO - LIMA - LIMA',
+          ubigeo: ['15', '1501', '150129'],
+          ubigeo_sunat: '150129',
+        }),
+      ),
+    );
+    const r = await proveedor().consultar('RUC', '20131312955');
+    expect(r.direccionExterna).toBe('AV. LOS ROSALES 123, SAN BARTOLO - LIMA - LIMA');
+    // El array ubigeo no sirve: el que va al formulario es ubigeo_sunat.
+    expect(r.ubigeo).toBe('150129');
+  });
+
+  it('RUC → ubigeo_sunat que no son 6 dígitos se descarta', async () => {
+    fetchMock.mockResolvedValueOnce(
+      respuesta(
+        200,
+        ok({
+          nombre_o_razon_social: 'ACME S.A.C.',
+          estado: 'ACTIVO',
+          condicion: 'HABIDO',
+          ubigeo_sunat: '1501',
+        }),
+      ),
+    );
+    expect((await proveedor().consultar('RUC', '20123456786')).ubigeo).toBeNull();
   });
 
   it('404 document_not_found → NO_ENCONTRADO', async () => {

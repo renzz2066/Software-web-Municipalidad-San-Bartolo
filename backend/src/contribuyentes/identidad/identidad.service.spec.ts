@@ -24,6 +24,7 @@ function prismaFalso() {
       upsert: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    ubigeo: { findUnique: vi.fn().mockResolvedValue(null) },
   };
 }
 
@@ -35,6 +36,7 @@ function construir(prisma = prismaFalso(), proveedor = { consultar: vi.fn() }) {
     estado: null,
     condicion: null,
     direccionExterna: null,
+    ubigeo: null,
   });
   const servicio = new IdentidadService(
     prisma as unknown as PrismaService,
@@ -145,10 +147,14 @@ describe('IdentidadService', () => {
     expect(prisma.consultaIdentidad.deleteMany).toHaveBeenCalledTimes(1);
   });
 
-  it('sin key (SIN_KEY) → 503 y nada se guarda en caché', async () => {
+  it('sin key (SIN_KEY) → 503 con mensaje para el funcionario, no el técnico', async () => {
     const { servicio, prisma, proveedor } = construir();
     proveedor.consultar.mockRejectedValue(new IdentidadError('SIN_KEY', 'IDENTIDAD_API_KEY no está configurada'));
-    await expect(servicio.consultar(dni())).rejects.toBeInstanceOf(ServiceUnavailableException);
+    const e = await servicio.consultar(dni()).catch((x) => x);
+    expect(e).toBeInstanceOf(ServiceUnavailableException);
+    expect(e.message).toBe(
+      'La consulta de identidad no está configurada en el servidor. Pídele al administrador que la active.',
+    );
     expect(prisma.consultaIdentidad.upsert).not.toHaveBeenCalled();
   });
 
@@ -200,5 +206,66 @@ describe('IdentidadService', () => {
     });
     const natural = await servicio.consultar({ tipoDoc: 'RUC', numDoc: RUC_NATURAL });
     expect(natural).toMatchObject({ origen: 'externa', tipoPersona: TipoPersona.NATURAL });
+  });
+
+  it('RUC con ubigeo en el catálogo → se devuelve y se guarda en caché', async () => {
+    const { servicio, prisma, proveedor } = construir();
+    prisma.ubigeo.findUnique.mockResolvedValue({ codigo: '150129' });
+    proveedor.consultar.mockResolvedValue({
+      tipoPersona: 'JURIDICA',
+      nombreCompleto: 'MUNICIPALIDAD DE SAN BARTOLO',
+      estado: 'ACTIVO',
+      condicion: 'HABIDO',
+      direccionExterna: 'AV. LOS ROSALES 123, SAN BARTOLO - LIMA - LIMA',
+      ubigeo: '150129',
+    });
+    const r = await servicio.consultar({ tipoDoc: 'RUC', numDoc: RUC_JURIDICO });
+    expect(r).toMatchObject({ origen: 'externa', ubigeo: '150129' });
+    expect(prisma.ubigeo.findUnique).toHaveBeenCalledWith({
+      where: { codigo: '150129' },
+      select: { codigo: true },
+    });
+    expect(prisma.consultaIdentidad.upsert.mock.calls[0][0].create.datos.ubigeo).toBe('150129');
+  });
+
+  it('ubigeo fuera del catálogo → se descarta (el formulario no podría resolver el distrito)', async () => {
+    const { servicio, prisma, proveedor } = construir();
+    prisma.ubigeo.findUnique.mockResolvedValue(null);
+    proveedor.consultar.mockResolvedValue({
+      tipoPersona: 'JURIDICA',
+      nombreCompleto: 'ACME S.A.C.',
+      estado: 'ACTIVO',
+      condicion: 'HABIDO',
+      direccionExterna: null,
+      ubigeo: '999999',
+    });
+    const r = await servicio.consultar({ tipoDoc: 'RUC', numDoc: RUC_JURIDICO });
+    expect(r).toMatchObject({ origen: 'externa', ubigeo: null });
+    expect(prisma.consultaIdentidad.upsert.mock.calls[0][0].create.datos.ubigeo).toBeNull();
+  });
+
+  it('DNI → ubigeo null sin gastar una consulta al catálogo', async () => {
+    const { servicio, prisma } = construir();
+    const r = await servicio.consultar(dni());
+    expect(r).toMatchObject({ origen: 'externa', ubigeo: null });
+    expect(prisma.ubigeo.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('caché guardada sin ubigeo (fila anterior) → responde null en vez de undefined', async () => {
+    const { servicio, prisma } = construir();
+    prisma.consultaIdentidad.findUnique.mockResolvedValue({
+      tipoDoc: 'DNI',
+      numDoc: '12345678',
+      consultadoAt: new Date(),
+      datos: {
+        tipoPersona: TipoPersona.NATURAL,
+        nombreCompleto: 'DE LA CRUZ MENDOZA LUPE',
+        estado: null,
+        condicion: null,
+        direccionExterna: null,
+      },
+    });
+    const r = await servicio.consultar(dni());
+    expect(r).toMatchObject({ origen: 'cache', ubigeo: null });
   });
 });
