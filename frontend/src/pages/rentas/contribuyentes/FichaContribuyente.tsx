@@ -55,7 +55,12 @@ interface DeclaracionFila {
 }
 
 interface Resumen {
-  contribuyente: Contribuyente
+  contribuyente: Contribuyente & {
+    via: { tipoVia: string; nombre: string } | null
+    zona: { codigo: string; nombre: string } | null
+    urbanizacion: { nombre: string } | null
+    distrito: { departamento: string; provincia: string; distrito: string } | null
+  }
   predios: PredioFicha[]
   deuda: DeudaFila[]
   totalDeuda: string
@@ -175,6 +180,47 @@ export function FichaContribuyente() {
               </div>
             </div>
 
+            <details className="mt-3 rounded-panel border border-borde bg-white p-5">
+              <summary className="cursor-pointer text-sm font-semibold text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa">
+                Domicilio fiscal, cónyuge y representante legal
+              </summary>
+              <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <Dato etiqueta="Ubigeo" valor={c.distrito ? `${c.distrito.departamento} / ${c.distrito.provincia} / ${c.distrito.distrito} (${c.ubigeo})` : c.ubigeo ?? '—'} />
+                <Dato
+                  etiqueta="Sector / Urbanización"
+                  valor={[c.zona ? `${c.zona.codigo} · ${c.zona.nombre}` : null, c.urbanizacion?.nombre ?? null].filter(Boolean).join(' · ') || '—'}
+                />
+                <Dato
+                  etiqueta="Dirección"
+                  valor={
+                    [
+                      c.via ? `${c.via.tipoVia} ${c.via.nombre}` : null,
+                      c.numero ? `N° ${c.numero}` : null,
+                      c.interior ? `Dpto. ${c.interior}` : null,
+                      c.manzana ? `Mz. ${c.manzana}` : null,
+                      c.lote ? `Lt. ${c.lote}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || '—'
+                  }
+                />
+                <Dato etiqueta="Referencia" valor={c.referencia ?? '—'} />
+                <Dato etiqueta="Cónyuge" valor={[c.conyugeNombre, c.conyugeNumDoc ? `DNI ${c.conyugeNumDoc}` : null].filter(Boolean).join(' · ') || '—'} />
+                <Dato
+                  etiqueta="Representante legal"
+                  valor={
+                    [
+                      c.representanteNombre,
+                      c.representanteNumDoc ? `DNI ${c.representanteNumDoc}` : null,
+                      c.representanteDireccion,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '—'
+                  }
+                />
+              </dl>
+            </details>
+
             <nav aria-label="Secciones de la ficha" role="tablist" className="mt-6 flex gap-1 overflow-x-auto">
               {PESTANAS.filter((p) => !('nivel' in p) || tiene(p.nivel)).map((p) => (
                 <button
@@ -285,6 +331,15 @@ export function FichaContribuyente() {
 
 function Vacio({ texto }: { texto: string }) {
   return <p className="p-8 text-center text-sm text-slate-500">{texto}</p>
+}
+
+function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{etiqueta}</dt>
+      <dd className="mt-0.5 text-slate-700">{valor}</dd>
+    </div>
+  )
 }
 
 // Estado de cuenta con reajuste y mora a la fecha elegida (C6).

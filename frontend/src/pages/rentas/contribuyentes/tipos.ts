@@ -19,8 +19,40 @@ export interface Contribuyente extends ContribuyenteResumen {
   telefono: string | null
   celular: string | null
   email: string | null
+  // Domicilio fiscal (SIMUN: bloque "Datos Domicilio Fiscal")
+  zonaId: number | null
+  urbanizacionId: number | null
+  viaId: number | null
+  numero: string | null
+  interior: string | null
+  manzana: string | null
+  lote: string | null
+  referencia: string | null
+  // Cónyuge y representante legal: opcionales, como en SIMUN
+  conyugeNombre: string | null
+  conyugeNumDoc: string | null
+  representanteNombre: string | null
+  representanteNumDoc: string | null
+  representanteDireccion: string | null
   createdAt: string
   updatedAt: string
+}
+
+// Catálogo de ubigeo (GET /contribuyentes/ubigeos).
+export interface Ubigeo {
+  codigo: string
+  departamento: string
+  provincia: string
+  distrito: string
+}
+
+// San Bartolo (Lima/Lima): ubigeo con el que se abre el alta.
+export const UBIGEO_DEFECTO = '150129'
+
+export interface Catalogos {
+  zonas: { id: number; codigo: string; nombre: string }[]
+  urbanizaciones: { id: number; codigo: string; nombre: string }[]
+  vias: { id: number; tipoVia: string; nombre: string }[]
 }
 
 export const TIPOS_PERSONA: { value: TipoPersona; label: string }[] = [

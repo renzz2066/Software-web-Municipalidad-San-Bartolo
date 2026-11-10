@@ -15,3 +15,4 @@
 - `app-shell-v1.md`: activa. Barra lateral, barra superior, `PageHeader` con "Volver a…" y tokens visuales (`@theme`).
 - `coactiva-recepcion-transferencia-v1.md`: activa. Recepción/transferencia de valores a coactiva y asignación a auxiliar (port de `feat/coactiva-recepcion-transferencia`).
 - `ia-chat-v1.md`: activa. Chat IA de trámites (RAG pgvector + Gemini) en drawer flotante, nivel `ayuda.chat`, historial propio.
+- `contribuyente-domicilio-representante-v1.md`: activa. Domicilio fiscal estructurado (ubigeo/zona/urb/vía) + cónyuge y representante legal opcionales; `direccionFiscal` derivada en backend.
