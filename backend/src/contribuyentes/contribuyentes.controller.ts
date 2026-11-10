@@ -3,7 +3,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { NivelGuard } from '../auth/guards/nivel.guard.js';
 import { RequireNivel } from '../auth/decorators/nivel.decorator.js';
 import { ContribuyentesService } from './contribuyentes.service.js';
-import { BuscarContribuyentesDto, CreateContribuyenteDto, UpdateContribuyenteDto } from './dto/contribuyente.dto.js';
+import { BuscarContribuyentesDto, BuscarUbigeosDto, CreateContribuyenteDto, UpdateContribuyenteDto } from './dto/contribuyente.dto.js';
 
 // Baja = PATCH {estado: 'BAJA'}; no hay DELETE (AGENTS.md regla 3).
 @UseGuards(JwtAuthGuard, NivelGuard)
@@ -15,6 +15,12 @@ export class ContribuyentesController {
   @Get()
   buscar(@Query() dto: BuscarContribuyentesDto) {
     return this.contribuyentes.buscar(dto);
+  }
+
+  // Buscador del campo ubigeo: DEBE ir antes de ':id', si no ParseIntPipe recibe "ubigeos".
+  @Get('ubigeos')
+  buscarUbigeos(@Query() dto: BuscarUbigeosDto) {
+    return this.contribuyentes.buscarUbigeos(dto);
   }
 
   @Get(':id')
