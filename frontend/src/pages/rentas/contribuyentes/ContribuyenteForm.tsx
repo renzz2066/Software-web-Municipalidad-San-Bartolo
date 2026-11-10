@@ -89,16 +89,18 @@ interface EstadoConsulta {
   estado: 'idle' | 'consultando' | 'ok' | 'propia' | 'noEncontrado' | 'error'
   mensaje: string | null
   datos: ConsultaIdentidad | null
-  rellenado: boolean
-  ubigeoRellenado: boolean
+  // Qué campos escribió el botón, ya en frase para el aviso ("el nombre", "el ubigeo").
+  completado: string[]
+  // Verdadero si pisó valores que ya estaban: el documento cambió desde la última consulta.
+  sobrescribio: boolean
 }
 
 const CONSULTA_IDLE: EstadoConsulta = {
   estado: 'idle',
   mensaje: null,
   datos: null,
-  rellenado: false,
-  ubigeoRellenado: false,
+  completado: [],
+  sobrescribio: false,
 }
 
 function validar(f: Form, ubigeoResuelto: Ubigeo | null): Errores {
@@ -148,8 +150,8 @@ function estadoDeError(err: unknown): EstadoConsulta {
     estado,
     mensaje,
     datos: null,
-    rellenado: false,
-    ubigeoRellenado: false,
+    completado: [],
+    sobrescribio: false,
   })
   if (isAxiosError(err)) {
     const message = err.response?.data?.message
@@ -178,6 +180,16 @@ export function ContribuyenteForm() {
   const ultimoUbigeo = useRef<string>('')
   // Documento que se está consultando: si el funcionario sigue escribiendo, la respuesta se descarta.
   const docConsultado = useRef<string | null>(null)
+  // Documento (tipo:número) con el que el botón rellenó por última vez. Es lo que permite
+  // distinguir "vuelvo a consultar lo mismo" (no se pisa nada) de "cambió el documento"
+  // (los datos de antes ya no corresponden y se sobreescriben).
+  const docRelleno = useRef<string | null>(null)
+  // Valor de ubigeo que puso el botón: solo se pisa si sigue exactamente igual.
+  const ubigeoRelleno = useRef<string | null>(null)
+  // Copia vigente del formulario. La consulta es asíncrona y el closure conserva el valor del
+  // render en que se lanzó; sin esto se decidiría con datos viejos.
+  const formRef = useRef(form)
+  formRef.current = form
 
   // Catálogos de zona, urbanización y vía (los mismos que usa el formulario de predios).
   useEffect(() => {
@@ -306,7 +318,7 @@ export function ContribuyenteForm() {
     const numDoc = form.numDoc.replace(/\s+/g, '').toUpperCase()
     if (!formatoConsultable(form.tipoDoc, numDoc)) return
     docConsultado.current = numDoc
-    setConsulta({ estado: 'consultando', mensaje: null, datos: null, rellenado: false, ubigeoRellenado: false })
+    setConsulta({ estado: 'consultando', mensaje: null, datos: null, completado: [], sobrescribio: false })
     try {
       const { data } = await api.get<ConsultaIdentidad>('/contribuyentes/identidad', {
         params: { tipoDoc: form.tipoDoc, numDoc, ...(editando ? { excluirId: Number(id) } : {}) },
@@ -316,16 +328,16 @@ export function ContribuyenteForm() {
         return
       }
       if (data.origen === 'propia') {
-        setConsulta({ estado: 'propia', mensaje: null, datos: data, rellenado: false, ubigeoRellenado: false })
+        setConsulta({ estado: 'propia', mensaje: null, datos: data, completado: [], sobrescribio: false })
         return
       }
-      const completados = rellenar(data)
+      const r = rellenar(data)
       setConsulta({
         estado: 'ok',
         mensaje: null,
         datos: data,
-        rellenado: completados.nombre,
-        ubigeoRellenado: completados.ubigeo,
+        completado: r.completado,
+        sobrescribio: r.sobrescribio,
       })
     } catch (err) {
       // Si mientras respondía se siguió escribiendo, la respuesta ya no corresponde al documento.
@@ -333,33 +345,56 @@ export function ContribuyenteForm() {
     }
   }
 
-  // Solo campos vacíos: lo que el funcionario ya escribió no se pisa jamás.
-  // El ubigeo nace en UBIGEO_DEFECTO, o sea que "vacío" para él significa "sigue en el default":
-  // es el único campo obligatorio y el único donde el default no es una decisión del funcionario.
-  function rellenar(datos: ConsultaIdentidad): { nombre: boolean; ubigeo: boolean } {
-    const sinNombre = !form.nombreCompleto.trim()
-    const nombre = sinNombre && Boolean(datos.nombreCompleto.trim())
-    const ubigeo =
-      form.ubigeo === UBIGEO_DEFECTO && typeof datos.ubigeo === 'string' && datos.ubigeo !== form.ubigeo
-        ? datos.ubigeo
-        : null
+  // Rellena los tres campos que el botón maneja: nombre, tipoPersona y ubigeo.
+  //
+  // Si el documento es el mismo con el que se rellenó la última vez, solo se llenan vacíos: lo
+  // que el funcionario escribió a mano no se pisa jamás. Si el tipo o el número de documento
+  // cambió, los datos anteriores pertenecen al documento viejo, así que se sobreescriben.
+  function rellenar(datos: ConsultaIdentidad): { completado: string[]; sobrescribio: boolean } {
+    const f = formRef.current
+    const clave = `${f.tipoDoc}:${f.numDoc.replace(/\s+/g, '').toUpperCase()}`
+    const cambioDeDocumento = docRelleno.current !== null && docRelleno.current !== clave
 
-    if (nombre) {
-      setForm((f) => ({
-        ...f,
+    const sinNombre = !f.nombreCompleto.trim()
+    const escribeNombre = (sinNombre || cambioDeDocumento) && Boolean(datos.nombreCompleto.trim())
+
+    // El ubigeo nace en UBIGEO_DEFECTO, así que "vacío" para él significa "sigue en el default".
+    // Aunque el documento cambie, solo se pisa si el valor actual es exactamente el que puso el
+    // botón: una elección del funcionario (u otro distrito ya cargado) se respeta.
+    const ubigeoDisponible =
+      f.ubigeo === UBIGEO_DEFECTO ||
+      (cambioDeDocumento && ubigeoRelleno.current !== null && f.ubigeo === ubigeoRelleno.current)
+    const escribeUbi =
+      ubigeoDisponible && typeof datos.ubigeo === 'string' && datos.ubigeo !== f.ubigeo ? datos.ubigeo : null
+
+    const completado: string[] = []
+    let sobrescribio = false
+
+    if (escribeNombre) {
+      sobrescribio = !sinNombre
+      completado.push('el nombre')
+      setForm((prev) => ({
+        ...prev,
         nombreCompleto: datos.nombreCompleto,
-        // El tipo de persona lo deduce el documento; solo se aplica si aún no se escribió nada,
-        // porque con nombre ya escrito el tipo lo eligió el funcionario a mano.
-        tipoPersona: sinNombre ? datos.tipoPersona : f.tipoPersona,
+        // El tipo de persona lo deduce el documento. Si el documento cambió, el valor anterior
+        // correspondía al viejo y también queda obsoleto.
+        tipoPersona: sinNombre || cambioDeDocumento ? datos.tipoPersona : prev.tipoPersona,
       }))
       setErrores((e) => ({ ...e, nombreCompleto: undefined }))
     }
-    if (ubigeo) {
-      setForm((f) => ({ ...f, ubigeo }))
+    if (escribeUbi) {
+      sobrescribio = sobrescribio || f.ubigeo !== UBIGEO_DEFECTO
+      completado.push('el ubigeo')
+      ubigeoRelleno.current = escribeUbi
+      setForm((prev) => ({ ...prev, ubigeo: escribeUbi }))
       // Recalcula departamento/provincia/distrito y el preview de la dirección fiscal.
-      void resolver(ubigeo)
+      void resolver(escribeUbi)
     }
-    return { nombre, ubigeo: Boolean(ubigeo) }
+
+    // Se recuerda el documento aunque no se haya escrito nada: es lo que permite detectar en la
+    // próxima consulta que el documento cambió.
+    docRelleno.current = clave
+    return { completado, sobrescribio }
   }
 
   async function guardar(e: React.FormEvent) {
@@ -773,7 +808,7 @@ function Campo({ label, id, error, children }: { label: string; id: string; erro
 
 // Lo que se cuenta debajo del botón "Buscar datos": encontró, ya estaba, no existe o falló.
 function AvisoConsulta({ consulta }: { consulta: EstadoConsulta }) {
-  const { estado, mensaje, datos, rellenado, ubigeoRellenado } = consulta
+  const { estado, mensaje, datos, completado, sobrescribio } = consulta
   if (estado === 'idle') return null
   if (estado === 'consultando') {
     return (
@@ -795,14 +830,19 @@ function AvisoConsulta({ consulta }: { consulta: EstadoConsulta }) {
   if (estado === 'ok' && datos) {
     const fecha = datos.consultadoEn ? new Date(datos.consultadoEn).toLocaleDateString('es-PE') : null
     const fuente = datos.origen === 'cache' ? 'la caché de consultas' : 'el padrón de identidad'
-    const completados = [rellenado ? 'el nombre' : null, ubigeoRellenado ? 'el ubigeo' : null].filter(Boolean)
+    const que = completado.join(' y ')
+    let cuenta: string
+    if (completado.length === 0) {
+      cuenta = 'El formulario ya tenía datos escritos: no se modificó nada.'
+    } else if (sobrescribio) {
+      cuenta = `Se actualizó ${que} desde ${fuente}: el documento cambió, así que se sobrescribió lo anterior.`
+    } else {
+      cuenta = `Se completó ${que} desde ${fuente}.`
+    }
     return (
       <div className="mt-1 text-xs text-emerald-700" role="status">
         <p>
-          {completados.length > 0
-            ? `Se completó ${completados.join(' y ')} desde ${fuente}.`
-            : 'El formulario ya tenía datos escritos: no se modificó nada.'}{' '}
-          {fecha && <span className="text-slate-400">Consulta del {fecha}.</span>}
+          {cuenta} {fecha && <span className="text-slate-400">Consulta del {fecha}.</span>}
         </p>
         {datos.direccionExterna && (
           <p className="text-slate-500">Domicilio registrado: {datos.direccionExterna}. Complétalo a mano abajo.</p>
