@@ -314,6 +314,20 @@ model Ubigeo {
   @@map("ubigeos")
 }
 
+// Caché de aciertos de la consulta de identidad (specs/consulta-identidad-v1.md).
+// PK compuesta en vez de id: el documento es lo único que se repite. Solo se guardan aciertos,
+// nunca un "no encontrado", para no bloquear 30 días un DNI recién emitido.
+model ConsultaIdentidad {
+  tipoDoc      String    @db.VarChar(10) // DNI, RUC
+  numDoc       String    @db.VarChar(20)
+  datos        Json // {tipoPersona, nombreCompleto, estado, condicion, direccionExterna}
+  consultadoAt DateTime  @default(now())
+
+  @@id([tipoDoc, numDoc])
+  @@index([consultadoAt])
+  @@map("consultas_identidad")
+}
+
 model Contribuyente {
   id              Int            @id @default(autoincrement())
   codigoLegacy    String?        @unique @db.VarChar(7) // CODCLI SIMUN, solo referencia historica

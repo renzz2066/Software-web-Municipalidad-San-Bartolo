@@ -49,6 +49,13 @@ Flujo de datos: `Ciudadano/Trámite → Frontend → Endpoint NestJS → Prisma 
 - `DATABASE_URL` (pooler 6543 + pgbouncer) para la app + `DIRECT_URL` (5432) para migraciones. Cambiar de proveedor a futuro es solo cambiar esas 2 URLs, sin tocar código.
 - Postgres aporta `CHECK`, `JSONB` (auditoría), `full-text` y `pgvector` para tu tesis de IA. MySQL local sigue posible, pero sin 24/7 gratis real.
 
+### 2.4 Tablas agregadas después del sprint (fuera de los 26 originales)
+
+| Tabla | Por qué existe | Origen de los datos |
+|---|---|---|
+| `ubigeos` | `feat/contribuyente-domicilio-representante`: catálogo de los 1872 distritos para el campo de código postal. **Sin FK** desde `contribuyentes.ubigeo`, porque una fila heredada sin catalogar rompería la migración. | Seed desde `DISTRITO.DBF` de SIMUN (archivo **solo lectura**; no se migra ningún contribuyente). |
+| `consultas_identidad` | `feat/consulta-identidad`: caché de 30 días de las consultas de identidad, para no gastar el cupo mensual del proveedor. PK compuesta `(tipoDoc, numDoc)`, solo aciertos. | API externa ApiPeruDev. **No** viene de SIMUN, no hay ETL. |
+
 ## 3. Lista de tareas ejecutables
 
 - [x] Crear rama `feat/rentas-db-v1-postgres`

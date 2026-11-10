@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isAxiosError } from 'axios'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
@@ -9,9 +10,11 @@ import {
   TIPOS_PERSONA,
   UBIGEO_DEFECTO,
   errorDocumento,
+  formatoConsultable,
   type Catalogos,
   type Contribuyente,
   type ContribuyenteResumen,
+  type ConsultaIdentidad,
   type EstadoRegistro,
   type TipoPersona,
   type Ubigeo,
@@ -21,6 +24,7 @@ import {
 // Bloques alineados a SIMUN (frmcontribuyentes_rentas Form2): "Datos Generales" —con cónyuge y
 // representante legal, ambos opcionales— y "Datos Domicilio Fiscal", donde el ubigeo es lo único
 // obligatorio. Ver specs/contribuyente-domicilio-representante-v1.md.
+// El botón "Buscar datos" consulta el padrón de identidad: specs/consulta-identidad-v1.md.
 
 interface Form {
   tipoPersona: TipoPersona
@@ -80,6 +84,25 @@ const VACIO: Form = {
 
 type Errores = Partial<Record<keyof Form, string>>
 
+// Estado del botón "Buscar datos" y lo que se cuenta debajo.
+interface EstadoConsulta {
+  estado: 'idle' | 'consultando' | 'ok' | 'propia' | 'noEncontrado' | 'error'
+  mensaje: string | null
+  datos: ConsultaIdentidad | null
+  // Qué campos escribió el botón, ya en frase para el aviso ("el nombre", "el ubigeo").
+  completado: string[]
+  // Verdadero si pisó valores que ya estaban: el documento cambió desde la última consulta.
+  sobrescribio: boolean
+}
+
+const CONSULTA_IDLE: EstadoConsulta = {
+  estado: 'idle',
+  mensaje: null,
+  datos: null,
+  completado: [],
+  sobrescribio: false,
+}
+
 function validar(f: Form, ubigeoResuelto: Ubigeo | null): Errores {
   const e: Errores = {}
   const doc = errorDocumento(f.tipoDoc, f.numDoc, f.tipoPersona)
@@ -120,6 +143,27 @@ function componerDireccionFiscal(f: Form, ubi: Ubigeo | null, catalogos: Catalog
   return `${partes.join(' ')}${ubi ? `, ${ubi.distrito}` : ''}`.slice(0, 150)
 }
 
+// Errores del endpoint de identidad: se muestra el mensaje del backend (400/401/403/429/502/503)
+// y solo si no viene ninguno se usa uno genérico.
+function estadoDeError(err: unknown): EstadoConsulta {
+  const fallo = (estado: EstadoConsulta['estado'], mensaje: string): EstadoConsulta => ({
+    estado,
+    mensaje,
+    datos: null,
+    completado: [],
+    sobrescribio: false,
+  })
+  if (isAxiosError(err)) {
+    const message = err.response?.data?.message
+    const texto = typeof message === 'string' && message ? message : null
+    if (err.response?.status === 404) {
+      return fallo('noEncontrado', texto ?? 'El documento no existe en el padrón de identidad')
+    }
+    if (texto) return fallo('error', texto)
+  }
+  return fallo('error', 'No se pudo consultar el padrón de identidad. Intenta nuevamente.')
+}
+
 export function ContribuyenteForm() {
   const { id } = useParams()
   const editando = Boolean(id)
@@ -132,7 +176,20 @@ export function ContribuyenteForm() {
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null)
   const [ubigeoResuelto, setUbigeoResuelto] = useState<Ubigeo | null>(null)
   const [opcionesUbigeo, setOpcionesUbigeo] = useState<Ubigeo[]>([])
+  const [consulta, setConsulta] = useState<EstadoConsulta>(CONSULTA_IDLE)
   const ultimoUbigeo = useRef<string>('')
+  // Documento que se está consultando: si el funcionario sigue escribiendo, la respuesta se descarta.
+  const docConsultado = useRef<string | null>(null)
+  // Documento (tipo:número) con el que el botón rellenó por última vez. Es lo que permite
+  // distinguir "vuelvo a consultar lo mismo" (no se pisa nada) de "cambió el documento"
+  // (los datos de antes ya no corresponden y se sobreescriben).
+  const docRelleno = useRef<string | null>(null)
+  // Valor de ubigeo que puso el botón: solo se pisa si sigue exactamente igual.
+  const ubigeoRelleno = useRef<string | null>(null)
+  // Copia vigente del formulario. La consulta es asíncrona y el closure conserva el valor del
+  // render en que se lanzó; sin esto se decidiría con datos viejos.
+  const formRef = useRef(form)
+  formRef.current = form
 
   // Catálogos de zona, urbanización y vía (los mismos que usa el formulario de predios).
   useEffect(() => {
@@ -240,6 +297,7 @@ export function ContribuyenteForm() {
   }, [form.ubigeo])
 
   function cambiar<K extends keyof Form>(campo: K, valor: Form[K]) {
+    const cambiaDocumento = campo === 'tipoDoc' || campo === 'numDoc' || (campo === 'tipoPersona' && valor === 'JURIDICA')
     setForm((f) => {
       const next = { ...f, [campo]: valor }
       // Jurídica implica RUC.
@@ -247,6 +305,96 @@ export function ContribuyenteForm() {
       return next
     })
     setErrores((e) => ({ ...e, [campo]: undefined }))
+    if (cambiaDocumento) {
+      // El aviso anterior ya no corresponde. El estado 'consultando' se limpia solo, cuando la
+      // respuesta descartada llega y ve que el documento cambió.
+      docConsultado.current = null
+      setConsulta((c) => (c.estado === 'consultando' ? c : CONSULTA_IDLE))
+    }
+  }
+
+  // Consulta el padrón por el documento escrito. Botón explícito: cada consulta gasta cupo.
+  async function consultarIdentidad() {
+    const numDoc = form.numDoc.replace(/\s+/g, '').toUpperCase()
+    if (!formatoConsultable(form.tipoDoc, numDoc)) return
+    docConsultado.current = numDoc
+    setConsulta({ estado: 'consultando', mensaje: null, datos: null, completado: [], sobrescribio: false })
+    try {
+      const { data } = await api.get<ConsultaIdentidad>('/contribuyentes/identidad', {
+        params: { tipoDoc: form.tipoDoc, numDoc, ...(editando ? { excluirId: Number(id) } : {}) },
+      })
+      if (docConsultado.current !== numDoc) {
+        setConsulta(CONSULTA_IDLE)
+        return
+      }
+      if (data.origen === 'propia') {
+        setConsulta({ estado: 'propia', mensaje: null, datos: data, completado: [], sobrescribio: false })
+        return
+      }
+      const r = rellenar(data)
+      setConsulta({
+        estado: 'ok',
+        mensaje: null,
+        datos: data,
+        completado: r.completado,
+        sobrescribio: r.sobrescribio,
+      })
+    } catch (err) {
+      // Si mientras respondía se siguió escribiendo, la respuesta ya no corresponde al documento.
+      setConsulta(docConsultado.current === numDoc ? estadoDeError(err) : CONSULTA_IDLE)
+    }
+  }
+
+  // Rellena los tres campos que el botón maneja: nombre, tipoPersona y ubigeo.
+  //
+  // Si el documento es el mismo con el que se rellenó la última vez, solo se llenan vacíos: lo
+  // que el funcionario escribió a mano no se pisa jamás. Si el tipo o el número de documento
+  // cambió, los datos anteriores pertenecen al documento viejo, así que se sobreescriben.
+  function rellenar(datos: ConsultaIdentidad): { completado: string[]; sobrescribio: boolean } {
+    const f = formRef.current
+    const clave = `${f.tipoDoc}:${f.numDoc.replace(/\s+/g, '').toUpperCase()}`
+    const cambioDeDocumento = docRelleno.current !== null && docRelleno.current !== clave
+
+    const sinNombre = !f.nombreCompleto.trim()
+    const escribeNombre = (sinNombre || cambioDeDocumento) && Boolean(datos.nombreCompleto.trim())
+
+    // El ubigeo nace en UBIGEO_DEFECTO, así que "vacío" para él significa "sigue en el default".
+    // Aunque el documento cambie, solo se pisa si el valor actual es exactamente el que puso el
+    // botón: una elección del funcionario (u otro distrito ya cargado) se respeta.
+    const ubigeoDisponible =
+      f.ubigeo === UBIGEO_DEFECTO ||
+      (cambioDeDocumento && ubigeoRelleno.current !== null && f.ubigeo === ubigeoRelleno.current)
+    const escribeUbi =
+      ubigeoDisponible && typeof datos.ubigeo === 'string' && datos.ubigeo !== f.ubigeo ? datos.ubigeo : null
+
+    const completado: string[] = []
+    let sobrescribio = false
+
+    if (escribeNombre) {
+      sobrescribio = !sinNombre
+      completado.push('el nombre')
+      setForm((prev) => ({
+        ...prev,
+        nombreCompleto: datos.nombreCompleto,
+        // El tipo de persona lo deduce el documento. Si el documento cambió, el valor anterior
+        // correspondía al viejo y también queda obsoleto.
+        tipoPersona: sinNombre || cambioDeDocumento ? datos.tipoPersona : prev.tipoPersona,
+      }))
+      setErrores((e) => ({ ...e, nombreCompleto: undefined }))
+    }
+    if (escribeUbi) {
+      sobrescribio = sobrescribio || f.ubigeo !== UBIGEO_DEFECTO
+      completado.push('el ubigeo')
+      ubigeoRelleno.current = escribeUbi
+      setForm((prev) => ({ ...prev, ubigeo: escribeUbi }))
+      // Recalcula departamento/provincia/distrito y el preview de la dirección fiscal.
+      void resolver(escribeUbi)
+    }
+
+    // Se recuerda el documento aunque no se haya escrito nada: es lo que permite detectar en la
+    // próxima consulta que el documento cambió.
+    docRelleno.current = clave
+    return { completado, sobrescribio }
   }
 
   async function guardar(e: React.FormEvent) {
@@ -349,6 +497,22 @@ export function ContribuyenteForm() {
                         className={CLASE_INPUT}
                       />
                     </Campo>
+                    {(form.tipoDoc === 'DNI' || form.tipoDoc === 'RUC') && (
+                      <div className="col-span-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void consultarIdentidad()}
+                            disabled={consulta.estado === 'consultando' || !formatoConsultable(form.tipoDoc, form.numDoc)}
+                            className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+                          >
+                            {consulta.estado === 'consultando' ? 'Consultando…' : 'Buscar datos'}
+                          </button>
+                          <span className="text-xs text-slate-400">Rellena lo que el padrón tenga.</span>
+                        </div>
+                        <AvisoConsulta consulta={consulta} />
+                      </div>
+                    )}
                   </div>
                   <div className="sm:col-span-2">
                     <Campo
@@ -639,5 +803,62 @@ function Campo({ label, id, error, children }: { label: string; id: string; erro
         </p>
       )}
     </div>
+  )
+}
+
+// Lo que se cuenta debajo del botón "Buscar datos": encontró, ya estaba, no existe o falló.
+function AvisoConsulta({ consulta }: { consulta: EstadoConsulta }) {
+  const { estado, mensaje, datos, completado, sobrescribio } = consulta
+  if (estado === 'idle') return null
+  if (estado === 'consultando') {
+    return (
+      <p className="mt-1 text-xs text-slate-500" role="status">
+        Consultando el padrón de identidad…
+      </p>
+    )
+  }
+  if (estado === 'propia' && datos) {
+    return (
+      <p className="mt-1 text-xs text-amber-700" role="status">
+        Ya está inscrito como {datos.nombreCompleto}.{' '}
+        <Link to={`${RUTA_BASE}/contribuyentes/${datos.contribuyenteId}`} className="font-medium underline">
+          Ver ficha
+        </Link>
+      </p>
+    )
+  }
+  if (estado === 'ok' && datos) {
+    const fecha = datos.consultadoEn ? new Date(datos.consultadoEn).toLocaleDateString('es-PE') : null
+    const fuente = datos.origen === 'cache' ? 'la caché de consultas' : 'el padrón de identidad'
+    const que = completado.join(' y ')
+    let cuenta: string
+    if (completado.length === 0) {
+      cuenta = 'El formulario ya tenía datos escritos: no se modificó nada.'
+    } else if (sobrescribio) {
+      cuenta = `Se actualizó ${que} desde ${fuente}: el documento cambió, así que se sobrescribió lo anterior.`
+    } else {
+      cuenta = `Se completó ${que} desde ${fuente}.`
+    }
+    return (
+      <div className="mt-1 text-xs text-emerald-700" role="status">
+        <p>
+          {cuenta} {fecha && <span className="text-slate-400">Consulta del {fecha}.</span>}
+        </p>
+        {datos.direccionExterna && (
+          <p className="text-slate-500">Domicilio registrado: {datos.direccionExterna}. Complétalo a mano abajo.</p>
+        )}
+        {datos.estado && (
+          <p className="text-slate-500">
+            SUNAT: {datos.estado}
+            {datos.condicion ? ` · ${datos.condicion}` : ''}
+          </p>
+        )}
+      </div>
+    )
+  }
+  return (
+    <p className={`mt-1 text-xs ${estado === 'error' ? 'text-ladrillo' : 'text-slate-500'}`} role={estado === 'error' ? 'alert' : 'status'}>
+      {mensaje}
+    </p>
   )
 }
