@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAccesos } from '../../context/AccesosContext'
+import { useMuni } from '../../muni/MuniContext'
 import { ACCESIBILIDAD, MODULOS } from '../../pages/modulos/catalogo'
 
 const ITEMS = [...MODULOS, ACCESIBILIDAD]
@@ -22,6 +23,7 @@ function itemClase(activo: boolean) {
 // con el mismo filtro de las tarjetas del Dashboard (spec criterio 2).
 export function Sidebar({ abierto, onCerrar }: SidebarProps) {
   const { tiene, isLoading } = useAccesos()
+  const muni = useMuni()
   const visibles = ITEMS.filter((m) => isLoading || tiene(m.codigo))
 
   return (
@@ -33,13 +35,13 @@ export function Sidebar({ abierto, onCerrar }: SidebarProps) {
     >
       <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
         <img
-          src="/escudo-mdsb.png"
+          src={muni.escudoUrl}
           alt=""
           aria-hidden="true"
           className="h-10 w-10 shrink-0 rounded-lg bg-white/95 p-1 object-contain"
         />
         <div className="min-w-0 leading-tight">
-          <p className="truncate font-serif text-sm font-bold text-white">San Bartolo</p>
+          <p className="truncate font-serif text-sm font-bold text-white">{muni.nombreCorto}</p>
           <p className="truncate text-xs text-white/70">Sistema de Rentas</p>
         </div>
       </div>

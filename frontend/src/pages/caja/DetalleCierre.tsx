@@ -1,5 +1,6 @@
 import { soles } from '../rentas/contribuyentes/tipos'
 import { type Cierre, etiquetaMedio } from './cajaApi'
+import { NombreMuni } from '../../muni/MuniContext'
 
 // Cuerpo imprimible del cierre de caja (K5): por medio de pago, por tributo y arqueo.
 
@@ -10,7 +11,7 @@ export function DetalleCierre({ cierre: c }: { cierre: Cierre }) {
     <div className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Municipalidad Distrital de San Bartolo · Caja</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500"><NombreMuni /> · Caja</p>
           <h2 className="text-lg font-bold text-mar-profundo">Cierre de caja del {c.fecha}</h2>
           <p className="text-sm text-slate-600">
             Cajero: {c.cajero.nombre ?? c.cajero.usuario} ({c.cajero.usuario})

@@ -2,9 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isAxiosError } from 'axios'
 import { useAuth } from '../context/AuthContext'
+import { useMuni } from '../muni/MuniContext'
 
 export function Login() {
   const { login } = useAuth()
+  const muni = useMuni()
   const navigate = useNavigate()
 
   const [usuario, setUsuario] = useState('')
@@ -33,13 +35,15 @@ export function Login() {
 
   return (
     <div className="flex min-h-screen bg-arena-claro">
-      {/* Panel institucional San Bartolo */}
+      {/* Panel institucional de la muni activa (specs/multi-muni-v1.md) */}
       <aside className="relative hidden w-[52%] overflow-hidden lg:flex lg:flex-col">
-        <img
-          src="/san-bartolo-bahia.jpg"
-          alt="Bahía de San Bartolo con malecón y playa"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
+        {muni.fondoUrl && (
+          <img
+            src={muni.fondoUrl}
+            alt={`Vista de ${muni.nombreCorto}`}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
         <div
           aria-hidden="true"
           className="absolute inset-0 bg-gradient-to-b from-mar-profundo/85 via-mar-profundo/55 to-mar/70"
@@ -48,18 +52,16 @@ export function Login() {
         <div className="relative flex flex-1 flex-col justify-between p-10 text-white">
           <div className="flex items-center gap-4">
             <img
-              src="/escudo-mdsb.png"
-              alt="Escudo oficial de la Municipalidad Distrital de San Bartolo"
+              src={muni.escudoUrl}
+              alt={`Escudo oficial de la ${muni.nombre}`}
               className="h-16 w-16 rounded-xl bg-white/95 p-1.5 shadow-lg object-contain"
             />
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-turquesa">
-                Lima Sur · Perú
+                {muni.ubicacion}
               </p>
               <p className="text-lg font-bold leading-tight">
-                Municipalidad Distrital
-                <br />
-                de San Bartolo
+                {muni.nombre}
               </p>
             </div>
           </div>
@@ -67,14 +69,14 @@ export function Login() {
           <div className="max-w-md">
             <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
               <i aria-hidden="true" className="bi bi-geo-alt text-turquesa" />
-              Distrito turístico · Bahía y malecón
+              {muni.lema}
             </p>
             <h2 className="text-4xl font-extrabold leading-tight drop-shadow">
               Sistema de Rentas
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-white/85">
               Acceso exclusivo del personal interno para la gestión tributaria,
-              caja y atención al contribuyente sanbartolino.
+              caja y atención al contribuyente{muni.gentilicio ? ` ${muni.gentilicio}` : ''}.
             </p>
             <ul className="mt-6 space-y-2 text-sm text-white/90">
               <li className="flex items-center gap-2.5">
@@ -93,7 +95,7 @@ export function Login() {
           </div>
 
           <p className="text-xs text-white/70">
-            gob.pe/munisanbartolo · Área de Rentas
+            {muni.web} · Área de Rentas
           </p>
         </div>
 
@@ -118,12 +120,14 @@ export function Login() {
         />
         {/* Banner móvil con la bahía */}
         <div className="absolute inset-x-0 top-0 h-44 overflow-hidden lg:hidden">
-          <img
-            src="/san-bartolo-bahia.jpg"
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover"
-          />
+          {muni.fondoUrl && (
+            <img
+              src={muni.fondoUrl}
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+            />
+          )}
           <div aria-hidden="true" className="absolute inset-0 bg-mar-profundo/60" />
         </div>
 
@@ -133,13 +137,13 @@ export function Login() {
             <div className="p-8 sm:p-9">
               <div className="mb-7 text-center">
                 <img
-                  src="/escudo-mdsb.png"
-                  alt="Escudo oficial de la Municipalidad Distrital de San Bartolo"
+                  src={muni.escudoUrl}
+                  alt={`Escudo oficial de la ${muni.nombre}`}
                   className="mx-auto mb-4 h-20 w-20 rounded-2xl bg-white object-contain p-1 shadow-md ring-1 ring-slate-200 lg:hidden"
                 />
                 <div className="mb-3 hidden items-center justify-center gap-2 lg:flex">
                   <img
-                    src="/escudo-mdsb.png"
+                    src={muni.escudoUrl}
                     alt=""
                     aria-hidden="true"
                     className="h-11 w-11 rounded-lg object-contain ring-1 ring-slate-200"
@@ -149,7 +153,7 @@ export function Login() {
                   Sistema de Rentas
                 </h1>
                 <p className="mt-1 text-sm font-medium text-slate-500">
-                  Municipalidad de San Bartolo
+                  {muni.nombreCorto}
                 </p>
                 <p className="mt-2 text-xs text-slate-400">
                   Ingresa con tu usuario institucional
@@ -225,7 +229,7 @@ export function Login() {
           </div>
 
           <p className="mt-5 text-center text-xs text-slate-400">
-            © Municipalidad Distrital de San Bartolo · gob.pe/munisanbartolo
+            © {muni.nombre} · {muni.web}
           </p>
         </div>
       </main>

@@ -1,0 +1,25 @@
+# Laboratorio local aislado (no toca Supabase). Ver infra/README.md.
+name: muni-lab
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16 # el schema usa vector(768)
+    container_name: muni-lab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres # solo laboratorio local
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - muni-lab-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d muni_demo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  muni-lab-data:

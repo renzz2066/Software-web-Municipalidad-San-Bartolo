@@ -5,6 +5,8 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
+  // Multi-muni: el backend elige la base por el host del frontend (specs/multi-muni-v1.md)
+  config.headers['X-Muni'] = window.location.hostname
   const token = localStorage.getItem('accessToken')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

@@ -11,8 +11,9 @@ function crear(usuario: unknown) {
   };
   const jwtService = { signAsync: vi.fn().mockResolvedValue('token') };
   const auditoria = { registrarSesion: vi.fn().mockResolvedValue(undefined) };
-  const service = new AuthService(usersService as any, jwtService as any, auditoria as any);
-  return { service, auditoria };
+  const munis = { actual: () => ({ slug: 'demo' }) };
+  const service = new AuthService(usersService as any, jwtService as any, auditoria as any, munis as any);
+  return { service, auditoria, jwtService };
 }
 
 async function usuarioBase(cambios: Record<string, unknown> = {}) {
@@ -34,6 +35,16 @@ function sinPassword(auditoria: { registrarSesion: ReturnType<typeof vi.fn> }, h
   expect(enviado).not.toContain(PASSWORD);
   if (hash) expect(enviado).not.toContain(hash);
 }
+
+describe('AuthService.login — multi-muni', () => {
+  it('el token lleva la muni de la petición', async () => {
+    const { service, jwtService } = crear(await usuarioBase());
+
+    await service.login('jperez', PASSWORD);
+
+    expect(jwtService.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sub: 7, muni: 'demo' }));
+  });
+});
 
 describe('AuthService.login — auditoría', () => {
   it('login exitoso registra LOGIN con el usuario', async () => {

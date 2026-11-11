@@ -1,0 +1,36 @@
+{
+  "defecto": "sanbartolo",
+  "munis": [
+    {
+      "slug": "sanbartolo",
+      "nombre": "Municipalidad Distrital de San Bartolo",
+      "nombreCorto": "San Bartolo",
+      "ubicacion": "Lima Sur · Perú",
+      "lema": "Distrito turístico · Bahía y malecón",
+      "gentilicio": "sanbartolino",
+      "web": "gob.pe/munisanbartolo",
+      "hosts": ["sanbartolo.localhost"],
+      "escudoUrl": "/escudo-mdsb.png",
+      "fondoUrl": "/san-bartolo-bahia.jpg",
+      "colores": {}
+    },
+    {
+      "slug": "demo",
+      "nombre": "Municipalidad Distrital de Demostración",
+      "nombreCorto": "Muni Demo",
+      "ubicacion": "Entorno de prueba",
+      "lema": "Datos ficticios para demostraciones",
+      "gentilicio": "",
+      "web": "demo.localhost",
+      "hosts": ["demo.localhost"],
+      "escudoUrl": "/munis/demo/escudo.svg",
+      "fondoUrl": null,
+      "colores": {
+        "mar-profundo": "#2d1b4e",
+        "mar": "#6a3fa0",
+        "mar-medio": "#4a2d78",
+        "turquesa": "#c39bf0"
+      }
+    }
+  ]
+}

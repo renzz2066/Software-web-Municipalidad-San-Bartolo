@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs';
 import { contextoAuditoria, type ContextoAuditoria } from '../src/auditoria/auditoria-contexto.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { MuniService } from '../src/muni/muni.service.js';
 
 if (!process.env.DATABASE_URL && existsSync('.env')) {
   process.loadEnvFile('.env');
@@ -24,7 +25,7 @@ interface FilaAuditoria {
 }
 
 describe('Auditoría por triggers (e2e)', () => {
-  const prisma = new PrismaService();
+  const prisma = new PrismaService(new MuniService());
   let admin: { id: number; rolId: number };
 
   beforeAll(async () => {
