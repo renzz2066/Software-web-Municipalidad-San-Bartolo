@@ -6,7 +6,8 @@ No toca Supabase: `db:setup` solo acepta hosts locales y pisa `DATABASE_URL`/`DI
 ## Requisitos
 
 - Docker Desktop (backend WSL 2) en ejecución: `docker version` debe responder.
-- Node + `cd backend; npm install` hecho.
+- Node + `cd backend; npm install` y `cd frontend; npm install` hechos.
+- No corras `npm run build` con `start:lab` vivo: borra `dist/` y tumba el backend en watch.
 
 ## 1. Levantar Postgres (PowerShell, desde la raíz del repo)
 
@@ -22,6 +23,8 @@ El script `postgres-init/01-crear-bases.sql` solo corre con el volumen vacío.
 
 ```powershell
 cd backend
+npx prisma generate                               # PC nueva: sin esto el seed falla ("does not provide an export named ...")
+Copy-Item .env.local-lab.example .env.local-lab   # primera vez; cambia JWT_SECRET
 npm run db:setup -- postgresql://postgres:postgres@localhost:5433/muni_san_bartolo
 npm run db:setup -- postgresql://postgres:postgres@localhost:5433/muni_demo
 npm run db:setup:todas      # o todas las de MUNIS en .env.local-lab, una tras otra
@@ -34,7 +37,6 @@ Si una base falla, `db:setup:todas` se detiene y dice cuál; las siguientes no s
 
 ```powershell
 cd backend
-Copy-Item .env.local-lab.example .env.local-lab   # primera vez; cambia JWT_SECRET
 npm run start:lab                                  # un solo backend atiende ambas munis
 ```
 ```powershell
