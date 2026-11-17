@@ -4,6 +4,7 @@ import { AccionAuditoria } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
+import { MuniService } from '../muni/muni.service.js';
 import type { AuthenticatedUser } from './types/jwt-payload.type.js';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly auditoria: AuditoriaService,
+    private readonly munis: MuniService,
   ) {}
 
   async login(usuario: string, password: string) {
@@ -31,7 +33,13 @@ export class AuthService {
 
     const accesos = await this.usersService.accesosDeUsuario(user.id);
 
-    const payload = { sub: user.id, usuario: user.usuario, rol: user.rol.nombre, niveles: accesos };
+    const payload = {
+      sub: user.id,
+      usuario: user.usuario,
+      rol: user.rol.nombre,
+      niveles: accesos,
+      muni: this.munis.actual().slug,
+    };
     const accessToken = await this.jwtService.signAsync(payload);
 
     await this.auditoria.registrarSesion({

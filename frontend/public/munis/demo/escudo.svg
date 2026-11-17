@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Escudo de demostración">
+  <path d="M32 4 L56 12 V30 C56 45 45 55 32 60 C19 55 8 45 8 30 V12 Z" fill="#4a2d78" stroke="#2d1b4e" stroke-width="2"/>
+  <path d="M32 12 L48 17 V30 C48 40 41 47 32 51 C23 47 16 40 16 30 V17 Z" fill="#c39bf0"/>
+  <text x="32" y="38" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-weight="bold" fill="#2d1b4e">D</text>
+</svg>

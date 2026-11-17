@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { contextoAuditoria, sqlContexto } from '../auditoria/auditoria-contexto.js';
+import { MuniService } from '../muni/muni.service.js';
 
 const ESCRITURAS = new Set([
   'create',
@@ -54,19 +55,46 @@ function extenderConAuditoria(base: PrismaClient) {
   });
 }
 
+type ClienteMuni = ReturnType<typeof extenderConAuditoria>;
+
+// Multi-muni (specs/multi-muni-v1.md): un cliente por base, creado al primer uso.
+// PrismaService es un Proxy que en cada acceso delega al cliente de la muni de la
+// petición (MuniMiddleware → AsyncLocalStorage): los servicios de dominio no cambian.
+// Intencional: los tipos públicos son los de PrismaClient; el Proxy los resuelve en runtime.
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging
+export interface PrismaService extends PrismaClient {}
+
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  constructor() {
-    super();
-    // Nest inyecta el cliente extendido; los tipos públicos siguen siendo los de PrismaClient.
-    return extenderConAuditoria(this) as unknown as PrismaService;
+export class PrismaService implements OnModuleInit, OnModuleDestroy {
+  private readonly clientes = new Map<string, ClienteMuni>();
+
+  constructor(private readonly munis: MuniService) {
+    return new Proxy(this, {
+      get(destino, prop, receptor) {
+        if (prop in destino) return Reflect.get(destino, prop, receptor);
+        const cliente = destino.clienteActual() as unknown as Record<string | symbol, unknown>;
+        const valor = cliente[prop];
+        return typeof valor === 'function' ? valor.bind(cliente) : valor;
+      },
+    });
   }
 
+  clienteActual(): ClienteMuni {
+    const muni = this.munis.actual();
+    let cliente = this.clientes.get(muni.slug);
+    if (!cliente) {
+      cliente = extenderConAuditoria(new PrismaClient({ datasourceUrl: muni.databaseUrl }));
+      this.clientes.set(muni.slug, cliente);
+    }
+    return cliente;
+  }
+
+  // Solo la muni por defecto se conecta al arrancar; las demás al primer uso.
   async onModuleInit() {
-    await this.$connect();
+    await this.clienteActual().$connect();
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await Promise.all([...this.clientes.values()].map((c) => c.$disconnect()));
   }
 }

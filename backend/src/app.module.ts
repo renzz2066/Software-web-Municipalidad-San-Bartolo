@@ -15,10 +15,13 @@ import { PrediosModule } from './predios/predios.module.js';
 import { CajaModule } from './caja/caja.module.js';
 import { IaModule } from './ia/ia.module.js';
 import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.middleware.js';
+import { MuniModule } from './muni/muni.module.js';
+import { MuniMiddleware } from './muni/muni.middleware.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    MuniModule,
     PrismaModule,
     AuditoriaModule,
     UsersModule,
@@ -37,6 +40,7 @@ import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.midd
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AuditoriaContextoMiddleware).forRoutes('*path');
+    // MuniMiddleware primero: fija la base de la petición (specs/multi-muni-v1.md).
+    consumer.apply(MuniMiddleware, AuditoriaContextoMiddleware).forRoutes('*path');
   }
 }

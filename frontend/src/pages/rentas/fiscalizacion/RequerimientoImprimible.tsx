@@ -3,6 +3,7 @@ import { PageHeader } from '../../../components/layout/PageHeader'
 import { direccion } from '../predios/tipos'
 import { MODALIDADES } from '../valores/valoresApi'
 import { RUTA_EXPEDIENTES, etiquetaTipo, useExpediente } from './fiscalizacionApi'
+import { NombreMuni } from '../../../muni/MuniContext'
 
 // Requerimiento de inspección para imprimir y notificar (specs/rentas-fiscalizacion-v1.md, F2).
 // Base legal: facultad de fiscalización (Código Tributario art. 62) y obligación del deudor de
@@ -39,7 +40,7 @@ export function RequerimientoImprimible() {
             <>
               <header className="border-b border-slate-300 pb-3 text-center">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Municipalidad Distrital de San Bartolo · Gerencia de Rentas · Fiscalización Tributaria
+                  <NombreMuni /> · Gerencia de Rentas · Fiscalización Tributaria
                 </p>
                 <h1 className="mt-1 text-lg font-bold text-mar-profundo">REQUERIMIENTO DE INSPECCIÓN</h1>
                 <p className="font-mono font-semibold">Expediente FIS {e.numero}</p>

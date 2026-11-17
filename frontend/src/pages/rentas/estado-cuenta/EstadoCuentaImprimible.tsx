@@ -3,6 +3,7 @@ import { PageHeader } from '../../../components/layout/PageHeader'
 import { RUTA_BASE } from '../contribuyentes/tipos'
 import { hoyIso, useEstadoCuenta } from './estadoCuentaApi'
 import { TablaEstadoCuenta } from './TablaEstadoCuenta'
+import { NombreMuni } from '../../../muni/MuniContext'
 
 // Estado de cuenta para imprimir o guardar como PDF desde el navegador (C6).
 
@@ -41,7 +42,7 @@ export function EstadoCuentaImprimible() {
         <main className="mt-4 rounded-panel border border-borde bg-white p-6 print:mt-0 print:rounded-none print:border-0">
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Municipalidad Distrital de San Bartolo · Rentas</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500"><NombreMuni /> · Rentas</p>
               <h1 className="text-xl font-bold text-mar-profundo">Estado de cuenta</h1>
               <p className="text-sm text-slate-600">Deuda tributaria al {fecha}</p>
             </div>

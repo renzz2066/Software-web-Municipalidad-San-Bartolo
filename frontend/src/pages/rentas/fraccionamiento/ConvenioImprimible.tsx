@@ -7,6 +7,7 @@ import { mensajeError } from '../maestros/maestrosApi'
 import { direccionPredio } from '../valores/valoresApi'
 import { ESTILO_CONVENIO, ETIQUETA_CONVENIO, type Convenio } from './fraccionamientoApi'
 import { TablaCronograma } from './TablaCronograma'
+import { NombreMuni } from '../../../muni/MuniContext'
 
 // Convenio de fraccionamiento para imprimir y firmar (V6) + anulación (solo en pantalla).
 
@@ -58,7 +59,7 @@ export function ConvenioImprimible() {
               <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Municipalidad Distrital de San Bartolo · Subgerencia de Rentas
+                    <NombreMuni /> · Subgerencia de Rentas
                   </p>
                   <h1 className="text-xl font-bold uppercase text-mar-profundo">Convenio de fraccionamiento</h1>
                   <p className="font-mono text-base font-semibold text-mar-profundo">N° {c.numero}</p>

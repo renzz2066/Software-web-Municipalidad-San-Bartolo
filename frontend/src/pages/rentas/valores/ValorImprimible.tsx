@@ -7,6 +7,7 @@ import { mensajeError } from '../maestros/maestrosApi'
 import { AccionesValor } from './AccionesValor'
 import { RUTA_EXPEDIENTES } from '../fiscalizacion/fiscalizacionApi'
 import { ESTILO_VALOR, MODALIDADES, NOMBRE_VALOR, direccionPredio, numeroValor, type Valor } from './valoresApi'
+import { NombreMuni } from '../../../muni/MuniContext'
 
 // OP/RD para imprimir o guardar como PDF (specs/rentas-valores-v1.md, V3): montos a la fecha de
 // emisión (lo que se notifica) y, aparte, la deuda actualizada a hoy.
@@ -93,7 +94,7 @@ export function ValorImprimible() {
               <header className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Municipalidad Distrital de San Bartolo · Subgerencia de Rentas
+                    <NombreMuni /> · Subgerencia de Rentas
                   </p>
                   <h1 className="text-xl font-bold uppercase text-mar-profundo">{NOMBRE_VALOR[v.tipo]}</h1>
                   <p className="font-mono text-base font-semibold text-mar-profundo">{numeroValor(v)}</p>

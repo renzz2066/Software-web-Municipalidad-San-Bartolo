@@ -7,6 +7,7 @@ import { mensajeError } from '../rentas/maestros/maestrosApi'
 import { direccionPredio } from '../rentas/valores/valoresApi'
 import { descripcionCuota, etiquetaMedio, type Recibo, RUTA_COBRO } from './cajaApi'
 import { PanelExtorno } from './PanelExtorno'
+import { NombreMuni } from '../../muni/MuniContext'
 
 // Recibo de caja para imprimir en media hoja A5 o guardar como PDF (specs/caja-v1.md, K2).
 // Solo la vista que sigue al cobro es el original; toda otra apertura imprime "COPIA".
@@ -88,7 +89,7 @@ export function ReciboImprimible() {
               )}
               <header className="flex items-start justify-between gap-4 border-b border-slate-300 pb-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Municipalidad Distrital de San Bartolo</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500"><NombreMuni /></p>
                   <h1 className="text-lg font-bold text-mar-profundo">Recibo de caja</h1>
                   {!original && <p className="text-xs font-semibold text-slate-600">COPIA</p>}
                 </div>

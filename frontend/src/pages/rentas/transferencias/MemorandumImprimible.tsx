@@ -6,6 +6,7 @@ import { soles } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
 import { direccionPredio, numeroValor } from '../valores/valoresApi'
 import type { Memorandum } from './transferenciasApi'
+import { NombreMuni } from '../../../muni/MuniContext'
 
 // Memorándum de transferencia de valores a Cobranza Coactiva (V7), para imprimir y firmar.
 
@@ -53,7 +54,7 @@ export function MemorandumImprimible() {
           ) : (
             <>
               <header className="border-b border-slate-200 pb-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Municipalidad Distrital de San Bartolo</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500"><NombreMuni /></p>
                 <h1 className="text-xl font-bold uppercase text-mar-profundo">Memorándum N° {m.anio}-{m.numero}</h1>
                 <dl className="mt-2 grid gap-1 sm:grid-cols-[8rem_1fr]">
                   <dt className="font-semibold text-slate-500">De</dt>
