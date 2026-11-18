@@ -222,9 +222,10 @@ export function errorEditar(estado: EstadoDj): string | null {
   return estado === 'PENDIENTE' ? null : 'Solo se edita una DJ pendiente: una liquidada se reabre o se rectifica con otra DJ';
 }
 
+// J04: una DJ que ya generó cuenta también se anula, extornando esa cuenta (lo hace el servicio de
+// determinación, con las reglas J17 de errorAnularLiquidada).
 export function errorAnular(estado: EstadoDj): string | null {
-  if (estado === 'PENDIENTE' || estado === 'EN_REVISION') return null;
-  if (estado === 'LIQUIDADA') return 'Una DJ liquidada se anula extornando la cuenta que generó; eso llega con la liquidación (Fase 5)';
+  if (estado === 'PENDIENTE' || estado === 'EN_REVISION' || estado === 'LIQUIDADA') return null;
   return `La DJ ya está ${estado === 'ANULADA' ? 'anulada' : 'rechazada'}`;
 }
 

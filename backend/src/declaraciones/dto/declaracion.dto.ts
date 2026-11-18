@@ -446,3 +446,51 @@ export class BuscarDjDto {
   @Max(50)
   pageSize?: number;
 }
+
+// ---- Fase 5: determinar y liquidar ----
+
+// L08: qué años y qué tributos se liquidan. Sin años = todos los determinados; sin tributos = ambos.
+export class LiquidarDjDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsInt({ each: true })
+  @Min(1990, { each: true })
+  @Max(2100, { each: true })
+  anios?: number[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Elige impuesto predial, arbitrios o ambos' })
+  @IsIn(['PREDIAL', 'ARBITRIOS'], { each: true, message: 'Tributo no válido' })
+  tributos?: ('PREDIAL' | 'ARBITRIOS')[];
+}
+
+// J14: la revisión se aprueba o se rechaza con justificación.
+export class RevisionDjDto {
+  @IsIn(['APROBAR', 'RECHAZAR'], { message: 'La decisión es APROBAR o RECHAZAR' })
+  accion: 'APROBAR' | 'RECHAZAR';
+
+  @IsString()
+  @IsNotEmpty({ message: 'Justifica la decisión' })
+  @MaxLength(250)
+  justificacion: string;
+}
+
+// J08: multa 176.1 de una DJ fuera de plazo.
+export class MultaDjDto {
+  @IsIn(['EMITIR', 'DESCARTAR'], { message: 'La decisión es EMITIR o DESCARTAR' })
+  accion: 'EMITIR' | 'DESCARTAR';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  motivo?: string;
+}
+
+export class DeterminacionesContribuyenteDto {
+  @Type(() => Number)
+  @IsInt({ message: 'Indica el contribuyente' })
+  @Min(1)
+  contribuyenteId: number;
+}

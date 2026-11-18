@@ -12,6 +12,7 @@ import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
 import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
 import { RUTA_DIRECCIONES } from '../direcciones/direccionesApi'
+import { HojasResumen } from '../declaraciones/HojasResumen'
 import { RUTA_DJ } from '../declaraciones/djApi'
 import { BeneficiosPersona } from './BeneficiosPersona'
 import { EstadoPersona } from './EstadoPersona'
@@ -397,8 +398,19 @@ export function FichaContribuyente() {
                 <BeneficiosPersona contribuyenteId={c.id} beneficios={c.beneficios} alCambiar={() => setRefreshKey((k) => k + 1)} />
               )}
               {pestana === 'calculo' && (
-                <div className="p-6">
-                  <PanelCalculo contribuyenteId={c.id} alEjecutar={() => setRefreshKey((k) => k + 1)} />
+                <div className="space-y-6 p-6">
+                  <section aria-labelledby="hr-titulo">
+                    <h2 id="hr-titulo" className="mb-2 font-serif text-lg text-mar-profundo">
+                      Determinación por año (HR)
+                    </h2>
+                    <HojasResumen contribuyenteId={c.id} refreshKey={refreshKey} />
+                  </section>
+                  <section aria-labelledby="calculo-titulo">
+                    <h2 id="calculo-titulo" className="mb-2 font-serif text-lg text-mar-profundo">
+                      Cálculo por año (sistema anterior)
+                    </h2>
+                    <PanelCalculo contribuyenteId={c.id} alEjecutar={() => setRefreshKey((k) => k + 1)} />
+                  </section>
                 </div>
               )}
               {pestana === 'valores' && <ValoresContribuyente contribuyenteId={c.id} />}

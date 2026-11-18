@@ -50,3 +50,23 @@ export function esExtemporanea(motivo: MotivoDeclaracion, fechaHecho: string | n
   const vence = vencePlazoDJ(motivo, fechaHecho, feriados);
   return vence !== null && fechaPresentacion > vence;
 }
+
+// J08 para la DJ presentada (v2, specs/rentas-nucleo-v2.md, Fase 5). TUO LTM art. 14:
+// - inscripción, adquisición o transferencia: último día hábil del mes siguiente al primer hecho
+//   declarado (adquisición o descargo de cualquier anexo);
+// - anual: último día hábil de febrero del año (las prórrogas de J16 aún no tienen pantalla).
+// Los cambios de más de 5 UIT necesitan el valor anterior del predio: todavía no se proponen.
+export function plazoDjPresentada(
+  motivo: string,
+  hechos: (string | null)[],
+  anioPresentacion: number,
+  feriados: ReadonlySet<string>,
+): { hecho: string | null; vence: string } | null {
+  if (motivo === 'ANUAL') return { hecho: null, vence: ultimoDiaHabilDelMes(anioPresentacion, 2, feriados) };
+  if (!['INSCRIPCION', 'COMPRA', 'VENTA'].includes(motivo)) return null;
+  const hecho = hechos.filter((h): h is string => Boolean(h)).sort()[0];
+  if (!hecho) return null;
+  const [y, m] = hecho.split('-').map(Number);
+  const siguiente = new Date(Date.UTC(y, m, 1));
+  return { hecho, vence: ultimoDiaHabilDelMes(siguiente.getUTCFullYear(), siguiente.getUTCMonth() + 1, feriados) };
+}

@@ -23,7 +23,7 @@ export interface ParametrosAnio {
   aranceles: { viaId: number; urbanizacionId: number | null; valorM2: Num }[];
   valoresUnitarios: { componente: string; categoria: string; valor: Num }[];
   depreciaciones: { clasificacion: string; material: string; estadoConservacion: string; antiguedadHasta: number; porcentaje: Num }[];
-  tarifas: { concepto: string; zonaId: number | null; uso: string | null; tasa: Num }[];
+  tarifas: { concepto: string; zonaId: number | null; uso: string | null; tasa: Num; unidad?: string; frecuencia?: string | null; ubicacionParque?: string | null }[];
 }
 
 export interface PisoCalculo {
@@ -95,7 +95,8 @@ export function valorizarPredio(p: PredioCalculo, params: ParametrosAnio): Valor
   };
 }
 
-function valorizarPiso(piso: PisoCalculo, params: ParametrosAnio) {
+// También la usa la determinación v2 (determinacion.reglas.ts) para valorizar los niveles de la DJ.
+export function valorizarPiso(piso: PisoCalculo, params: Pick<ParametrosAnio, 'anio' | 'valoresUnitarios' | 'depreciaciones'>) {
   if (!piso.categorias || piso.categorias.length !== COMPONENTES.length) {
     return { error: 'faltan las categorías de construcción' };
   }
@@ -143,10 +144,18 @@ export function impuestoPredial(base: Num, params: Pick<ParametrosAnio, 'uit' | 
 
 // ---- Arbitrios: tarifa más específica (zona+uso > zona > uso > general) ----
 
+// v1 solo entiende la tarifa anual por predio: las de la ordenanza por criterios (frecuencia, parques,
+// m² o frontis; L07) las aplica la determinación v2.
 export function tarifaArbitrio(predio: Pick<PredioCalculo, 'zonaId' | 'usoPredio'>, concepto: string, tarifas: ParametrosAnio['tarifas']) {
   const uso = predio.usoPredio?.toUpperCase() ?? null;
   const candidatas = tarifas.filter(
-    (t) => t.concepto === concepto && (t.zonaId === null || t.zonaId === predio.zonaId) && (t.uso === null || t.uso === uso),
+    (t) =>
+      t.concepto === concepto &&
+      (t.unidad ?? 'PREDIO') === 'PREDIO' &&
+      !t.frecuencia &&
+      !t.ubicacionParque &&
+      (t.zonaId === null || t.zonaId === predio.zonaId) &&
+      (t.uso === null || t.uso === uso),
   );
   const puntaje = (t: (typeof candidatas)[number]) => (t.zonaId !== null ? 2 : 0) + (t.uso !== null ? 1 : 0);
   return candidatas.sort((a, b) => puntaje(b) - puntaje(a))[0] ?? null;

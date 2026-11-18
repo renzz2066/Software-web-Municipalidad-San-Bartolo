@@ -82,7 +82,11 @@ export function TablaEstadoCuenta({ datos, seleccion }: { datos: EstadoCuenta; s
                   {l.vencimiento ?? '—'}
                   {l.diasAtraso > 0 && <span className="block text-xs">{l.diasAtraso} días</span>}
                 </td>
-                <td className="px-2 py-1.5 text-xs text-slate-600">{l.situacion ?? '—'}</td>
+                <td className="px-2 py-1.5 text-xs text-slate-600">
+                  {l.situacion ?? (l.origen || l.ajuste ? null : '—')}
+                  {l.ajuste && <span className="block">Ajuste de la cuota {l.cuota}</span>}
+                  {l.origen && <span className="block print:hidden">DJ {l.origen.numeroTexto}</span>}
+                </td>
                 <td className="px-2 py-1.5 text-right">{soles(l.insoluto)}</td>
                 <td className="px-2 py-1.5 text-right">{soles(l.reajuste)}</td>
                 <td className="px-2 py-1.5 text-right">{soles(l.mora)}</td>

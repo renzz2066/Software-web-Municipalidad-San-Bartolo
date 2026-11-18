@@ -1,6 +1,6 @@
 import { BaseMulta, MotivoDeclaracion, TipoPersona } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
-import { esExtemporanea, montoMulta, ultimoDiaHabilDelMes, vencePlazoDJ } from './multas.reglas.js';
+import { esExtemporanea, montoMulta, plazoDjPresentada, ultimoDiaHabilDelMes, vencePlazoDJ } from './multas.reglas.js';
 
 const sinFeriados = new Set<string>();
 const i1761 = { base: BaseMulta.UIT, porcentajeNatural: 50, porcentajeJuridica: 100 };
@@ -41,5 +41,19 @@ describe('plazo de la DJ (D.L. 776 art. 14)', () => {
     expect(esExtemporanea(MotivoDeclaracion.COMPRA, '2026-09-15', '2026-10-30', sinFeriados)).toBe(false);
     expect(esExtemporanea(MotivoDeclaracion.COMPRA, '2026-09-15', '2026-11-02', sinFeriados)).toBe(true);
     expect(esExtemporanea(MotivoDeclaracion.COMPRA, null, '2027-05-01', sinFeriados)).toBe(false);
+  });
+});
+
+describe('plazo de la DJ presentada (J08)', () => {
+  const sin = new Set<string>();
+  it('adquisición: último día hábil del mes siguiente al primer hecho', () => {
+    expect(plazoDjPresentada('COMPRA', ['2026-05-20', '2026-04-03'], 2026, sin)).toEqual({ hecho: '2026-04-03', vence: '2026-05-29' });
+    expect(plazoDjPresentada('VENTA', ['2025-12-10'], 2026, sin)?.vence).toBe('2026-01-30');
+  });
+
+  it('anual: último día hábil de febrero; otros motivos no tienen plazo aquí', () => {
+    expect(plazoDjPresentada('ANUAL', [], 2026, sin)?.vence).toBe('2026-02-27');
+    expect(plazoDjPresentada('MODIFICACION', ['2026-01-10'], 2026, sin)).toBeNull();
+    expect(plazoDjPresentada('COMPRA', [null], 2026, sin)).toBeNull();
   });
 });

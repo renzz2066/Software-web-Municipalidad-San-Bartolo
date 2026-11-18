@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { EstadoRegistro, Prisma, TipoTributo } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { EstadoDeterminacion, EstadoDj, EstadoRegistro, Prisma, TipoTributo } from '@prisma/client';
 import type { AuthenticatedUser } from '../../auth/types/jwt-payload.type.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CONCEPTOS_ARBITRIO } from '../catalogos-construccion.js';
@@ -31,6 +31,9 @@ export interface CalculoEntrada {
   // Datos de predio que reemplazan a los guardados, sin escribirlos: la ficha de una fiscalización
   // (specs/rentas-fiscalizacion-v1.md, F4).
   sustituir?: Map<number, Omit<PredioCalculo, 'id' | 'titulares'>>;
+  // Rentas v2 (Fase 5): quien ya tiene la determinación del año liquidada desde su DJ no lo toca el
+  // cálculo v1 (ni crea, ni actualiza, ni anula sus cuotas). La fiscalización sí lo simula.
+  respetarV2?: boolean;
 }
 
 export type DatosPredioCalculo = Omit<PredioCalculo, 'id' | 'titulares'>;
@@ -45,14 +48,14 @@ export class CalculoService {
 
   simular(entrada: CalculoEntrada, usuario: AuthenticatedUser) {
     this.autorizar(entrada, usuario);
-    return this.prisma.$transaction(async (tx) => (await this.preparar(tx, entrada)).respuesta, OPCIONES_TX);
+    return this.prisma.$transaction(async (tx) => (await this.preparar(tx, { ...entrada, respetarV2: true })).respuesta, OPCIONES_TX);
   }
 
   // Ejecuta en una sola transacción: cuenta corriente + autoavalúo del predio, o nada.
   ejecutar(entrada: CalculoEntrada, usuario: AuthenticatedUser) {
     this.autorizar(entrada, usuario);
     return this.prisma.$transaction(async (tx) => {
-      const { respuesta, plan, valorizados } = await this.preparar(tx, entrada);
+      const { respuesta, plan, valorizados } = await this.preparar(tx, { ...entrada, respetarV2: true });
       const anio = entrada.anio;
 
       for (let i = 0; i < plan.crear.length; i += LOTE) {
@@ -119,7 +122,7 @@ export class CalculoService {
   // al recalcular o cuyo predial no se puede calcular (datos incompletos: no se sabe si su deuda está
   // al día); a ellos no se les emite. Devuelve también la base imponible predial de cada uno.
   async revisarParaEmision(tx: Tx, anio: number, tipos: TipoCalculo[], contribuyenteId?: number) {
-    const { plan, existentes, bases, tributos, fallidos } = await this.preparar(tx, { anio, contribuyenteId, tributos: tipos });
+    const { plan, existentes, bases, tributos, fallidos } = await this.preparar(tx, { anio, contribuyenteId, tributos: tipos, respetarV2: true });
     const idPredial = tributos.get('PREDIAL');
     const pendientes = new Map<number, Set<TipoCalculo>>();
     const marcar = (cid: number, tributoId: number) => {
@@ -134,6 +137,23 @@ export class CalculoService {
       if (e) marcar(e.contribuyenteId, e.tributoId);
     }
     if (idPredial) for (const cid of fallidos) marcar(cid, idPredial);
+
+    // v2: una DJ pendiente o en revisión que toca el año puede cambiar su deuda (no se emite hasta
+    // liquidarla); la base de la OP es la de su determinación liquidada.
+    const djPendientes = await tx.djPresentada.findMany({
+      where: {
+        estado: { in: [EstadoDj.PENDIENTE, EstadoDj.EN_REVISION] },
+        ...(contribuyenteId ? { contribuyenteId } : {}),
+        anexos: { some: { OR: [{ anioAfectacion: { lte: anio } }, { fechaAfectacionArbitrios: { lte: new Date(`${anio}-12-31`) } }] } },
+      },
+      select: { contribuyenteId: true },
+    });
+    for (const d of djPendientes) for (const t of tipos) marcar(d.contribuyenteId, t === 'PREDIAL' ? (idPredial ?? -1) : -1);
+    const v2 = await tx.determinacion.findMany({
+      where: { anio, estado: EstadoDeterminacion.LIQUIDADA, liquidaPredial: true, ...(contribuyenteId ? { contribuyenteId } : {}) },
+      select: { contribuyenteId: true, baseAfecta: true },
+    });
+    for (const d of v2) bases.set(d.contribuyenteId, d.baseAfecta);
     return { pendientes, bases };
   }
 
@@ -151,11 +171,18 @@ export class CalculoService {
       for (const p of predios) valorizados.set(p.id, valorizarPredio(p, params));
     }
 
+    // v2 (Fase 5): los que ya tienen su determinación del año liquidada quedan fuera.
+    const gobernados = entrada.respetarV2 ? await this.conDeterminacionV2(tx, anio, contribuyenteId) : new Set<number>();
+    if (contribuyenteId && gobernados.has(contribuyenteId)) {
+      throw new ConflictException(`El ${anio} de esta persona ya se liquidó desde su DJ (determinación v2): se recalcula desde la DJ, no con el cálculo v1`);
+    }
+
     // Participación de cada contribuyente en cada predio.
     const porContribuyente = new Map<number, { predio: PredioCalculo; pct: Prisma.Decimal }[]>();
     for (const p of predios) {
       for (const t of p.titulares) {
         if (contribuyenteId && t.contribuyenteId !== contribuyenteId) continue;
+        if (gobernados.has(t.contribuyenteId)) continue;
         const lista = porContribuyente.get(t.contribuyenteId) ?? [];
         lista.push({ predio: p, pct: new D(t.porcentaje) });
         porContribuyente.set(t.contribuyenteId, lista);
@@ -280,7 +307,7 @@ export class CalculoService {
         },
       })
     )
-      .filter((e) => !(fallidos.has(e.contribuyenteId) && e.tributoId === idPredial))
+      .filter((e) => !(fallidos.has(e.contribuyenteId) && e.tributoId === idPredial) && !gobernados.has(e.contribuyenteId))
       .map(({ valorDetalles, ajustes, ...e }) => ({
         ...e,
         enValor: valorDetalles.length > 0,
@@ -305,12 +332,22 @@ export class CalculoService {
         sinCambio: plan.sinCambio,
         protegidas: plan.protegidas,
       },
+      determinadosV2: gobernados.size,
       errores: errores.slice(0, 200),
       totalErrores: errores.length,
       detalle,
       ejecutado: false,
     };
     return { respuesta, plan, lineas, valorizados, existentes, bases, tributos, fallidos };
+  }
+
+  private async conDeterminacionV2(tx: Tx, anio: number, contribuyenteId?: number) {
+    const filas = await tx.determinacion.findMany({
+      where: { anio, estado: EstadoDeterminacion.LIQUIDADA, ...(contribuyenteId ? { contribuyenteId } : {}) },
+      select: { contribuyenteId: true },
+      distinct: ['contribuyenteId'],
+    });
+    return new Set(filas.map((f) => f.contribuyenteId));
   }
 
   private async cargarParametros(tx: Tx, anio: number, tipos: TipoCalculo[]): Promise<ParametrosAnio> {

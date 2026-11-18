@@ -6,6 +6,7 @@ import { RequireNivel } from '../../auth/decorators/nivel.decorator.js';
 import {
   AbrirAnioDto,
   ArancelesDto,
+  ArancelesRusticosDto,
   DepreciacionesDto,
   EscalaDto,
   FeriadosDto,
@@ -62,6 +63,16 @@ export class MaestrosController {
   @Put('aranceles/:anio')
   guardarAranceles(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ArancelesDto) {
     return this.maestros.guardarAranceles(anio, dto);
+  }
+
+  @Get('aranceles-rusticos/:anio')
+  listarArancelesRusticos(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.listarArancelesRusticos(anio);
+  }
+
+  @Put('aranceles-rusticos/:anio')
+  guardarArancelesRusticos(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ArancelesRusticosDto) {
+    return this.maestros.guardarArancelesRusticos(anio, dto);
   }
 
   @Get('valores-unitarios/:anio')

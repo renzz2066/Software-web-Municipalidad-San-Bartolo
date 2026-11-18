@@ -7,10 +7,12 @@ import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { CLASIFICACIONES, ESTADOS_CONSERVACION, MATERIALES, etiqueta } from '../catalogosConstruccion'
 import { RUTA_BASE } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
+import { DeterminacionDj } from './DeterminacionDj'
 import { ESTILO_ESTADO_DJ, ETIQUETA_ESTADO_DJ, RUTA_DJ, etiquetaPredio, type AnexoApi, type DjDetalle } from './djApi'
 
-// Ficha de la DJ presentada: cabecera, documentos y anexos. Se edita o anula mientras está
-// pendiente (J04); se reabre una liquidada (J05, supervisor). Nunca se borra.
+// Ficha de la DJ presentada: cabecera, documentos, determinación y liquidación (Fase 5) y anexos.
+// Se edita mientras está pendiente; se reabre una liquidada (J05, supervisor). Nunca se borra: se
+// anula, y si ya generó cuenta la anulación la extorna (J04; un supervisor que no la registró, J17).
 
 const SUPERVISION = ['SUPERVISOR', 'ADMIN']
 
@@ -125,12 +127,16 @@ export function FichaDj() {
                 </div>
               )}
 
+              <MultaPlazo dj={dj} alCambiar={setDj} />
+
               {(pendiente || dj.estado === 'EN_REVISION' || dj.estado === 'LIQUIDADA') && (
                 <div className="mt-4 border-t border-slate-100 pt-3">
                   {anulando ? (
                     <div className="flex flex-wrap items-end gap-2">
                       <label className="min-w-0 flex-1 text-sm">
-                        <span className="block text-xs text-slate-500">Motivo de la anulación (mínimo 10 caracteres)</span>
+                        <span className="block text-xs text-slate-500">
+                          Motivo de la anulación (mínimo 10 caracteres){dj.liquidadaAt ? ': se extorna la cuenta que generó y el padrón vuelve a como estaba' : ''}
+                        </span>
                         <input
                           value={motivoAnular}
                           maxLength={250}
@@ -152,13 +158,14 @@ export function FichaDj() {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {dj.estado !== 'LIQUIDADA' && (
+                      {/* J04/J17: con cuenta generada la anula (y extorna) un supervisor que no la registró. */}
+                      {(!dj.liquidadaAt || (SUPERVISION.includes(user?.rol ?? '') && user?.id !== dj.creadoPorId)) && (
                         <button
                           type="button"
                           onClick={() => setAnulando(true)}
                           className="rounded-md border border-ladrillo/40 px-3 py-1.5 text-xs font-medium text-ladrillo hover:bg-ladrillo/5 focus-visible:outline-3 focus-visible:outline-turquesa"
                         >
-                          Anular DJ
+                          {dj.liquidadaAt ? 'Anular y extornar' : 'Anular DJ'}
                         </button>
                       )}
                       {dj.estado === 'LIQUIDADA' && SUPERVISION.includes(user?.rol ?? '') && (
@@ -181,6 +188,8 @@ export function FichaDj() {
                 </div>
               )}
             </section>
+
+            <DeterminacionDj dj={dj} alCambiar={setDj} />
 
             {dj.anexos.map((a) => (
               <Anexo key={a.id} a={a} />
@@ -281,6 +290,99 @@ function Anexo({ a }: { a: AnexoApi }) {
         </Lista>
       )}
     </section>
+  )
+}
+
+// J08: DJ presentada fuera de plazo (TUO LTM art. 14). Se propone la multa 176.1 y quien registra la
+// emite o la descarta con motivo, una sola vez (como F7 en la DJ del sistema anterior).
+const MOTIVO_MIN = 10
+
+function MultaPlazo({ dj, alCambiar }: { dj: DjDetalle; alCambiar: (dj: DjDetalle) => void }) {
+  const [descartando, setDescartando] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+  if (!dj.plazo?.extemporanea || dj.estado === 'ANULADA' || dj.estado === 'RECHAZADA') return null
+
+  async function decidir(accion: 'EMITIR' | 'DESCARTAR') {
+    if (accion === 'DESCARTAR' && motivo.trim().length < MOTIVO_MIN) {
+      setError(`Indica por qué no corresponde la multa (mínimo ${MOTIVO_MIN} caracteres)`)
+      return
+    }
+    setOcupado(true)
+    setError(null)
+    try {
+      const { data } = await api.post<DjDetalle>(`/declaraciones/${dj.id}/multa`, { accion, motivo: accion === 'DESCARTAR' ? motivo.trim() : undefined })
+      alCambiar(data)
+      setDescartando(false)
+    } catch (err) {
+      setError(mensajeError(err))
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const multa = dj.multas[0]
+  return (
+    <div className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      <p>
+        <i aria-hidden="true" className="bi bi-alarm mr-1" />
+        Presentada fuera de plazo: {dj.plazo.hecho ? `el hecho fue el ${dj.plazo.hecho} y ` : ''}el plazo venció el {dj.plazo.vence} (TUO LTM art. 14, J08).
+      </p>
+      {multa ? (
+        <p className="mt-1">
+          Multa 176.1 emitida: RM {multa.anio}-{multa.numero} ({multa.estado.toLowerCase()}).
+        </p>
+      ) : dj.multaDescartada ? (
+        <p className="mt-1">Multa 176.1 descartada: {dj.multaDescartada}</p>
+      ) : descartando ? (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <label className="min-w-0 flex-1">
+            <span className="block text-xs">Por qué no corresponde la multa</span>
+            <input
+              value={motivo}
+              maxLength={200}
+              onChange={(e) => setMotivo(e.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={() => void decidir('DESCARTAR')}
+            className="rounded-md border border-amber-800/40 px-3 py-1.5 text-xs font-medium hover:bg-amber-100 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+          >
+            Descartar multa
+          </button>
+          <button type="button" onClick={() => setDescartando(false)} className="rounded-md px-3 py-1.5 text-xs font-medium hover:bg-amber-100 focus-visible:outline-3 focus-visible:outline-turquesa">
+            Cancelar
+          </button>
+        </div>
+      ) : (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={ocupado}
+            onClick={() => void decidir('EMITIR')}
+            className="rounded-md bg-ladrillo px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
+          >
+            Emitir multa 176.1
+          </button>
+          <button
+            type="button"
+            onClick={() => setDescartando(true)}
+            className="rounded-md border border-amber-800/40 px-3 py-1.5 text-xs font-medium hover:bg-amber-100 focus-visible:outline-3 focus-visible:outline-turquesa"
+          >
+            No corresponde
+          </button>
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-1 text-sm font-medium text-ladrillo">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 

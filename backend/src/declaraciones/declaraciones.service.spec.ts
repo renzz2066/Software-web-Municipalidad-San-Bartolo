@@ -36,9 +36,10 @@ function construir() {
       ),
     ),
   };
-  const servicio = new DeclaracionesService(prisma as unknown as PrismaService, catalogos as unknown as CatalogosService);
+  const determinacion = { descartar: vi.fn(), anularLiquidada: vi.fn() };
+  const servicio = new DeclaracionesService(prisma as unknown as PrismaService, catalogos as unknown as CatalogosService, determinacion as never, { plazoDjPresentada: vi.fn() } as never);
   vi.spyOn(servicio, 'findOne').mockResolvedValue({} as never);
-  return { servicio, prisma };
+  return { servicio, prisma, determinacion };
 }
 
 const hoy = hoyLima();
@@ -98,14 +99,19 @@ describe('DeclaracionesService', () => {
     await expect(servicio.registrar(venta as never)).rejects.toThrow(/no es titular/);
   });
 
-  it('anular exige motivo y solo desde pendiente; reabrir es de supervisor', async () => {
-    const { servicio, prisma } = construir();
+  it('anular exige motivo; si ya generó cuenta la extorna (J04); reabrir es de supervisor', async () => {
+    const { servicio, prisma, determinacion } = construir();
     prisma.djPresentada.findUnique.mockResolvedValue({ estado: EstadoDj.PENDIENTE, motivo: 'COMPRA' });
     await expect(servicio.anular(50, { motivo: 'corto' }, { id: 1, rol: 'CAJERO' })).rejects.toBeInstanceOf(BadRequestException);
     await servicio.anular(50, { motivo: 'Se registró a la persona equivocada' }, { id: 1, rol: 'CAJERO' });
     expect(prisma.djPresentada.update.mock.calls[0][0].data).toMatchObject({ estado: EstadoDj.ANULADA, anuladaPorId: 1 });
-    prisma.djPresentada.findUnique.mockResolvedValue({ estado: EstadoDj.LIQUIDADA, motivo: 'COMPRA' });
-    await expect(servicio.anular(50, { motivo: 'Se registró a la persona equivocada' }, { id: 1, rol: 'CAJERO' })).rejects.toThrow(/extornando/);
+    expect(determinacion.descartar).toHaveBeenCalled();
+    const supervisor = { id: 2, rol: 'SUPERVISOR' };
+    prisma.djPresentada.findUnique.mockResolvedValue({ estado: EstadoDj.LIQUIDADA, motivo: 'COMPRA', liquidadaAt: new Date() });
+    await servicio.anular(50, { motivo: 'Se registró a la persona equivocada' }, supervisor);
+    expect(determinacion.anularLiquidada).toHaveBeenCalledWith(prisma, 50, 'Se registró a la persona equivocada', supervisor);
+    prisma.djPresentada.findUnique.mockResolvedValue({ estado: EstadoDj.ANULADA, motivo: 'COMPRA', liquidadaAt: null });
+    await expect(servicio.anular(50, { motivo: 'Se registró a la persona equivocada' }, supervisor)).rejects.toBeInstanceOf(ConflictException);
     await expect(servicio.reabrir(50, { id: 1, rol: 'CAJERO' })).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

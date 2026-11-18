@@ -4,6 +4,9 @@ import { CatalogosService } from '../catalogos/catalogos.service.js';
 import { normalizarDocumento } from '../contribuyentes/documento.js';
 import { asegurarCodigoCatastroUnico } from '../predios/predios.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DeterminacionService } from '../rentas/calculo/determinacion.service.js';
+import type { Tributo } from '../rentas/calculo/reliquidacion.reglas.js';
+import { MultasService } from '../rentas/fiscalizacion/multas.service.js';
 import { reservarCorrelativos } from '../rentas/correlativos.js';
 import { iso } from '../rentas/estado-cuenta/tasas.js';
 import { hoyLima } from '../rentas/fechas.js';
@@ -23,7 +26,7 @@ import {
   indicePredominante,
   numeroDj,
 } from './dj.reglas.js';
-import { AnexoDjDto, AnularDjDto, BuscarDjDto, DeclaracionDjDto } from './dto/declaracion.dto.js';
+import { AnexoDjDto, AnularDjDto, BuscarDjDto, DeclaracionDjDto, LiquidarDjDto, MultaDjDto, RevisionDjDto } from './dto/declaracion.dto.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -55,6 +58,8 @@ export class DeclaracionesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly catalogos: CatalogosService,
+    private readonly determinacion: DeterminacionService,
+    private readonly multas: MultasService,
   ) {}
 
   async buscar(dto: BuscarDjDto) {
@@ -125,11 +130,17 @@ export class DeclaracionesService {
         rectificadaPor: { select: { id: true, anio: true, numero: true, estado: true } },
         creadoPor: { select: { usuario: true, nombres: true, apellidos: true } },
         anuladaPor: { select: { usuario: true, nombres: true, apellidos: true } },
+        revisionResueltaPor: { select: { usuario: true, nombres: true, apellidos: true } },
+        liquidadaPor: { select: { usuario: true, nombres: true, apellidos: true } },
+        multas: { where: { estado: { not: 'ANULADO' } }, select: { id: true, anio: true, numero: true, estado: true } },
       },
     });
     if (!d) throw new NotFoundException('La declaración no existe');
+    const { aplicado: _a, ...dj } = d;
     return {
-      ...d,
+      ...dj,
+      // J08: plazo de presentación y si corresponde proponer la multa 176.1.
+      plazo: await this.multas.plazoDjPresentada(this.prisma, id),
       numeroTexto: numeroDj(d.anio, d.numero),
       djPrevio: d.djPrevio ? { ...d.djPrevio, numeroTexto: numeroDj(d.djPrevio.anio, d.djPrevio.numero) } : null,
       rectificadaPor: d.rectificadaPor.map((r) => ({ ...r, numeroTexto: numeroDj(r.anio, r.numero) })),
@@ -200,25 +211,70 @@ export class DeclaracionesService {
           djPrevioId: dto.djPrevioId ?? null,
           observacion: dto.observacion?.trim() || null,
           documentos: { create: this.documentos(dto) },
+          // Lo declarado cambió: lo determinado y la revisión (J14) se vuelven a hacer.
+          revisionVence: null,
+          revisionResueltaPorId: null,
+          revisionResueltaAt: null,
+          revisionJustificacion: null,
         },
       });
+      await this.determinacion.descartar(tx, id);
       await this.escribirAnexos(tx, id, anexos);
     }, OPCIONES_TX);
     return this.findOne(id);
   }
 
-  // J04: una DJ no se borra; se anula con motivo, usuario y fecha. Los predios que creó quedan INACTIVOS.
+  // J04: una DJ no se borra; se anula con motivo, usuario y fecha. Sin cuenta generada, los predios que
+  // creó quedan INACTIVOS; si ya generó cuenta (liquidada, o reabierta), la extorna y devuelve el padrón.
   async anular(id: number, dto: AnularDjDto, actor: Actor) {
-    const d = await this.prisma.djPresentada.findUnique({ where: { id }, select: { estado: true } });
+    const d = await this.prisma.djPresentada.findUnique({ where: { id }, select: { estado: true, liquidadaAt: true } });
     if (!d) throw new NotFoundException('La declaración no existe');
     const e = errorAnular(d.estado);
     if (e) throw new ConflictException(e);
     const motivo = dto.motivo.trim();
     if (motivo.length < 10) throw new BadRequestException('Explica por qué se anula (mínimo 10 caracteres)');
-    await this.prisma.djPresentada.update({
-      where: { id },
-      data: { estado: EstadoDj.ANULADA, anuladaMotivo: motivo, anuladaPorId: actor.id, anuladaAt: new Date() },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      if (d.liquidadaAt) return this.determinacion.anularLiquidada(tx, id, motivo, actor);
+      await this.determinacion.descartar(tx, id);
+      await tx.djPresentada.update({
+        where: { id },
+        data: { estado: EstadoDj.ANULADA, anuladaMotivo: motivo, anuladaPorId: actor.id, anuladaAt: new Date() },
+      });
+    }, OPCIONES_TX);
+    return this.findOne(id);
+  }
+
+  // ---- Fase 5: determinar (C6), liquidar (C7), revisión (J14) y multa (J08) ----
+
+  async determinar(id: number) {
+    const determinaciones = await this.determinacion.determinar(id);
+    return { dj: await this.findOne(id), determinaciones };
+  }
+
+  determinaciones(id: number) {
+    return this.determinacion.verDj(id);
+  }
+
+  determinacionesContribuyente(contribuyenteId: number) {
+    return this.determinacion.porContribuyente(contribuyenteId);
+  }
+
+  previaLiquidacion(id: number, dto: LiquidarDjDto) {
+    return this.determinacion.previa(id, dto.anios, dto.tributos as Tributo[] | undefined);
+  }
+
+  async liquidar(id: number, dto: LiquidarDjDto, actor: Actor) {
+    const r = await this.determinacion.liquidar(id, dto.anios, dto.tributos as Tributo[] | undefined, actor);
+    return { ...r, dj: await this.findOne(id), determinaciones: r.dj };
+  }
+
+  async revision(id: number, dto: RevisionDjDto, actor: Actor) {
+    const determinaciones = await this.determinacion.resolverRevision(id, dto.accion, dto.justificacion, actor);
+    return { dj: await this.findOne(id), determinaciones };
+  }
+
+  async multa(id: number, dto: MultaDjDto) {
+    await this.multas.decidirDjPresentada(id, dto.accion, dto.motivo);
     return this.findOne(id);
   }
 

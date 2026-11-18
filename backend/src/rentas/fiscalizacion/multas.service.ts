@@ -5,7 +5,7 @@ import { reservarCorrelativos } from '../correlativos.js';
 import { cargarTasas, iso, liquidarCuenta } from '../estado-cuenta/tasas.js';
 import { hoyLima } from '../fechas.js';
 import { masDias } from '../valores/plazos.js';
-import { esExtemporanea, montoMulta, porcentajeMulta, vencePlazoDJ } from './multas.reglas.js';
+import { esExtemporanea, montoMulta, plazoDjPresentada, porcentajeMulta, vencePlazoDJ } from './multas.reglas.js';
 
 type Tx = Prisma.TransactionClient;
 type Db = PrismaService | Tx;
@@ -72,6 +72,7 @@ export class MultasService {
       fechaInfraccion: string;
       fiscalizacionId?: number;
       declaracionId?: number;
+      djPresentadaId?: number;
     },
   ) {
     const tributo = await tx.tributo.findUnique({ where: { codigo: TRIBUTO_MULTA }, select: { id: true } });
@@ -106,6 +107,7 @@ export class MultasService {
         infraccionId: m.infraccionId,
         fiscalizacionId: m.fiscalizacionId ?? null,
         declaracionId: m.declaracionId ?? null,
+        djPresentadaId: m.djPresentadaId ?? null,
         detalles: { create: [{ cuentaCorrienteId: cuenta.id, importe: l.insoluto, reajuste: l.reajuste, mora: l.mora, subtotal: l.total }] },
       },
       select: { id: true },
@@ -169,6 +171,65 @@ export class MultasService {
         declaracionId: dj.id,
       });
       return { declaracionId: dj.id, valorId };
+    }, OPCIONES_TX);
+  }
+
+  // J08: la DJ presentada (v2) fuera de plazo propone la 176.1; quien registra la emite o la descarta
+  // con motivo, una sola vez por DJ (igual que F7 para la DJ de v1).
+  async plazoDjPresentada(db: Db, djId: number) {
+    const dj = await db.djPresentada.findUnique({
+      where: { id: djId },
+      select: { motivo: true, fechaPresentacion: true, anexos: { select: { fechaAdquisicion: true, fechaDescargo: true } } },
+    });
+    if (!dj) throw new NotFoundException('La declaración no existe');
+    const feriados = new Set((await db.feriado.findMany({ select: { fecha: true } })).map((f) => iso(f.fecha)));
+    const presentada = iso(dj.fechaPresentacion);
+    const hechos = dj.anexos.flatMap((a) => [a.fechaAdquisicion, a.fechaDescargo]).map((f) => (f ? iso(f) : null));
+    const plazo = plazoDjPresentada(dj.motivo, hechos, Number(presentada.slice(0, 4)), feriados);
+    return plazo ? { ...plazo, extemporanea: presentada > plazo.vence } : null;
+  }
+
+  async decidirDjPresentada(djId: number, accion: 'EMITIR' | 'DESCARTAR', motivo?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const dj = await tx.djPresentada.findUnique({
+        where: { id: djId },
+        select: {
+          id: true,
+          estado: true,
+          multaDescartada: true,
+          contribuyente: { select: { id: true, tipoPersona: true } },
+          anexos: { select: { predioId: true }, orderBy: { numero: 'asc' }, take: 1 },
+          multas: { where: { estado: { not: EstadoValor.ANULADO } }, select: { id: true } },
+        },
+      });
+      if (!dj) throw new NotFoundException('La declaración no existe');
+      if (dj.estado === 'ANULADA' || dj.estado === 'RECHAZADA') throw new ConflictException('La DJ está anulada o rechazada: no corresponde multa');
+      if (dj.multas.length || dj.multaDescartada) throw new ConflictException('La multa de esta declaración ya se emitió o se descartó');
+      const plazo = await this.plazoDjPresentada(tx, djId);
+      if (!plazo?.extemporanea) {
+        throw new BadRequestException('La declaración no está fuera de plazo (o su motivo no tiene plazo): no corresponde multa');
+      }
+      if (accion === 'DESCARTAR') {
+        const m = motivo?.trim() ?? '';
+        if (m.length < 10) throw new BadRequestException('Indica por qué no corresponde la multa (mínimo 10 caracteres)');
+        await tx.djPresentada.update({ where: { id: dj.id }, data: { multaDescartada: m.slice(0, 200) } });
+        return { djId: dj.id, valorId: null };
+      }
+      // Se comete el día siguiente al vencimiento del plazo.
+      const fechaInfraccion = masDias(plazo.vence, 1);
+      const anio = Number(fechaInfraccion.slice(0, 4));
+      const [i, uit] = await Promise.all([this.infraccion(tx, INFRACCION_DJ_TARDIA, anio), tx.uit.findUnique({ where: { anio }, select: { valor: true } })]);
+      if (!uit) throw new BadRequestException(`Falta la UIT ${anio} en Maestros para calcular la multa`);
+      const valorId = await this.emitir(tx, {
+        contribuyenteId: dj.contribuyente.id,
+        predioId: dj.anexos[0]?.predioId ?? null,
+        anio,
+        infraccionId: i.id,
+        monto: montoMulta(i, dj.contribuyente.tipoPersona, uit.valor),
+        fechaInfraccion,
+        djPresentadaId: dj.id,
+      });
+      return { djId: dj.id, valorId };
     }, OPCIONES_TX);
   }
 }

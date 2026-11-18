@@ -108,7 +108,8 @@ describe('estados (J04, J05)', () => {
 
   it('se anula una pendiente; una liquidada espera a la liquidación (extorno)', () => {
     expect(errorAnular('PENDIENTE')).toBeNull();
-    expect(errorAnular('LIQUIDADA')).toMatch(/extornando/);
+    expect(errorAnular('LIQUIDADA')).toBeNull(); // se anula extornando su cuenta (Fase 5)
+    expect(errorAnular('RECHAZADA')).toMatch(/rechazada/);
     expect(errorAnular('ANULADA')).toMatch(/anulada/);
   });
 
