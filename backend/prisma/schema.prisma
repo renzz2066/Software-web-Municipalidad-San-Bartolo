@@ -318,10 +318,10 @@ model Ubigeo {
 // PK compuesta en vez de id: el documento es lo único que se repite. Solo se guardan aciertos,
 // nunca un "no encontrado", para no bloquear 30 días un DNI recién emitido.
 model ConsultaIdentidad {
-  tipoDoc      String    @db.VarChar(10) // DNI, RUC
-  numDoc       String    @db.VarChar(20)
+  tipoDoc      String   @db.VarChar(10) // DNI, RUC
+  numDoc       String   @db.VarChar(20)
   datos        Json // {tipoPersona, nombreCompleto, estado, condicion, direccionExterna}
-  consultadoAt DateTime  @default(now())
+  consultadoAt DateTime @default(now())
 
   @@id([tipoDoc, numDoc])
   @@index([consultadoAt])
@@ -329,36 +329,36 @@ model ConsultaIdentidad {
 }
 
 model Contribuyente {
-  id              Int            @id @default(autoincrement())
-  codigoLegacy    String?        @unique @db.VarChar(7) // CODCLI SIMUN, solo referencia historica
-  tipoPersona     TipoPersona    @default(NATURAL)
-  tipoDoc         String         @db.VarChar(10) // DNI, RUC, CE, PASAPORTE
-  numDoc          String         @unique @db.VarChar(20)
-  nombreCompleto  String         @db.VarChar(120)
-  direccionFiscal String?        @db.VarChar(150) // derivada de la dirección estructurada abajo
-  ubigeo          String?        @default("150129") @db.VarChar(6) // San Bartolo (Lima/Lima) por defecto
-  telefono        String?        @db.VarChar(15)
-  celular         String?        @db.VarChar(15)
-  email           String?        @db.VarChar(100)
+  id              Int         @id @default(autoincrement())
+  codigoLegacy    String?     @unique @db.VarChar(7) // CODCLI SIMUN, solo referencia historica
+  tipoPersona     TipoPersona @default(NATURAL)
+  tipoDoc         String      @db.VarChar(10) // DNI, RUC, CE, PASAPORTE
+  numDoc          String      @unique @db.VarChar(20)
+  nombreCompleto  String      @db.VarChar(120)
+  direccionFiscal String?     @db.VarChar(150) // derivada de la dirección estructurada abajo
+  ubigeo          String?     @default("150129") @db.VarChar(6) // San Bartolo (Lima/Lima) por defecto
+  telefono        String?     @db.VarChar(15)
+  celular         String?     @db.VarChar(15)
+  email           String?     @db.VarChar(100)
 
   // Domicilio fiscal (frmcontribuyentes_rentas Form2, bloque "Datos Domicilio Fiscal")
-  zonaId           Int?
-  zona             Zona?           @relation(fields: [zonaId], references: [id], onDelete: Restrict)
-  urbanizacionId   Int?
-  urbanizacion     Urbanizacion?   @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
-  viaId            Int?
-  via              Via?            @relation(fields: [viaId], references: [id], onDelete: Restrict)
-  numero           String?         @db.VarChar(10) // NUMCLI
-  interior         String?         @db.VarChar(10) // INTCLI "Dpto."
-  manzana          String?         @db.VarChar(10) // MANCLI
-  lote             String?         @db.VarChar(10) // LOTCLI
-  referencia       String?         @db.VarChar(150) // REFDIR
+  zonaId         Int?
+  zona           Zona?         @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  urbanizacionId Int?
+  urbanizacion   Urbanizacion? @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
+  viaId          Int?
+  via            Via?          @relation(fields: [viaId], references: [id], onDelete: Restrict)
+  numero         String?       @db.VarChar(10) // NUMCLI
+  interior       String?       @db.VarChar(10) // INTCLI "Dpto."
+  manzana        String?       @db.VarChar(10) // MANCLI
+  lote           String?       @db.VarChar(10) // LOTCLI
+  referencia     String?       @db.VarChar(150) // REFDIR
 
   // Cónyuge y representante legal: OPCIONALES (SIMUN no los valida al grabar)
-  conyugeNombre       String? @db.VarChar(60) // CONYUGE
-  conyugeNumDoc       String? @db.VarChar(20) // DNI_CON
-  representanteNombre String? @db.VarChar(60) // REPLEG
-  representanteNumDoc String? @db.VarChar(20) // DNI_LEG
+  conyugeNombre          String? @db.VarChar(60) // CONYUGE
+  conyugeNumDoc          String? @db.VarChar(20) // DNI_CON
+  representanteNombre    String? @db.VarChar(60) // REPLEG
+  representanteNumDoc    String? @db.VarChar(20) // DNI_LEG
   representanteDireccion String? @db.VarChar(70) // DIR_LEG
 
   estado          EstadoRegistro @default(ACTIVO)
@@ -403,8 +403,8 @@ model Zona {
   nombre    String   @db.VarChar(100)
   createdAt DateTime @default(now())
 
-  predios       Predio[]
-  tarifas       TarifaArbitrio[]
+  predios        Predio[]
+  tarifas        TarifaArbitrio[]
   contribuyentes Contribuyente[]
 
   @@map("zonas")
@@ -758,6 +758,70 @@ model DeclaracionJurada {
   @@index([predioId, anio])
   @@index([contribuyenteId, anio])
   @@map("declaraciones_juradas")
+}
+
+// Catálogos de Rentas v2 (specs/rentas-nucleo-v2.md, §3 y Fase 0; reglas en docs/rentas/reglas-negocio.md).
+// Una sola tabla con grupo: cada muni edita nombres, orden, atributos y activo en su base.
+// El código no cambia nunca (otros registros lo guardan como texto). `sistema` = el código
+// del sistema depende de esa fila: se puede renombrar, no desactivar.
+// Los atributos por grupo los valida backend/src/catalogos/catalogos.reglas.ts.
+enum GrupoCatalogo {
+  TIPO_DOCUMENTO
+  TIPO_CONTACTO
+  TIPO_RELACIONADO
+  TIPO_SUCESION
+  PERFIL_CUMPLIMIENTO
+  PERFIL_COBRANZA
+  CLASIFICACION_CONTRIBUYENTE
+  BENEFICIO
+  COMPONENTE_DIRECCION
+  TIPO_VIA
+  TIPO_HABILITACION
+  FRECUENCIA_BARRIDO
+  UBICACION_PARQUE
+  CONDICION_PROPIEDAD
+  USO_PREDIO
+  SUB_USO_PREDIO
+  MOTIVO_DJ
+  SUB_MOTIVO_DJ
+  TIPO_DOC_ADJUNTO
+  TIPO_DOC_TRANSFERENCIA
+}
+
+model Catalogo {
+  id          Int           @id @default(autoincrement())
+  grupo       GrupoCatalogo
+  codigo      String        @db.VarChar(20)
+  nombre      String        @db.VarChar(120)
+  abreviatura String?       @db.VarChar(20)
+  padreId     Int? // SUB_USO_PREDIO → USO_PREDIO; SUB_MOTIVO_DJ → MOTIVO_DJ
+  padre       Catalogo?     @relation("CatalogoJerarquia", fields: [padreId], references: [id], onDelete: Restrict)
+  hijos       Catalogo[]    @relation("CatalogoJerarquia")
+  atributos   Json? // propios del grupo (p. ej. MOTIVO_DJ.tipo = INFORMATIVA | DECLARATIVA)
+  orden       Int           @default(0)
+  activo      Boolean       @default(true)
+  sistema     Boolean       @default(false)
+  ordenanza   String?       @db.VarChar(60)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([grupo, codigo])
+  @@index([grupo, orden])
+  @@index([padreId])
+  @@map("catalogos")
+}
+
+// Reglas "Parám." que no son un catálogo (J05, J11, J16 y cuotas de arbitrios): clave/valor por base.
+model ReglaMuni {
+  clave       String   @id @db.VarChar(60)
+  valor       Json
+  descripcion String   @db.VarChar(250)
+  regla       String?  @db.VarChar(20) // ID en docs/rentas/reglas-negocio.md
+  ordenanza   String?  @db.VarChar(60)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("reglas_muni")
 }
 
 model Tupa {

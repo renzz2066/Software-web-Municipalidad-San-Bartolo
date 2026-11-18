@@ -3,6 +3,7 @@ import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { CLASIFICACIONES, CONCEPTOS_ARBITRIO, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { Catalogo } from './Catalogo'
+import { CatalogosV2 } from './CatalogosV2'
 import { FormFraccionamiento } from './FormFraccionamiento'
 import { TablaEditable, type Columna } from './TablaEditable'
 import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona } from './maestrosApi'
@@ -10,6 +11,7 @@ import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona 
 // Maestros de Rentas (specs/rentas-nucleo-v1.md, C4): parámetros por año + ubicación.
 // Feriados y fraccionamiento: specs/rentas-valores-v1.md (decisiones 2 y 3).
 // Fiscalizadores e infracciones: specs/rentas-fiscalizacion-v1.md (decisiones 2 y 5).
+// Catálogos y reglas de la muni: specs/rentas-nucleo-v2.md (Fase 0).
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS = Array.from({ length: 8 }, (_, i) => ANIO_ACTUAL + 1 - i)
@@ -26,6 +28,7 @@ const PESTANAS = [
   { id: 'feriados', titulo: 'Feriados' },
   { id: 'fiscalizacion', titulo: 'Fiscalización' },
   { id: 'ubicacion', titulo: 'Ubicación' },
+  { id: 'catalogos', titulo: 'Catálogos y reglas' },
 ] as const
 
 type PestanaId = (typeof PESTANAS)[number]['id']
@@ -367,6 +370,7 @@ export function Maestros() {
               </section>
             </div>
           )}
+          {pestana === 'catalogos' && <CatalogosV2 />}
           {pestana === 'ubicacion' && (
             <div className="grid gap-8 lg:grid-cols-3">
               <Catalogo
