@@ -257,6 +257,9 @@ model Usuario {
   prediosCreados             Predio[]            @relation("PredioCreadoPor")
   direccionesCreadas         Direccion[]         @relation("DireccionCreadoPor")
   direccionesModificadas     Direccion[]         @relation("DireccionModificadoPor")
+  djCreadas                  DjPresentada[]      @relation("DjCreadoPor")
+  djModificadas              DjPresentada[]      @relation("DjModificadoPor")
+  djAnuladas                 DjPresentada[]      @relation("DjAnuladaPor")
   prediosModificados         Predio[]            @relation("PredioModificadoPor")
   vehiculosCreados           Vehiculo[]          @relation("VehiculoCreadoPor")
   vehiculosModificados       Vehiculo[]          @relation("VehiculoModificadoPor")
@@ -401,6 +404,8 @@ model Contribuyente {
   coactivoExps    CoactivoExp[]
   licencias       Licencia[]
   declaraciones   DeclaracionJurada[]
+  djPresentadas   DjPresentada[]
+  djAdquirienteEn DjAdquiriente[]            @relation("DjAdquirientePersona")
 
   @@index([numDoc])
   @@index([nombreCompleto])
@@ -652,6 +657,7 @@ model Predio {
   declaraciones      DeclaracionJurada[]
   fiscalizaciones    FiscalizacionPredio[]
   beneficios         PredioBeneficio[]
+  djAnexos           DjAnexo[]
 
   @@index([zonaId])
   @@index([urbanizacionId])
@@ -936,6 +942,217 @@ model Correlativo {
 
   @@id([serie, anio])
   @@map("correlativos")
+}
+
+// ============================================================
+// DJ PRESENTADA (specs/rentas-nucleo-v2.md, Fase 4; reglas J01–J17, R03, R04)
+// Una DJ por contribuyente con un anexo por predio (J01). Lo declarado no se edita una vez
+// liquidado: se reabre (J05) o se rectifica con otra DJ. Convive con DeclaracionJurada (v1, por
+// predio) hasta que la Fase 5 liquide con esta.
+// ============================================================
+
+enum EstadoDj {
+  PENDIENTE
+  EN_REVISION // J14: baja la obligación de un período liquidado (Fase 5)
+  LIQUIDADA
+  ANULADA
+  RECHAZADA
+}
+
+model DjPresentada {
+  id                Int            @id @default(autoincrement())
+  anio              Int // año del correlativo (J02: AA-NNNNNNN)
+  numero            Int
+  contribuyenteId   Int
+  contribuyente     Contribuyente  @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  motivo            String         @db.VarChar(20) // catálogo MOTIVO_DJ
+  subMotivo         String?        @db.VarChar(20) // catálogo SUB_MOTIVO_DJ (hijo del motivo)
+  tipo              String         @db.VarChar(20) // J07: INFORMATIVA o DECLARATIVA, copiado del motivo al registrar
+  numeroFormulario  String?        @db.VarChar(20) // J02: formulario físico
+  folios            Int?
+  fechaPresentacion DateTime       @db.Date // recepción
+  persona           Json // J03: copia de la persona y sus relacionados al presentar
+  estado            EstadoDj       @default(PENDIENTE)
+  observacion       String?        @db.VarChar(250)
+  djPrevioId        Int? // la DJ que rectifica o sustituye
+  djPrevio          DjPresentada?  @relation("DjRectifica", fields: [djPrevioId], references: [id], onDelete: Restrict)
+  rectificadaPor    DjPresentada[] @relation("DjRectifica")
+  anuladaMotivo     String?        @db.VarChar(250)
+  anuladaPorId      Int?
+  anuladaPor        Usuario?       @relation("DjAnuladaPor", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  anuladaAt         DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  creadoPorId       Int?
+  creadoPor         Usuario?       @relation("DjCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId   Int?
+  modificadoPor     Usuario?       @relation("DjModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  anexos     DjAnexo[]
+  documentos DjDocumento[]
+
+  @@unique([anio, numero])
+  @@index([contribuyenteId])
+  @@index([estado])
+  @@map("dj_presentadas")
+}
+
+// Un renglón por predio declarado: tenencia (R04, R05, J10–J12) y características (ficha).
+model DjAnexo {
+  id                       Int          @id @default(autoincrement())
+  djId                     Int
+  dj                       DjPresentada @relation(fields: [djId], references: [id], onDelete: Restrict)
+  numero                   Int // anexo 1, 2…
+  predioId                 Int
+  predio                   Predio       @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  predioNuevo              Boolean      @default(false) // lo creó esta DJ (queda INACTIVO hasta liquidar)
+  subMotivo                String?      @db.VarChar(20)
+  condicion                String       @db.VarChar(20) // R05: catálogo CONDICION_PROPIEDAD
+  porcentaje               Decimal      @db.Decimal(6, 2) // R04: % de propiedad de este contribuyente
+  fechaAdquisicion         DateTime?    @db.Date
+  fechaDocumento           DateTime?    @db.Date // documento sustentatorio
+  fechaDescargo            DateTime?    @db.Date // J12: venta o baja
+  anioAfectacion           Int // J10: impuesto predial desde este año
+  fechaAfectacionArbitrios DateTime     @db.Date // J11: arbitrios desde este mes (día 1)
+  valorTransferencia       Decimal?     @db.Decimal(14, 2)
+  moneda                   String?      @db.VarChar(3) // PEN, USD
+  partidaRegistral         String?      @db.VarChar(30)
+  areaTerreno              Decimal      @db.Decimal(12, 2)
+  areaComun                Decimal?     @db.Decimal(12, 2)
+  numeroPisos              Int?
+  observacion              String?      @db.VarChar(250)
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  niveles      DjNivel[]
+  obras        DjObra[]
+  usos         DjUso[]
+  rusticos     DjArancelRustico[]
+  adquirientes DjAdquiriente[]
+
+  @@unique([djId, numero])
+  @@unique([djId, predioId])
+  @@index([predioId])
+  @@map("dj_anexos")
+}
+
+// Niveles de construcción (V01–V04): categorías por componente, área propia y común.
+model DjNivel {
+  id                 Int      @id @default(autoincrement())
+  anexoId            Int
+  anexo              DjAnexo  @relation(fields: [anexoId], references: [id], onDelete: Restrict)
+  orden              Int
+  nivel              String   @db.VarChar(10) // piso, sótano, azotea…
+  anioConstruccion   Int?
+  mesConstruccion    Int?
+  clasificacion      String   @db.VarChar(30) // catalogos-construccion.ts
+  material           String   @db.VarChar(20)
+  estadoConservacion String   @db.VarChar(20)
+  categorias         String   @db.VarChar(7) // una letra por componente (REGEX_CATEGORIAS)
+  areaPropia         Decimal  @db.Decimal(12, 2)
+  areaComun          Decimal? @db.Decimal(12, 2)
+  participacion      Decimal? @db.Decimal(6, 2) // V04: % de las áreas comunes
+  createdAt          DateTime @default(now())
+
+  @@index([anexoId])
+  @@map("dj_niveles")
+}
+
+// Obras complementarias (V05): medidas y cantidad; el valor oficial se calcula al determinar.
+model DjObra {
+  id                 Int      @id @default(autoincrement())
+  anexoId            Int
+  anexo              DjAnexo  @relation(fields: [anexoId], references: [id], onDelete: Restrict)
+  orden              Int
+  descripcion        String   @db.VarChar(120)
+  unidad             String?  @db.VarChar(10)
+  cantidad           Decimal  @db.Decimal(12, 2)
+  largo              Decimal? @db.Decimal(10, 2)
+  ancho              Decimal? @db.Decimal(10, 2)
+  alto               Decimal? @db.Decimal(10, 2)
+  anioConstruccion   Int?
+  material           String?  @db.VarChar(20)
+  estadoConservacion String?  @db.VarChar(20)
+  valorDeclarado     Decimal? @db.Decimal(14, 2) // como en v1, mientras no haya tabla de valores (V05)
+  createdAt          DateTime @default(now())
+
+  @@index([anexoId])
+  @@map("dj_obras")
+}
+
+// R03: varios usos por predio; los arbitrios se determinan por uso.
+model DjUso {
+  id            Int       @id @default(autoincrement())
+  anexoId       Int
+  anexo         DjAnexo   @relation(fields: [anexoId], references: [id], onDelete: Restrict)
+  orden         Int
+  uso           String    @db.VarChar(10) // catálogo USO_PREDIO
+  subUso        String?   @db.VarChar(20) // catálogo SUB_USO_PREDIO (hijo del uso)
+  inquilino     String?   @db.VarChar(120)
+  area          Decimal   @db.Decimal(12, 2)
+  frontis       Decimal?  @db.Decimal(10, 2)
+  participacion Decimal?  @db.Decimal(6, 2)
+  fechaInicio   DateTime? @db.Date
+  fechaFin      DateTime? @db.Date
+  predominante  Boolean   @default(false) // el manual marca uno
+  createdAt     DateTime  @default(now())
+
+  @@index([anexoId])
+  @@map("dj_usos")
+}
+
+// V07: predio rústico, arancel por categoría y clasificación de tierras (el valor es del año).
+model DjArancelRustico {
+  id            Int      @id @default(autoincrement())
+  anexoId       Int
+  anexo         DjAnexo  @relation(fields: [anexoId], references: [id], onDelete: Restrict)
+  orden         Int
+  categoria     String   @db.VarChar(20)
+  clasificacion String?  @db.VarChar(20)
+  hectareas     Decimal  @db.Decimal(12, 4)
+  createdAt     DateTime @default(now())
+
+  @@index([anexoId])
+  @@map("dj_aranceles_rusticos")
+}
+
+// J13: documentos adjuntos a la DJ.
+model DjDocumento {
+  id          Int          @id @default(autoincrement())
+  djId        Int
+  dj          DjPresentada @relation(fields: [djId], references: [id], onDelete: Restrict)
+  orden       Int
+  tipo        String       @db.VarChar(20) // catálogo TIPO_DOC_ADJUNTO
+  numero      String?      @db.VarChar(40)
+  fecha       DateTime?    @db.Date
+  observacion String?      @db.VarChar(250)
+  createdAt   DateTime     @default(now())
+
+  @@index([djId])
+  @@map("dj_documentos")
+}
+
+// J12: adquiriente (en un descargo) o transferente (en una adquisición). Como P10: los datos van
+// aquí y, si el documento es de una persona registrada, se enlaza.
+model DjAdquiriente {
+  id                     Int            @id @default(autoincrement())
+  anexoId                Int
+  anexo                  DjAnexo        @relation(fields: [anexoId], references: [id], onDelete: Restrict)
+  orden                  Int
+  rol                    String         @db.VarChar(15) // ADQUIRIENTE | TRANSFERENTE
+  tipoPersona            TipoPersona    @default(NATURAL)
+  tipoDoc                String?        @db.VarChar(20)
+  numDoc                 String?        @db.VarChar(20)
+  nombreCompleto         String         @db.VarChar(120)
+  direccion              String?        @db.VarChar(250)
+  documentoTransferencia String?        @db.VarChar(20) // catálogo TIPO_DOC_TRANSFERENCIA
+  personaId              Int?
+  persona                Contribuyente? @relation("DjAdquirientePersona", fields: [personaId], references: [id], onDelete: SetNull)
+  createdAt              DateTime       @default(now())
+
+  @@index([anexoId])
+  @@index([personaId])
+  @@map("dj_adquirientes")
 }
 
 // Declaración jurada versionada (reemplaza declaracion_j y copias a_*/f_*/h_* de SIMUN)
