@@ -62,6 +62,7 @@ export type DefRegla =
   | { tipo: 'opcion'; opciones: string[] }
   | { tipo: 'booleano' }
   | { tipo: 'cuotas' }
+  | { tipo: 'ubigeo' } // muni.ubigeo: distrito propio (P11)
 
 export interface ReglaMuni {
   clave: string

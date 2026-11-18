@@ -119,7 +119,8 @@ export type DefRegla =
   | { tipo: 'codigos'; grupo: GrupoCatalogo }
   | { tipo: 'opcion'; opciones: readonly string[] }
   | { tipo: 'booleano' }
-  | { tipo: 'cuotas' };
+  | { tipo: 'cuotas' }
+  | { tipo: 'ubigeo' };
 
 export interface DefReglaMuni {
   regla: string;
@@ -133,6 +134,14 @@ export const INICIO_AFECTACION_ARBITRIOS = ['MES_DEL_HECHO', 'MES_SIGUIENTE'] as
 // Valores nacionales por defecto. Ninguna de estas reglas la fija la ley: cada muni las ajusta
 // según su ordenanza (docs/rentas/reglas-negocio.md, "Cómo se decide qué regla aplicar").
 export const REGLAS_MUNI: Record<string, DefReglaMuni> = {
+  // El distrito propio no lo fija una ordenanza, pero es un dato de cada base (no un if por muni):
+  // decide qué domicilio es "del distrito" (catálogo de direcciones) y cuál es foráneo (P11).
+  'muni.ubigeo': {
+    regla: 'P11',
+    descripcion: 'Ubigeo del distrito de la municipalidad: sus direcciones van al catálogo de direcciones únicas.',
+    def: { tipo: 'ubigeo' },
+    defecto: '150129',
+  },
   'dj.motivosReabribles': {
     regla: 'J05',
     descripcion: 'Motivos de DJ que se pueden reabrir (de LIQUIDADA a PENDIENTE).',
@@ -193,5 +202,7 @@ export function errorValorRegla(clave: string, valor: unknown): string | null {
       return typeof valor === 'boolean' ? null : 'El valor debe ser sí o no';
     case 'cuotas':
       return errorCuotas(valor);
+    case 'ubigeo':
+      return typeof valor === 'string' && /^\d{6}$/.test(valor) ? null : 'El ubigeo tiene 6 dígitos';
   }
 }

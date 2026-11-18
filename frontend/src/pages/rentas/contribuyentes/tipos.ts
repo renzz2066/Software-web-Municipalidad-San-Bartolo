@@ -63,16 +63,11 @@ export interface Contribuyente extends ContribuyenteResumen {
   nombreRevisado: boolean
   fechaNacimiento: string | null
   dniCausante: string | null
+  // Domicilio fiscal (P11, Fase 2): en el distrito, una dirección única; foráneo, ubigeo + texto.
   ubigeo: string | null
-  // Domicilio fiscal (SIMUN: bloque "Datos Domicilio Fiscal"); la Fase 2 lo lleva a direcciones únicas.
-  zonaId: number | null
-  urbanizacionId: number | null
-  viaId: number | null
-  numero: string | null
-  interior: string | null
-  manzana: string | null
-  lote: string | null
-  referencia: string | null
+  direccionId: number | null
+  direccion: { id: number; direccion: string; referencia: string | null; activo: boolean } | null
+  domicilioTexto: string | null
   perfilCumplimiento: string | null
   perfilCobranza: string | null
   clasificacion: string | null
@@ -96,9 +91,6 @@ export interface Ubigeo {
   provincia: string
   distrito: string
 }
-
-// San Bartolo (Lima/Lima): ubigeo con el que se abre el alta.
-export const UBIGEO_DEFECTO = '150129'
 
 export interface Catalogos {
   zonas: { id: number; codigo: string; nombre: string }[]

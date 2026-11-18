@@ -150,51 +150,21 @@ class DatosPersonaDto {
   @Matches(/^([A-Z0-9_]{1,20})?$/, { message: 'Clasificación no válida' })
   clasificacion?: string | null;
 
-  // Domicilio fiscal (specs/contribuyente-domicilio-representante-v1.md). Fase 2 lo lleva al
-  // catálogo de direcciones únicas.
+  // Domicilio fiscal (P11, specs/rentas-nucleo-v2.md Fase 2): en el distrito, direccionId del
+  // catálogo de direcciones únicas; foráneo, ubigeo + domicilioTexto. No ambos.
+  @IsOptional()
+  @IsInt({ message: 'La dirección no es válida' })
+  @Min(1)
+  direccionId?: number | null;
+
   @IsOptional()
   @Matches(/^(\d{6})$/, { message: 'El ubigeo tiene 6 dígitos' })
   ubigeo?: string | null;
 
   @IsOptional()
-  @IsInt({ message: 'La zona no es válida' })
-  @Min(1)
-  zonaId?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'La urbanización no es válida' })
-  @Min(1)
-  urbanizacionId?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'La vía no es válida' })
-  @Min(1)
-  viaId?: number | null;
-
-  @IsOptional()
   @IsString()
-  @MaxLength(10)
-  numero?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  interior?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  manzana?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  lote?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  referencia?: string | null;
+  @MaxLength(250, { message: 'El domicilio tiene máximo 250 caracteres' })
+  domicilioTexto?: string | null;
 }
 
 // Sin `documentos` (o vacío) = persona sin documento: exige sinDocumentoMotivo (P08).

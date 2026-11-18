@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { EstadoPersona, TipoPersona } from '@prisma/client';
 import { CatalogosService } from '../catalogos/catalogos.service.js';
+import { DireccionesService } from '../direcciones/direcciones.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EstadoCuentaService } from '../rentas/estado-cuenta/estado-cuenta.service.js';
 import { ContribuyentesService } from './contribuyentes.service.js';
@@ -24,12 +25,14 @@ function construir() {
     asegurarCodigos: vi.fn(async (_db: unknown, _grupo: unknown, codigos: string[]) => new Map(codigos.map((c) => [c, { codigo: c, nombre: c, atributos: null }]))),
   };
   const estadoCuenta = { generar: vi.fn().mockResolvedValue({ totales: { total: '350.00' } }) };
+  const direcciones = { ubigeoMuni: vi.fn().mockResolvedValue('150129'), paraDomicilio: vi.fn() };
   const servicio = new ContribuyentesService(
     prisma as unknown as PrismaService,
     catalogos as unknown as CatalogosService,
     estadoCuenta as unknown as EstadoCuentaService,
+    direcciones as unknown as DireccionesService,
   );
-  return { servicio, prisma, estadoCuenta };
+  return { servicio, prisma, estadoCuenta, direcciones };
 }
 
 const NATURAL = { tipoPersona: TipoPersona.NATURAL, apellidoPaterno: 'Perez', apellidoMaterno: 'Ramos', nombres: 'Juan' };
@@ -123,6 +126,59 @@ describe('ContribuyentesService', () => {
       });
       await expect(servicio.eliminar(7, { id: 1, rol: 'SUPERVISOR' })).rejects.toThrow(/se inhabilita/);
       expect(prisma.contribuyente.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('domicilio fiscal (P11)', () => {
+    const DNI = { ...NATURAL, documentos: [{ tipoDoc: 'DNI', numDoc: '45678912' }] };
+
+    it('en el distrito: apunta a la dirección única y copia su literal en direccionFiscal', async () => {
+      const { servicio, prisma, direcciones } = construir();
+      direcciones.paraDomicilio.mockResolvedValue({ id: 9, ubigeo: '150129', direccion: 'AV LOS PINOS N° 123, SAN BARTOLO', activo: true });
+      await servicio.create({ ...DNI, direccionId: 9 });
+      expect(direcciones.paraDomicilio).toHaveBeenCalledWith(prisma, 9, null);
+      expect(prisma.contribuyente.create.mock.calls[0][0].data).toMatchObject({
+        direccionId: 9,
+        ubigeo: '150129',
+        domicilioTexto: null,
+        direccionFiscal: 'AV LOS PINOS N° 123, SAN BARTOLO',
+      });
+    });
+
+    it('foráneo: ubigeo + texto, y la línea lleva el distrito', async () => {
+      const { servicio, prisma } = construir();
+      prisma.ubigeo.findUnique.mockResolvedValue({ distrito: 'MIRAFLORES' });
+      await servicio.create({ ...DNI, ubigeo: '150122', domicilioTexto: ' av. larco  101 ' });
+      expect(prisma.contribuyente.create.mock.calls[0][0].data).toMatchObject({
+        direccionId: null,
+        ubigeo: '150122',
+        domicilioTexto: 'AV. LARCO 101',
+        direccionFiscal: 'AV. LARCO 101, MIRAFLORES',
+      });
+    });
+
+    it('texto libre en el propio distrito → 400: se elige del catálogo', async () => {
+      const { servicio, prisma } = construir();
+      await expect(servicio.create({ ...DNI, ubigeo: '150129', domicilioTexto: 'AV LOS PINOS 123' })).rejects.toThrow(/catálogo de direcciones/);
+      expect(prisma.contribuyente.create).not.toHaveBeenCalled();
+    });
+
+    it('dirección del catálogo y texto a la vez → 400', async () => {
+      const { servicio } = construir();
+      await expect(servicio.create({ ...DNI, direccionId: 9, domicilioTexto: 'JR LIMA 1' })).rejects.toThrow(/no ambos/);
+    });
+
+    it('un texto heredado de v1 en el distrito se conserva si no se toca', async () => {
+      const { servicio, prisma } = construir();
+      const actual = {
+        id: 7, tipoPersona: TipoPersona.NATURAL, numDoc: '45678912', excepcionAprobadaAt: null, nombreRevisado: true,
+        estado: EstadoPersona.HABILITADO, direccionId: null, ubigeo: '150129', domicilioTexto: 'JR LIMA 456', direccionFiscal: 'JR LIMA 456',
+      };
+      prisma.contribuyente.findUnique.mockResolvedValue(actual);
+      await servicio.update(7, { ubigeo: '150129', domicilioTexto: 'JR LIMA 456' });
+      const data = prisma.contribuyente.update.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('direccionFiscal');
+      expect(data).not.toHaveProperty('domicilioTexto');
     });
   });
 });

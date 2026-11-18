@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Contribuyente, EstadoCuenta, EstadoPersona, EstadoRegistro, GrupoCatalogo, Prisma, TipoPersona } from '@prisma/client';
 import { CatalogosService } from '../catalogos/catalogos.service.js';
+import { errorDomicilioForaneo, lineaForanea, LARGO_DIRECCION_FISCAL } from '../direcciones/direccion.reglas.js';
+import { DireccionesService } from '../direcciones/direcciones.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EstadoCuentaService } from '../rentas/estado-cuenta/estado-cuenta.service.js';
 import { hoyLima } from '../rentas/fechas.js';
@@ -37,9 +39,6 @@ const ESTADOS_DEUDA: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.FRAC
 // Para sumar la deuda viva: la FRACCIONADO ya está en las cuotas del convenio (tributo FRACCION).
 const ESTADOS_SALDO: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.COACTIVO];
 
-// San Bartolo (Lima/Lima): ubigeo por defecto del alta, igual que el _codpos de SIMUN.
-const UBIGEO_DEFECTO = '150129';
-
 // P04 y P08: lo deciden un supervisor o el administrador.
 const ROLES_SUPERVISION = ['SUPERVISOR', 'ADMIN'];
 
@@ -57,26 +56,6 @@ const SELECT_LISTA = {
 export interface Actor {
   id: number;
   rol: string;
-}
-
-// Dirección tal como va a quedar guardada: lo del payload pisando lo que ya había.
-interface Direccion {
-  ubigeo: string | null;
-  viaId: number | null;
-  zonaId: number | null;
-  urbanizacionId: number | null;
-  numero: string | null;
-  interior: string | null;
-  manzana: string | null;
-  lote: string | null;
-  referencia: string | null;
-}
-const CAMPOS_DIRECCION = ['ubigeo', 'viaId', 'zonaId', 'urbanizacionId', 'numero', 'interior', 'manzana', 'lote', 'referencia'] as const;
-
-interface CatalogosDireccion {
-  via: { tipoVia: string; nombre: string } | null;
-  urbanizacion: { nombre: string } | null;
-  distrito: string | null;
 }
 
 interface ContactoLimpio {
@@ -117,6 +96,7 @@ export class ContribuyentesService {
     private readonly prisma: PrismaService,
     private readonly catalogos: CatalogosService,
     private readonly estadoCuenta: EstadoCuentaService,
+    private readonly direcciones: DireccionesService,
   ) {}
 
   // Búsqueda única: documento (cualquiera de los suyos) o código legacy si son dígitos; nombre,
@@ -206,6 +186,7 @@ export class ContribuyentesService {
         },
         beneficios: { orderBy: [{ vigente: 'desc' }, { anioDesde: 'desc' }] },
         excepcionAprobadaPor: { select: { usuario: true, nombres: true, apellidos: true } },
+        direccion: { select: { id: true, direccion: true, referencia: true, activo: true } },
       },
     });
     if (!c) {
@@ -220,11 +201,7 @@ export class ContribuyentesService {
       const p = await this.preparar(tx, { ...dto, documentos: dto.documentos ?? [] }, null);
       const estado = estadoCalculado(null, pendientesDe(p.pendientes));
       const creado = await tx.contribuyente.create({
-        data: {
-          ...(p.data as Prisma.ContribuyenteUncheckedCreateInput),
-          ubigeo: (p.data.ubigeo as string | null | undefined) || UBIGEO_DEFECTO,
-          estado,
-        },
+        data: { ...(p.data as Prisma.ContribuyenteUncheckedCreateInput), estado },
         select: { id: true },
       });
       await this.sincronizarListas(tx, creado.id, p);
@@ -417,13 +394,25 @@ export class ContribuyentesService {
     return this.findOne(id);
   }
 
-  // Nombres legibles del domicilio fiscal para la ficha (la dirección ya viene en direccionFiscal).
-  private async direccionParaMostrar(c: Pick<Contribuyente, 'viaId' | 'zonaId' | 'urbanizacionId' | 'ubigeo'>) {
-    const [via, zona, urbanizacion, distrito] = await Promise.all([
-      c.viaId ? this.prisma.via.findUnique({ where: { id: c.viaId }, select: { tipoVia: true, nombre: true } }) : null,
-      c.zonaId ? this.prisma.zona.findUnique({ where: { id: c.zonaId }, select: { codigo: true, nombre: true } }) : null,
-      c.urbanizacionId
-        ? this.prisma.urbanizacion.findUnique({ where: { id: c.urbanizacionId }, select: { nombre: true } })
+  // Domicilio para la ficha: la dirección única (sector, habilitación, vía, componentes) y el distrito.
+  private async direccionParaMostrar(c: Pick<Contribuyente, 'direccionId' | 'ubigeo'>) {
+    const [direccion, distrito] = await Promise.all([
+      c.direccionId
+        ? this.prisma.direccion.findUnique({
+            where: { id: c.direccionId },
+            select: {
+              id: true,
+              direccion: true,
+              referencia: true,
+              latitud: true,
+              longitud: true,
+              activo: true,
+              zona: { select: { codigo: true, nombre: true } },
+              urbanizacion: { select: { nombre: true } },
+              via: { select: { tipoVia: true, nombre: true } },
+              componentes: { orderBy: { orden: 'asc' }, select: { componente: true, valor: true } },
+            },
+          })
         : null,
       c.ubigeo
         ? this.prisma.ubigeo.findUnique({
@@ -432,7 +421,7 @@ export class ContribuyentesService {
           })
         : null,
     ]);
-    return { via, zona, urbanizacion, distrito };
+    return { direccion, distrito };
   }
 
   // Ficha 360 (C2): datos, predios, deuda viva por año/tributo y DDJJ.
@@ -708,50 +697,38 @@ export class ContribuyentesService {
     return limpios;
   }
 
-  // Domicilio fiscal (spec contribuyente-domicilio-representante-v1). La Fase 2 lo lleva a direcciones únicas.
+  // Domicilio fiscal (P11). En el distrito: una dirección única del catálogo, cuya literal se copia en
+  // direccionFiscal (la leen caja, valores y estado de cuenta). Foráneo: ubigeo + texto.
+  // Un texto heredado de v1 en el propio distrito se conserva mientras no se toque.
   private async prepararDomicilio(tx: Tx, dto: UpdateContribuyenteDto, actual: Contribuyente | null, data: Preparado['data']) {
-    const enviado: Partial<Direccion> = {};
-    if (dto.ubigeo !== undefined) enviado.ubigeo = opcional(dto.ubigeo) ?? null;
-    for (const k of ['zonaId', 'urbanizacionId', 'viaId'] as const) if (dto[k] !== undefined) enviado[k] = dto[k] ?? null;
-    for (const k of ['numero', 'interior', 'manzana', 'lote', 'referencia'] as const) if (dto[k] !== undefined) enviado[k] = mayus(dto[k]) ?? null;
-    Object.assign(data, enviado);
-    const dir = Object.fromEntries(
-      CAMPOS_DIRECCION.map((k) => [k, enviado[k] !== undefined ? enviado[k] : (actual?.[k] ?? null)]),
-    ) as unknown as Direccion;
-    if (!actual) dir.ubigeo = dir.ubigeo || UBIGEO_DEFECTO;
-    const catalogos = await this.resolverCatalogos(tx, dir, enviado.ubigeo);
-    // Sin ningún tramo de dirección no se toca direccionFiscal (no se borra lo que ya estaba).
-    const linea = this.componerDireccionFiscal(dir, catalogos);
-    if (linea) data.direccionFiscal = linea;
-  }
+    const tocado = dto.direccionId !== undefined || dto.domicilioTexto !== undefined || dto.ubigeo !== undefined;
+    if (actual && !tocado) return;
+    const ubigeoMuni = await this.direcciones.ubigeoMuni(tx);
+    const direccionId = dto.direccionId !== undefined ? dto.direccionId : (actual?.direccionId ?? null);
+    const texto = dto.domicilioTexto !== undefined ? mayus(dto.domicilioTexto) ?? null : (actual?.domicilioTexto ?? null);
 
-  // vía/zona/urbanización tienen FK: si el id no existe, aquí sale un 400 en vez de un P2003/500.
-  // El ubigeo no tiene FK: solo se exige que exista el que viene ahora.
-  private async resolverCatalogos(tx: Tx, dir: Direccion, ubigeoPayload?: string | null): Promise<CatalogosDireccion> {
-    const codigoUbigeo = ubigeoPayload ?? dir.ubigeo;
-    const [via, urbanizacion, distrito] = await Promise.all([
-      dir.viaId ? tx.via.findUnique({ where: { id: dir.viaId }, select: { tipoVia: true, nombre: true } }) : null,
-      dir.urbanizacionId ? tx.urbanizacion.findUnique({ where: { id: dir.urbanizacionId }, select: { nombre: true } }) : null,
-      codigoUbigeo ? tx.ubigeo.findUnique({ where: { codigo: codigoUbigeo }, select: { distrito: true } }) : null,
-    ]);
-    if (dir.viaId && !via) throw new BadRequestException('La vía seleccionada ya no existe');
-    if (dir.urbanizacionId && !urbanizacion) throw new BadRequestException('La urbanización seleccionada ya no existe');
-    if (ubigeoPayload && !distrito) throw new BadRequestException('El ubigeo no corresponde a un distrito registrado');
-    return { via, urbanizacion, distrito: distrito?.distrito ?? null };
-  }
+    if (direccionId) {
+      if (dto.direccionId && opcional(dto.domicilioTexto)) {
+        throw new BadRequestException('Elige la dirección del catálogo o escribe un domicilio foráneo, no ambos');
+      }
+      const d = await this.direcciones.paraDomicilio(tx, direccionId, actual?.direccionId ?? null);
+      Object.assign(data, { direccionId: d.id, ubigeo: d.ubigeo, domicilioTexto: null, direccionFiscal: d.direccion.slice(0, LARGO_DIRECCION_FISCAL) });
+      return;
+    }
 
-  // Línea de dirección fiscal (max. 150) que consumen recibos, OP/RD, estado de cuenta y búsqueda.
-  private componerDireccionFiscal(dir: Direccion, catalogos: CatalogosDireccion): string | null {
-    const partes: string[] = [];
-    if (catalogos.via) partes.push(`${catalogos.via.tipoVia} ${catalogos.via.nombre}`.replace(/\s+/g, ' ').trim());
-    if (dir.numero) partes.push(`N° ${dir.numero}`);
-    if (dir.interior) partes.push(`Dpto. ${dir.interior}`);
-    if (dir.manzana) partes.push(`Mz. ${dir.manzana}`);
-    if (dir.lote) partes.push(`Lt. ${dir.lote}`);
-    if (catalogos.urbanizacion) partes.push(catalogos.urbanizacion.nombre);
-    if (partes.length === 0) return null;
-    const linea = catalogos.distrito ? `${partes.join(' ')}, ${catalogos.distrito}` : partes.join(' ');
-    return linea.slice(0, 150);
+    const ubigeo = (dto.ubigeo !== undefined ? opcional(dto.ubigeo) : actual?.ubigeo) || ubigeoMuni;
+    const cambio = !actual || actual.direccionId !== null || ubigeo !== actual.ubigeo || texto !== actual.domicilioTexto;
+    if (!cambio) return;
+    let distrito: string | null = null;
+    if (ubigeo !== actual?.ubigeo || texto) {
+      const u = await tx.ubigeo.findUnique({ where: { codigo: ubigeo }, select: { distrito: true } });
+      // El ubigeo no tiene FK: solo se exige que exista el que se guarda ahora.
+      if (!u && ubigeo !== actual?.ubigeo) throw new BadRequestException('El ubigeo no corresponde a un distrito registrado');
+      distrito = u?.distrito ?? null;
+    }
+    const e = errorDomicilioForaneo(ubigeo, ubigeoMuni, texto);
+    if (e) throw new BadRequestException(e);
+    Object.assign(data, { direccionId: null, ubigeo, domicilioTexto: texto, direccionFiscal: texto ? lineaForanea(texto, distrito) : null });
   }
 
   // P06: el par tipo + número no se repite en toda la base.

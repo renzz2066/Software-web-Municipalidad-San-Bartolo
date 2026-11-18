@@ -49,6 +49,9 @@ describe('errorValorRegla', () => {
     expect(errorValorRegla('arbitrios.inicioAfectacion', 'ENERO')).not.toBeNull();
     expect(errorValorRegla('dj.prorrogaPresentacion', 'true')).not.toBeNull();
     expect(errorValorRegla('no.existe', 1)).toBe('Regla no válida');
+    expect(errorValorRegla('muni.ubigeo', '150129')).toBeNull();
+    expect(errorValorRegla('muni.ubigeo', '15012')).not.toBeNull();
+    expect(errorValorRegla('muni.ubigeo', 150129)).not.toBeNull();
   });
 
   it('los valores por defecto son válidos', () => {
