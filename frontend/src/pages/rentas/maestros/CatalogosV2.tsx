@@ -543,6 +543,17 @@ function EditorRegla({ regla, alGuardar }: { regla: ReglaMuni; alGuardar: () => 
             Permitido
           </label>
         )}
+        {regla.def.tipo === 'ubigeo' && (
+          <input
+            aria-label={regla.descripcion}
+            value={typeof valor === 'string' ? valor : ''}
+            maxLength={6}
+            inputMode="numeric"
+            placeholder="150129"
+            onChange={(e) => setValor(e.target.value.replace(/\D/g, ''))}
+            className={CLASE}
+          />
+        )}
         {regla.def.tipo === 'cuotas' && (
           <select
             aria-label={regla.descripcion}

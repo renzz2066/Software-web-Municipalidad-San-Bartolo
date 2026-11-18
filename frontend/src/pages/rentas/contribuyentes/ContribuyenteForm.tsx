@@ -5,16 +5,16 @@ import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { useCatalogo, type ItemCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
+import { SelectorDireccion } from '../direcciones/SelectorDireccion'
+import { RUTA_DIRECCIONES, useConfigDirecciones, type ConfigDirecciones, type DireccionElegida } from '../direcciones/direccionesApi'
 import {
   RUTA_BASE,
   SIN_DOCUMENTO,
   TIPOS_PERSONA,
-  UBIGEO_DEFECTO,
   componerNombre,
   errorDocumento,
   formatoConsultable,
   partirNombre,
-  type Catalogos,
   type Contribuyente,
   type ContribuyenteResumen,
   type ConsultaIdentidad,
@@ -25,7 +25,8 @@ import {
 // Alta y edición de persona (specs/rentas-nucleo-v2.md, Fase 1; reglas P05–P18). Con :id edita.
 // Nombres separados, varios documentos, contactos y relacionados, perfil y clasificación.
 // El estado no se edita aquí: se habilita o inhabilita desde la ficha (P01, P02).
-// Domicilio fiscal: specs/contribuyente-domicilio-representante-v1.md (la Fase 2 lo cambia).
+// Domicilio fiscal (P11, Fase 2): en el distrito se elige del catálogo de direcciones únicas;
+// foráneo, ubigeo + texto. Un texto heredado de v1 en el distrito se conserva hasta elegir la dirección.
 // "Buscar datos": specs/consulta-identidad-v1.md, sobre el documento principal.
 
 interface DocForm {
@@ -65,19 +66,16 @@ interface Form {
   perfilCumplimiento: string
   perfilCobranza: string
   clasificacion: string
+  modoDomicilio: ModoDomicilio
+  direccion: DireccionElegida | null
   ubigeo: string
   departamento: string
   provincia: string
   distrito: string
-  zonaId: string
-  urbanizacionId: string
-  viaId: string
-  numero: string
-  interior: string
-  manzana: string
-  lote: string
-  referencia: string
+  domicilioTexto: string
 }
+
+type ModoDomicilio = 'DISTRITO' | 'FORANEO'
 
 const VACIO: Form = {
   tipoPersona: 'NATURAL',
@@ -95,21 +93,16 @@ const VACIO: Form = {
   perfilCumplimiento: '',
   perfilCobranza: '',
   clasificacion: '',
-  ubigeo: UBIGEO_DEFECTO,
+  modoDomicilio: 'DISTRITO',
+  direccion: null,
+  ubigeo: '',
   departamento: '',
   provincia: '',
   distrito: '',
-  zonaId: '',
-  urbanizacionId: '',
-  viaId: '',
-  numero: '',
-  interior: '',
-  manzana: '',
-  lote: '',
-  referencia: '',
+  domicilioTexto: '',
 }
 
-type Escalar = Exclude<keyof Form, 'documentos' | 'contactos' | 'relacionados'>
+type Escalar = Exclude<keyof Form, 'documentos' | 'contactos' | 'relacionados' | 'direccion'>
 type Errores = Partial<Record<Escalar | 'documentos' | 'contactos' | 'relacionados', string>>
 
 // Estado del botón "Buscar datos" y lo que se cuenta debajo.
@@ -125,7 +118,12 @@ const CONSULTA_IDLE: EstadoConsulta = { estado: 'idle', mensaje: null, datos: nu
 
 const limpio = (v: string) => v.replace(/\s+/g, '').toUpperCase()
 
-function validar(f: Form, ubigeoResuelto: Ubigeo | null): Errores {
+// Texto de v1 sin estructura en el propio distrito: se conserva mientras no se elija la dirección.
+function textoHeredado(f: Form, config: ConfigDirecciones | null): boolean {
+  return f.modoDomicilio === 'DISTRITO' && !f.direccion && Boolean(f.domicilioTexto) && f.ubigeo === config?.ubigeo
+}
+
+function validar(f: Form, ubigeoResuelto: Ubigeo | null, config: ConfigDirecciones | null): Errores {
   const e: Errores = {}
   if (f.tipoPersona === 'JURIDICA') {
     if (!f.razonSocial.trim()) e.razonSocial = 'La razón social es obligatoria'
@@ -158,10 +156,14 @@ function validar(f: Form, ubigeoResuelto: Ubigeo | null): Errores {
     e.relacionados = 'Del relacionado indica tipo y número de documento, o ninguno'
   }
 
-  // Obligatorio en SIMUN: "Obligatorio: Falta Ingresar el Codigo Postal".
-  if (!f.ubigeo) e.ubigeo = 'El ubigeo es obligatorio'
-  else if (!/^\d{6}$/.test(f.ubigeo)) e.ubigeo = 'El ubigeo tiene 6 dígitos'
-  else if (!ubigeoResuelto) e.ubigeo = 'El ubigeo no corresponde a un distrito registrado'
+  // P11: foráneo = ubigeo de otro distrito + texto. En el distrito se elige del catálogo.
+  if (f.modoDomicilio === 'FORANEO') {
+    if (!f.ubigeo) e.ubigeo = 'El ubigeo es obligatorio'
+    else if (!/^\d{6}$/.test(f.ubigeo)) e.ubigeo = 'El ubigeo tiene 6 dígitos'
+    else if (!ubigeoResuelto) e.ubigeo = 'El ubigeo no corresponde a un distrito registrado'
+    else if (f.ubigeo === config?.ubigeo) e.ubigeo = 'Ese ubigeo es del distrito: marca "En el distrito" y elige la dirección'
+    if (!f.domicilioTexto.trim()) e.domicilioTexto = 'Escribe el domicilio foráneo'
+  }
   return e
 }
 
@@ -171,19 +173,12 @@ async function buscarUbigeo(codigo: string): Promise<Ubigeo | null> {
   return data.items.find((u) => u.codigo === codigo) ?? null
 }
 
-// Misma línea que arma el backend y que ven recibos, OP/RD y estado de cuenta.
-function componerDireccionFiscal(f: Form, ubi: Ubigeo | null, catalogos: Catalogos | null): string {
-  const via = catalogos?.vias.find((v) => String(v.id) === f.viaId)
-  const urb = catalogos?.urbanizaciones.find((u) => String(u.id) === f.urbanizacionId)
-  const partes: string[] = []
-  if (via) partes.push(`${via.tipoVia} ${via.nombre}`.replace(/\s+/g, ' ').trim())
-  if (f.numero) partes.push(`N° ${f.numero}`)
-  if (f.interior) partes.push(`Dpto. ${f.interior}`)
-  if (f.manzana) partes.push(`Mz. ${f.manzana}`)
-  if (f.lote) partes.push(`Lt. ${f.lote}`)
-  if (urb) partes.push(urb.nombre)
-  if (partes.length === 0) return ''
-  return `${partes.join(' ')}${ubi ? `, ${ubi.distrito}` : ''}`.slice(0, 150)
+// Lo que se envía del domicilio (P11). El texto heredado va igual que llegó: el backend lo conserva.
+function domicilioBody(f: Form, config: ConfigDirecciones | null) {
+  if (f.modoDomicilio === 'FORANEO') return { direccionId: null, ubigeo: f.ubigeo, domicilioTexto: f.domicilioTexto.trim() }
+  if (f.direccion) return { direccionId: f.direccion.id, domicilioTexto: null }
+  if (textoHeredado(f, config)) return { direccionId: null, ubigeo: f.ubigeo, domicilioTexto: f.domicilioTexto }
+  return { direccionId: null, domicilioTexto: null, ...(config ? { ubigeo: config.ubigeo } : {}) }
 }
 
 function estadoDeError(err: unknown): EstadoConsulta {
@@ -223,18 +218,17 @@ function desdeContribuyente(data: Contribuyente): Form {
     perfilCumplimiento: data.perfilCumplimiento ?? '',
     perfilCobranza: data.perfilCobranza ?? '',
     clasificacion: data.clasificacion ?? '',
-    ubigeo: data.ubigeo ?? UBIGEO_DEFECTO,
+    // Con texto y sin dirección se abre como foráneo; si el ubigeo es del distrito, el efecto de
+    // configuración lo pasa a "En el distrito" (texto heredado de v1).
+    modoDomicilio: data.direccionId || !data.domicilioTexto ? 'DISTRITO' : 'FORANEO',
+    direccion: data.direccion
+      ? { id: data.direccion.id, direccion: data.direccion.direccion, referencia: data.direccion.referencia, activo: data.direccion.activo }
+      : null,
+    ubigeo: data.ubigeo ?? '',
     departamento: '',
     provincia: '',
     distrito: '',
-    zonaId: data.zonaId ? String(data.zonaId) : '',
-    urbanizacionId: data.urbanizacionId ? String(data.urbanizacionId) : '',
-    viaId: data.viaId ? String(data.viaId) : '',
-    numero: data.numero ?? '',
-    interior: data.interior ?? '',
-    manzana: data.manzana ?? '',
-    lote: data.lote ?? '',
-    referencia: data.referencia ?? '',
+    domicilioTexto: data.domicilioTexto ?? '',
   }
 }
 
@@ -248,7 +242,6 @@ export function ContribuyenteForm() {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [nombreRevisado, setNombreRevisado] = useState(true)
-  const [catalogos, setCatalogos] = useState<Catalogos | null>(null)
   const [ubigeoResuelto, setUbigeoResuelto] = useState<Ubigeo | null>(null)
   const [opcionesUbigeo, setOpcionesUbigeo] = useState<Ubigeo[]>([])
   const [consulta, setConsulta] = useState<EstadoConsulta>(CONSULTA_IDLE)
@@ -266,21 +259,13 @@ export function ContribuyenteForm() {
   const perfilesCumplimiento = useCatalogo('PERFIL_CUMPLIMIENTO')
   const perfilesCobranza = useCatalogo('PERFIL_COBRANZA')
   const clasificaciones = useCatalogo('CLASIFICACION_CONTRIBUYENTE')
+  const config = useConfigDirecciones()
 
+  // Un texto de v1 con el ubigeo del propio distrito no es foráneo: es un domicilio por pasar al catálogo.
   useEffect(() => {
-    let cancelled = false
-    api
-      .get<Catalogos>('/predios/catalogos')
-      .then(({ data }) => {
-        if (!cancelled) setCatalogos(data)
-      })
-      .catch(() => {
-        if (!cancelled) setError('No se pudieron cargar los catálogos de ubicación.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    if (isLoading || !config) return
+    setForm((f) => (f.modoDomicilio === 'FORANEO' && !f.direccion && f.ubigeo === config.ubigeo ? { ...f, modoDomicilio: 'DISTRITO' } : f))
+  }, [isLoading, config])
 
   useEffect(() => {
     if (!id) return
@@ -445,8 +430,11 @@ export function ContribuyenteForm() {
     const juridica = datos.tipoPersona === 'JURIDICA'
     const sinNombre = juridica ? !f.razonSocial.trim() : !f.apellidoPaterno.trim() && !f.apellidoMaterno.trim() && !f.nombres.trim()
     const escribeNombre = (sinNombre || cambioDeDocumento) && Boolean(datos.nombreCompleto.trim())
-    const ubigeoDisponible = f.ubigeo === UBIGEO_DEFECTO || (cambioDeDocumento && ubigeoRelleno.current !== null && f.ubigeo === ubigeoRelleno.current)
-    const escribeUbi = ubigeoDisponible && typeof datos.ubigeo === 'string' && datos.ubigeo !== f.ubigeo ? datos.ubigeo : null
+    // El ubigeo del RUC solo se usa si es de otro distrito y aún no hay domicilio (o lo puso la consulta anterior).
+    const sinDomicilio = !f.direccion && !f.domicilioTexto.trim() && (f.modoDomicilio === 'DISTRITO' || !f.ubigeo)
+    const ubigeoDisponible = sinDomicilio || (cambioDeDocumento && ubigeoRelleno.current !== null && f.ubigeo === ubigeoRelleno.current)
+    const escribeUbi =
+      ubigeoDisponible && typeof datos.ubigeo === 'string' && datos.ubigeo !== f.ubigeo && datos.ubigeo !== config?.ubigeo ? datos.ubigeo : null
 
     const completado: string[] = []
     let sobrescribio = false
@@ -461,10 +449,10 @@ export function ContribuyenteForm() {
       setErrores((e) => ({ ...e, apellidoPaterno: undefined, nombres: undefined, razonSocial: undefined }))
     }
     if (escribeUbi) {
-      sobrescribio = sobrescribio || f.ubigeo !== UBIGEO_DEFECTO
-      completado.push('el ubigeo')
+      sobrescribio = sobrescribio || !sinDomicilio
+      completado.push('el ubigeo del domicilio foráneo')
       ubigeoRelleno.current = escribeUbi
-      setForm((prev) => ({ ...prev, ubigeo: escribeUbi }))
+      setForm((prev) => ({ ...prev, modoDomicilio: 'FORANEO', ubigeo: escribeUbi }))
       void resolver(escribeUbi)
     }
     docRelleno.current = clave
@@ -473,8 +461,9 @@ export function ContribuyenteForm() {
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault()
-    const ubi = ubigeoResuelto?.codigo === form.ubigeo ? ubigeoResuelto : await resolver(form.ubigeo)
-    const v = validar(form, ubi)
+    const foraneo = form.modoDomicilio === 'FORANEO'
+    const ubi = !foraneo ? null : ubigeoResuelto?.codigo === form.ubigeo ? ubigeoResuelto : await resolver(form.ubigeo)
+    const v = validar(form, ubi, config)
     setErrores(v)
     if (Object.keys(v).length > 0) {
       setError('Revisa los campos marcados.')
@@ -508,15 +497,7 @@ export function ContribuyenteForm() {
         perfilCumplimiento: form.perfilCumplimiento || null,
         perfilCobranza: form.perfilCobranza || null,
         clasificacion: form.clasificacion || null,
-        ubigeo: form.ubigeo,
-        zonaId: form.zonaId ? Number(form.zonaId) : null,
-        urbanizacionId: form.urbanizacionId ? Number(form.urbanizacionId) : null,
-        viaId: form.viaId ? Number(form.viaId) : null,
-        numero: form.numero,
-        interior: form.interior,
-        manzana: form.manzana,
-        lote: form.lote,
-        referencia: form.referencia,
+        ...domicilioBody(form, config),
       }
       const { data } = editando
         ? await api.patch<ContribuyenteResumen>(`/contribuyentes/${id}`, body)
@@ -530,7 +511,7 @@ export function ContribuyenteForm() {
   }
 
   const volver = editando ? `${RUTA_BASE}/contribuyentes/${id}` : RUTA_BASE
-  const preview = componerDireccionFiscal(form, ubigeoResuelto, catalogos)
+  const heredado = textoHeredado(form, config)
   const nombrePreview = componerNombre({ ...form, abreviaturaSucesion: tiposSucesion.find((t) => t.codigo === form.tipoSucesion)?.abreviatura })
   const consultable = principal && (principal.tipoDoc === 'DNI' || principal.tipoDoc === 'RUC')
 
@@ -831,103 +812,95 @@ export function ContribuyenteForm() {
 
               <fieldset>
                 <legend className="mb-4 font-semibold text-mar-profundo">Datos domicilio fiscal</legend>
-                <div className="grid gap-4 sm:grid-cols-4">
-                  <Campo label="Ubigeo / Código postal *" id="ubigeo" error={errores.ubigeo}>
-                    <input
-                      id="ubigeo"
-                      list="lista-ubigeos"
-                      value={form.ubigeo}
-                      maxLength={6}
-                      inputMode="numeric"
-                      placeholder="150129"
-                      onChange={(e) => cambiar('ubigeo', e.target.value.replace(/\D/g, ''))}
-                      onBlur={() => void resolver(form.ubigeo)}
-                      aria-invalid={Boolean(errores.ubigeo)}
-                      aria-describedby="ayuda-ubigeo"
-                      className={CLASE_INPUT}
-                    />
-                    <datalist id="lista-ubigeos">
-                      {opcionesUbigeo.map((u) => (
-                        <option key={u.codigo} value={u.codigo}>
-                          {u.distrito} - {u.provincia} - {u.departamento}
-                        </option>
-                      ))}
-                    </datalist>
-                    <p id="ayuda-ubigeo" className="mt-1 text-xs text-slate-400">
-                      Escribe el código o el nombre del distrito.
-                    </p>
-                  </Campo>
-                  <Campo label="Departamento" id="departamento">
-                    <input id="departamento" value={form.departamento} readOnly className={`${CLASE_INPUT} bg-slate-50`} />
-                  </Campo>
-                  <Campo label="Provincia" id="provincia">
-                    <input id="provincia" value={form.provincia} readOnly className={`${CLASE_INPUT} bg-slate-50`} />
-                  </Campo>
-                  <Campo label="Distrito" id="distrito">
-                    <input id="distrito" value={form.distrito} readOnly className={`${CLASE_INPUT} bg-slate-50`} />
-                  </Campo>
+                <div role="radiogroup" aria-label="Ubicación del domicilio fiscal" className="mb-4 flex flex-wrap gap-4 text-sm">
+                  {(
+                    [
+                      ['DISTRITO', `En el distrito${config?.distrito ? ` (${config.distrito.distrito})` : ''}`],
+                      ['FORANEO', 'En otro distrito (foráneo)'],
+                    ] as const
+                  ).map(([modo, etiqueta]) => (
+                    <label key={modo} className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="modoDomicilio"
+                        value={modo}
+                        checked={form.modoDomicilio === modo}
+                        onChange={() => cambiar('modoDomicilio', modo)}
+                        className="h-4 w-4 accent-mar-profundo"
+                      />
+                      {etiqueta}
+                    </label>
+                  ))}
+                </div>
 
-                  <Campo label="Sector (zona)" id="zonaId">
-                    <select id="zonaId" value={form.zonaId} onChange={(e) => cambiar('zonaId', e.target.value)} className={CLASE_INPUT}>
-                      <option value="">—</option>
-                      {catalogos?.zonas.map((z) => (
-                        <option key={z.id} value={z.id}>
-                          {z.codigo} · {z.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </Campo>
-                  <Campo label="Urbanización" id="urbanizacionId">
-                    <select id="urbanizacionId" value={form.urbanizacionId} onChange={(e) => cambiar('urbanizacionId', e.target.value)} className={CLASE_INPUT}>
-                      <option value="">—</option>
-                      {catalogos?.urbanizaciones.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </Campo>
-                  <div className="sm:col-span-2">
-                    <Campo label="Vía" id="viaId">
-                      <select id="viaId" value={form.viaId} onChange={(e) => cambiar('viaId', e.target.value)} className={CLASE_INPUT}>
-                        <option value="">—</option>
-                        {catalogos?.vias.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            {v.tipoVia} {v.nombre}
+                {form.modoDomicilio === 'DISTRITO' ? (
+                  <div className="space-y-3">
+                    {heredado && (
+                      <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        Domicilio heredado del sistema anterior, solo en texto: «{form.domicilioTexto}». Se conserva hasta que elijas o registres su
+                        dirección en el catálogo.
+                      </p>
+                    )}
+                    <Campo label="Dirección del distrito" id="direccion">
+                      <SelectorDireccion id="direccion" valor={form.direccion} onChange={(d) => setForm((f) => ({ ...f, direccion: d }))} />
+                    </Campo>
+                    <p className="text-xs text-slate-400">
+                      La dirección es única y la comparten todos los que viven ahí.{' '}
+                      <Link to={RUTA_DIRECCIONES} className="font-medium text-mar hover:text-mar-profundo">
+                        Ver catálogo de direcciones
+                      </Link>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    <Campo label="Ubigeo / Código postal *" id="ubigeo" error={errores.ubigeo}>
+                      <input
+                        id="ubigeo"
+                        list="lista-ubigeos"
+                        value={form.ubigeo}
+                        maxLength={6}
+                        inputMode="numeric"
+                        placeholder="150122"
+                        onChange={(e) => cambiar('ubigeo', e.target.value.replace(/\D/g, ''))}
+                        onBlur={() => void resolver(form.ubigeo)}
+                        aria-invalid={Boolean(errores.ubigeo)}
+                        aria-describedby="ayuda-ubigeo"
+                        className={CLASE_INPUT}
+                      />
+                      <datalist id="lista-ubigeos">
+                        {opcionesUbigeo.map((u) => (
+                          <option key={u.codigo} value={u.codigo}>
+                            {u.distrito} - {u.provincia} - {u.departamento}
                           </option>
                         ))}
-                      </select>
+                      </datalist>
+                      <p id="ayuda-ubigeo" className="mt-1 text-xs text-slate-400">
+                        Escribe el código o el nombre del distrito.
+                      </p>
                     </Campo>
-                  </div>
-
-                  <Campo label="Número" id="numero">
-                    <input id="numero" value={form.numero} maxLength={10} onChange={(e) => cambiar('numero', e.target.value)} className={CLASE_INPUT} />
-                  </Campo>
-                  <Campo label="Dpto. / Interior" id="interior">
-                    <input id="interior" value={form.interior} maxLength={10} onChange={(e) => cambiar('interior', e.target.value)} className={CLASE_INPUT} />
-                  </Campo>
-                  <Campo label="Manzana" id="manzana">
-                    <input id="manzana" value={form.manzana} maxLength={10} onChange={(e) => cambiar('manzana', e.target.value)} className={CLASE_INPUT} />
-                  </Campo>
-                  <Campo label="Lote" id="lote">
-                    <input id="lote" value={form.lote} maxLength={10} onChange={(e) => cambiar('lote', e.target.value)} className={CLASE_INPUT} />
-                  </Campo>
-
-                  <div className="sm:col-span-2">
-                    <Campo label="Referencia de la dirección" id="referencia">
-                      <input id="referencia" value={form.referencia} maxLength={150} onChange={(e) => cambiar('referencia', e.target.value)} className={CLASE_INPUT} />
+                    <Campo label="Departamento" id="departamento">
+                      <input id="departamento" value={form.departamento} readOnly className={`${CLASE_INPUT} bg-slate-50`} />
                     </Campo>
+                    <Campo label="Provincia" id="provincia">
+                      <input id="provincia" value={form.provincia} readOnly className={`${CLASE_INPUT} bg-slate-50`} />
+                    </Campo>
+                    <Campo label="Distrito" id="distrito">
+                      <input id="distrito" value={form.distrito} readOnly className={`${CLASE_INPUT} bg-slate-50`} />
+                    </Campo>
+                    <div className="sm:col-span-4">
+                      <Campo label="Domicilio *" id="domicilioTexto" error={errores.domicilioTexto}>
+                        <input
+                          id="domicilioTexto"
+                          value={form.domicilioTexto}
+                          maxLength={250}
+                          placeholder="AV. LARCO 101 DPTO. 502"
+                          onChange={(e) => cambiar('domicilioTexto', e.target.value)}
+                          aria-invalid={Boolean(errores.domicilioTexto)}
+                          className={`${CLASE_INPUT} uppercase`}
+                        />
+                      </Campo>
+                    </div>
                   </div>
-                  <div className="sm:col-span-2">
-                    <p className="block text-xs font-semibold uppercase tracking-wider text-slate-500">Dirección fiscal</p>
-                    <p className="mt-1 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700" role="status">
-                      {preview || 'Se compondrá con la vía, el número y el distrito que elijas.'}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">Se guarda sola; no se escribe a mano.</p>
-                  </div>
-                </div>
-                {catalogos && catalogos.vias.length === 0 && (
-                  <p className="mt-3 text-xs text-amber-700">No hay vías registradas: créalas en Rentas → Maestros → Ubicación.</p>
                 )}
               </fieldset>
 

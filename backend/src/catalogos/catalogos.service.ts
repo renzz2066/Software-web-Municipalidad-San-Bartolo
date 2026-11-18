@@ -138,6 +138,10 @@ export class CatalogosService {
     if (def.def.tipo === 'codigos') {
       await this.asegurarCodigos(this.prisma, def.def.grupo, dto.valor as string[], 'Código');
     }
+    if (def.def.tipo === 'ubigeo') {
+      const existe = await this.prisma.ubigeo.findUnique({ where: { codigo: dto.valor as string }, select: { codigo: true } });
+      if (!existe) throw new BadRequestException('El ubigeo no corresponde a un distrito registrado');
+    }
     const valor = dto.valor as Prisma.InputJsonValue;
     const ordenanza = dto.ordenanza?.trim() || null;
     await this.prisma.reglaMuni.upsert({

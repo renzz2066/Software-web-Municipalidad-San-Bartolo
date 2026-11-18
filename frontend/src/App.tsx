@@ -20,6 +20,8 @@ import { CalculoMasivo } from './pages/rentas/calculo/CalculoMasivo'
 import { Contribuyentes } from './pages/rentas/contribuyentes/Contribuyentes'
 import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteForm'
 import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
+import { Direcciones } from './pages/rentas/direcciones/Direcciones'
+import { FichaDireccion } from './pages/rentas/direcciones/FichaDireccion'
 import { Predio } from './pages/rentas/predios/Predio'
 import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
@@ -145,6 +147,30 @@ function App() {
           element={
             <RequireNivel codigo="accesibilidad.accesos-por-rol">
               <AccesosPorRol />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/direcciones"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <Direcciones />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/direcciones/nueva"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <FichaDireccion key="nueva" />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/direcciones/:id"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <FichaDireccion />
             </RequireNivel>
           }
         />

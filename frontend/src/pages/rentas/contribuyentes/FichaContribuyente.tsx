@@ -11,6 +11,7 @@ import { hoyIso, useEstadoCuenta } from '../estado-cuenta/estadoCuentaApi'
 import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
 import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
+import { RUTA_DIRECCIONES } from '../direcciones/direccionesApi'
 import { BeneficiosPersona } from './BeneficiosPersona'
 import { EstadoPersona } from './EstadoPersona'
 import { RUTA_BASE, TIPOS_PERSONA, documentoTexto, soles, type Contribuyente } from './tipos'
@@ -59,10 +60,17 @@ interface DeclaracionFila {
 }
 
 interface Resumen {
-  contribuyente: Contribuyente & {
-    via: { tipoVia: string; nombre: string } | null
-    zona: { codigo: string; nombre: string } | null
-    urbanizacion: { nombre: string } | null
+  // Domicilio (Fase 2): la dirección única con su sector y habilitación, y el distrito del ubigeo.
+  contribuyente: Omit<Contribuyente, 'direccion'> & {
+    direccion: {
+      id: number
+      direccion: string
+      referencia: string | null
+      activo: boolean
+      zona: { codigo: string; nombre: string } | null
+      urbanizacion: { nombre: string } | null
+      via: { tipoVia: string; nombre: string } | null
+    } | null
     distrito: { departamento: string; provincia: string; distrito: string } | null
   }
   predios: PredioFicha[]
@@ -247,25 +255,33 @@ export function FichaContribuyente() {
                   }
                 />
                 <Dato etiqueta="Ubigeo" valor={c.distrito ? `${c.distrito.departamento} / ${c.distrito.provincia} / ${c.distrito.distrito} (${c.ubigeo})` : c.ubigeo ?? '—'} />
-                <Dato
-                  etiqueta="Sector / Urbanización"
-                  valor={[c.zona ? `${c.zona.codigo} · ${c.zona.nombre}` : null, c.urbanizacion?.nombre ?? null].filter(Boolean).join(' · ') || '—'}
-                />
-                <Dato
-                  etiqueta="Dirección"
-                  valor={
-                    [
-                      c.via ? `${c.via.tipoVia} ${c.via.nombre}` : null,
-                      c.numero ? `N° ${c.numero}` : null,
-                      c.interior ? `Dpto. ${c.interior}` : null,
-                      c.manzana ? `Mz. ${c.manzana}` : null,
-                      c.lote ? `Lt. ${c.lote}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' ') || '—'
-                  }
-                />
-                <Dato etiqueta="Referencia" valor={c.referencia ?? '—'} />
+                {c.direccion ? (
+                  <>
+                    <Dato
+                      etiqueta="Sector / Habilitación"
+                      valor={
+                        [c.direccion.zona ? `${c.direccion.zona.codigo} · ${c.direccion.zona.nombre}` : null, c.direccion.urbanizacion?.nombre ?? null]
+                          .filter(Boolean)
+                          .join(' · ') || '—'
+                      }
+                    />
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Dirección (catálogo)</dt>
+                      <dd className="mt-0.5 text-slate-700">
+                        <Link to={`${RUTA_DIRECCIONES}/${c.direccion.id}`} className="text-mar hover:underline">
+                          {c.direccion.direccion}
+                        </Link>
+                        {!c.direccion.activo && <span className="ml-1 text-xs text-amber-700">(dada de baja)</span>}
+                      </dd>
+                    </div>
+                    <Dato etiqueta="Referencia" valor={c.direccion.referencia ?? '—'} />
+                  </>
+                ) : (
+                  <Dato
+                    etiqueta={c.domicilioTexto ? 'Domicilio (texto)' : 'Dirección'}
+                    valor={c.domicilioTexto ?? 'Sin domicilio registrado'}
+                  />
+                )}
               </dl>
             </details>
 

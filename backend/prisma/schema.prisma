@@ -255,6 +255,8 @@ model Usuario {
   contribuyentesModificados  Contribuyente[]     @relation("ContribuyenteModificadoPor")
   excepcionesAprobadas       Contribuyente[]     @relation("ContribuyenteExcepcionAprobadaPor")
   prediosCreados             Predio[]            @relation("PredioCreadoPor")
+  direccionesCreadas         Direccion[]         @relation("DireccionCreadoPor")
+  direccionesModificadas     Direccion[]         @relation("DireccionModificadoPor")
   prediosModificados         Predio[]            @relation("PredioModificadoPor")
   vehiculosCreados           Vehiculo[]          @relation("VehiculoCreadoPor")
   vehiculosModificados       Vehiculo[]          @relation("VehiculoModificadoPor")
@@ -355,21 +357,13 @@ model Contribuyente {
   nombreRevisado  Boolean     @default(true) // false = nombre convertido de v1, falta revisarlo (decisión 7)
   fechaNacimiento DateTime?   @db.Date // adulto mayor (P15)
   dniCausante     String?     @db.VarChar(8) // sucesión: referencia, no cuenta para P06 (P18)
-  direccionFiscal String?     @db.VarChar(150) // derivada de la dirección estructurada abajo
-  ubigeo          String?     @default("150129") @db.VarChar(6) // San Bartolo (Lima/Lima) por defecto
+  direccionFiscal String?     @db.VarChar(150) // copia de la línea del domicilio: la leen caja, valores y estado de cuenta
+  ubigeo          String?     @default("150129") @db.VarChar(6) // distrito del domicilio
 
-  // Domicilio fiscal (frmcontribuyentes_rentas Form2, bloque "Datos Domicilio Fiscal")
-  zonaId         Int?
-  zona           Zona?         @relation(fields: [zonaId], references: [id], onDelete: Restrict)
-  urbanizacionId Int?
-  urbanizacion   Urbanizacion? @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
-  viaId          Int?
-  via            Via?          @relation(fields: [viaId], references: [id], onDelete: Restrict)
-  numero         String?       @db.VarChar(10) // NUMCLI
-  interior       String?       @db.VarChar(10) // INTCLI "Dpto."
-  manzana        String?       @db.VarChar(10) // MANCLI
-  lote           String?       @db.VarChar(10) // LOTCLI
-  referencia     String?       @db.VarChar(150) // REFDIR
+  // Domicilio fiscal (P11): en el distrito, una dirección única del catálogo (D01); foráneo, ubigeo + texto.
+  direccionId    Int?
+  direccion      Direccion? @relation(fields: [direccionId], references: [id], onDelete: Restrict)
+  domicilioTexto String?    @db.VarChar(250) // foráneo, o heredado de v1 sin estructura (por revisar)
 
   // Perfil y clasificación (P12): catálogos PERFIL_CUMPLIMIENTO, PERFIL_COBRANZA, CLASIFICACION_CONTRIBUYENTE
   perfilCumplimiento String? @db.VarChar(20)
@@ -411,9 +405,7 @@ model Contribuyente {
   @@index([numDoc])
   @@index([nombreCompleto])
   @@index([estado])
-  @@index([zonaId])
-  @@index([urbanizacionId])
-  @@index([viaId])
+  @@index([direccionId])
   @@map("contribuyentes")
 }
 
@@ -495,6 +487,59 @@ model ContribuyenteBeneficio {
 }
 
 // ============================================================
+// B2. DIRECCIONES ÚNICAS (specs/rentas-nucleo-v2.md, Fase 2; reglas D01–D05)
+// Un registro por dirección del distrito, compartido por personas (y luego predios y relacionados).
+// La literal se arma con vía + componentes ordenados + habilitación + distrito (D04).
+// ============================================================
+
+model Direccion {
+  id              Int           @id @default(autoincrement())
+  ubigeo          String        @db.VarChar(6) // distrito (D02): el de la muni, regla muni.ubigeo
+  zonaId          Int? // sector: define la zona de arbitrios (D03)
+  zona            Zona?         @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  urbanizacionId  Int? // habilitación urbana (urb., AA.HH., A.F.)
+  urbanizacion    Urbanizacion? @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
+  viaId           Int?
+  via             Via?          @relation(fields: [viaId], references: [id], onDelete: Restrict)
+  direccion       String        @db.VarChar(250) // literal armada sola (D04); no se escribe a mano
+  clave           String        @unique // identidad: ubigeo|zona|habilitación|vía|componentes por código
+  referencia      String?       @db.VarChar(250) // D05
+  latitud         Decimal?      @db.Decimal(9, 6) // D05: opcionales, van juntas
+  longitud        Decimal?      @db.Decimal(9, 6)
+  activo          Boolean       @default(true) // baja lógica: no se asigna a nadie nuevo
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario?      @relation("DireccionCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?      @relation("DireccionModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  componentes    DireccionComponente[]
+  contribuyentes Contribuyente[]
+
+  @@index([direccion])
+  @@index([zonaId])
+  @@index([urbanizacionId])
+  @@index([viaId])
+  @@map("direcciones")
+}
+
+// D04: número, Mz., Lt., Dpto.… en el orden en que se leen. Un componente no se repite.
+model DireccionComponente {
+  id          Int       @id @default(autoincrement())
+  direccionId Int
+  direccion   Direccion @relation(fields: [direccionId], references: [id], onDelete: Restrict)
+  orden       Int
+  componente  String    @db.VarChar(20) // catálogo COMPONENTE_DIRECCION
+  valor       String    @db.VarChar(20)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([direccionId, componente])
+  @@map("direccion_componentes")
+}
+
+// ============================================================
 // C. CATASTRO / PREDIOS
 // Ref SIMUN: predios_urbanos_rusticos.dbf + pisos.dbf +
 //   otras_instalaciones.dbf + condominos.dbf + declaracion_j.dbf
@@ -508,9 +553,9 @@ model Zona {
   nombre    String   @db.VarChar(100)
   createdAt DateTime @default(now())
 
-  predios        Predio[]
-  tarifas        TarifaArbitrio[]
-  contribuyentes Contribuyente[]
+  predios     Predio[]
+  tarifas     TarifaArbitrio[]
+  direcciones Direccion[]
 
   @@map("zonas")
 }
@@ -521,9 +566,9 @@ model Urbanizacion {
   nombre    String   @db.VarChar(100)
   createdAt DateTime @default(now())
 
-  predios        Predio[]
-  aranceles      Arancel[]
-  contribuyentes Contribuyente[]
+  predios     Predio[]
+  aranceles   Arancel[]
+  direcciones Direccion[]
 
   @@map("urbanizaciones")
 }
@@ -534,9 +579,9 @@ model Via {
   nombre    String   @db.VarChar(100) // CALLES.DBF
   createdAt DateTime @default(now())
 
-  predios        Predio[]
-  aranceles      Arancel[]
-  contribuyentes Contribuyente[]
+  predios     Predio[]
+  aranceles   Arancel[]
+  direcciones Direccion[]
 
   @@unique([tipoVia, nombre])
   @@map("vias")

@@ -92,7 +92,12 @@ Flujo: `Persona → DJ presentada → Anexo por predio (+niveles, obras, usos) �
   - API: `PATCH :id/estado` (P01 → 409 con el monto de la deuda a la fecha), `POST :id/aprobar-excepcion` y `DELETE :id` (SUPERVISOR/ADMIN), `POST :id/beneficios` y `PATCH …/revocar`, `GET por-documento` (P10).
   - Elegido por ser lo conservador: INHABILITADO no declara ni se fiscaliza (como BAJA en v1); el teléfono de v1 pasa como TELEFONO_CASA; en la sucesión se conservan los nombres del causante si existen; "un cónyuge vigente" lo valida el servicio (sin índice parcial, para no desalinear Prisma).
   - P03 (inhabilitación y rehabilitación automáticas al liquidar) y la aplicación de P14/P15 al determinar quedan para la Fase 5.
-- [ ] Fase 2: Direcciones únicas (C3) y migración del domicilio de las personas.
+- [x] Fase 2: Direcciones únicas (C3) y migración del domicilio de las personas (rama `feat/rentas-v2-direcciones`).
+  - Tablas `direcciones` (ubigeo, sector, habilitación y vía con las tablas actuales, literal, referencia, latitud/longitud) y `direccion_componentes` (orden + código de `COMPONENTE_DIRECCION`). La identidad (`clave`) es ubigeo|sector|habilitación|vía|componentes ordenados por código: no se duplica (409 con el id de la existente).
+  - Persona: `direccionId` (en el distrito) o `ubigeo` + `domicilioTexto` (foráneo), P11. `direccionFiscal` sigue llenándose con la literal para caja, valores y estado de cuenta; editar una dirección la actualiza en todos los que la usan, en la misma transacción.
+  - API `/direcciones` (buscar, ver, crear, `PATCH :id`, `PATCH :id/estado`). Sin DELETE: se da de baja y quien ya la tiene la conserva. Pantalla Registro Tributario → Direcciones.
+  - Elegido por ser lo conservador: el distrito propio es la regla `muni.ubigeo` (P11, por defecto 150129, editable en Maestros) en vez de un valor en el código; editar o dar de baja una dirección lo hace un supervisor, porque cambia el domicilio de todos; la literal mantiene el formato de v1 (código de vía tal cual, `N°`, `Dpto.`…) para que los recibos no cambien; el `interior` de v1 pasa al componente DPTO; si dos personas del mismo domicilio tenían referencias distintas, se juntan con " / "; el texto heredado sin estructura queda en `domicilioTexto` (con su referencia) y se conserva mientras no se toque; una dirección exige vía o habilitación.
+  - Pendiente: los relacionados siguen con su dirección en texto y los predios con la suya (pasan a direcciones únicas en la Fase 3); renombrar una vía o habilitación en Maestros no regenera las literales (igual que en v1).
 - [ ] Fase 3: Predio maestro (C4).
 - [ ] Fase 4: DJ presentada + anexos (C5), sin liquidar.
 - [ ] Fase 5: determinar + liquidar (C6, C7), y adaptar estado de cuenta, fiscalización y valores.
