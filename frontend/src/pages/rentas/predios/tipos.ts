@@ -42,7 +42,7 @@ export interface TitularApi {
   porcentaje: string
   esPrincipal: boolean
   fechaAdquisicion: string | null
-  contribuyente: { id: number; tipoDoc: string; numDoc: string; nombreCompleto: string }
+  contribuyente: { id: number; tipoDoc: string; numDoc: string | null; nombreCompleto: string }
 }
 
 export interface PredioApi {

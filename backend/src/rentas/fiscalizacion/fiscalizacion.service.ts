@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import {
   EstadoCuenta,
   EstadoFiscalizacion,
+  EstadoPersona,
   EstadoRegistro,
   ModalidadNotificacion,
   Prisma,
@@ -168,8 +169,8 @@ export class FiscalizacionService {
     const anio = Number(hoy.slice(0, 4));
     const { id } = await this.prisma.$transaction(async (tx) => {
       const contribuyente = await tx.contribuyente.findUnique({ where: { id: e.contribuyenteId }, select: { estado: true } });
-      if (!contribuyente || contribuyente.estado === EstadoRegistro.BAJA) {
-        throw new BadRequestException('El contribuyente no existe o está dado de baja');
+      if (!contribuyente || contribuyente.estado === EstadoPersona.INHABILITADO) {
+        throw new BadRequestException('El contribuyente no existe o está inhabilitado');
       }
       const fiscalizador = await tx.fiscalizador.findUnique({ where: { id: e.fiscalizadorId }, select: { activo: true } });
       if (!fiscalizador?.activo) {
