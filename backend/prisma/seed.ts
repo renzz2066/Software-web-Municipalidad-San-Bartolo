@@ -1,5 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { GrupoCatalogo, Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { CATALOGOS_NACIONALES } from '../src/catalogos/catalogos.nacional.js';
+import { GRUPOS, REGLAS_MUNI } from '../src/catalogos/catalogos.reglas.js';
 import { NIVELES_CATALOGO } from '../src/niveles/niveles.catalogo.js';
 
 const prisma = new PrismaClient();
@@ -161,6 +163,55 @@ async function main() {
     await prisma.auxiliarCoactivo.upsert({ where: { codigo: a.codigo }, update: {}, create: a });
   }
   console.log('Ejecutores y auxiliares coactiva verificados');
+
+  await sembrarCatalogos();
+}
+
+// Rentas v2, Fase 0 (specs/rentas-nucleo-v2.md): catálogos y reglas con el valor nacional.
+// Solo crea lo que falta: lo que la muni ya editó (nombre, orden, atributos, activo) no se pisa.
+// `sistema` sí se reafirma: el código depende de esas filas.
+async function sembrarCatalogos() {
+  let creados = 0;
+  // Primero los grupos sin padre, para poder enlazar sub-usos y sub-motivos.
+  const grupos = (Object.keys(CATALOGOS_NACIONALES) as GrupoCatalogo[]).sort(
+    (a, b) => Number(Boolean(GRUPOS[a].padre)) - Number(Boolean(GRUPOS[b].padre)),
+  );
+  for (const grupo of grupos) {
+    const items = CATALOGOS_NACIONALES[grupo] ?? [];
+    for (const [i, item] of items.entries()) {
+      const grupoPadre = GRUPOS[grupo].padre;
+      const padre =
+        grupoPadre && item.padre
+          ? await prisma.catalogo.findUnique({ where: { grupo_codigo: { grupo: grupoPadre, codigo: item.padre } }, select: { id: true } })
+          : null;
+      const existente = await prisma.catalogo.findUnique({ where: { grupo_codigo: { grupo, codigo: item.codigo } }, select: { id: true } });
+      if (existente) {
+        if (item.sistema) await prisma.catalogo.update({ where: { id: existente.id }, data: { sistema: true } });
+        continue;
+      }
+      await prisma.catalogo.create({
+        data: {
+          grupo,
+          codigo: item.codigo,
+          nombre: item.nombre,
+          abreviatura: item.abreviatura ?? null,
+          padreId: padre?.id ?? null,
+          atributos: item.atributos ?? Prisma.DbNull,
+          orden: i + 1,
+          sistema: item.sistema ?? false,
+        },
+      });
+      creados += 1;
+    }
+  }
+  for (const [clave, def] of Object.entries(REGLAS_MUNI)) {
+    await prisma.reglaMuni.upsert({
+      where: { clave },
+      update: {},
+      create: { clave, valor: def.defecto as Prisma.InputJsonValue, descripcion: def.descripcion, regla: def.regla },
+    });
+  }
+  console.log(`Catálogos v2 verificados (${creados} ítems nuevos) y reglas de la muni sembradas`);
 }
 
 main()

@@ -82,7 +82,11 @@ Flujo: `Persona → DJ presentada → Anexo por predio (+niveles, obras, usos) �
 
 ## 4. Tareas
 - [x] Rama `docs/rentas-nucleo-v2`: esta spec, `docs/rentas/reglas-negocio.md` y las decisiones de §3.
-- [ ] Fase 0: catálogos + `ReglaMuni` + seed nacional. Pedir a Lurín el contenido de sus catálogos (solo catálogos, sin personas).
+- [x] Fase 0: catálogos + `ReglaMuni` + seed nacional (rama `feat/rentas-v2-catalogos`).
+  - Una tabla `catalogos` (grupo + código único) y `reglas_muni`; se editan en Maestros → "Catálogos y reglas". El código no se edita; las filas `sistema` no se desactivan.
+  - Seed idempotente: crea lo que falta y no pisa lo editado por la muni.
+  - Valores por defecto elegidos (conservadores, editables): motivos DECLARATIVA salvo ACTUALIZACION_DATOS; J05 = INSCRIPCION, COMPRA, MODIFICACION, ACTUALIZACION_DATOS; J11 = mes siguiente; J16 = permitido.
+  - Pendiente: pedir a Lurín el contenido de sus catálogos (solo catálogos, sin personas) y ajustar el seed.
 - [ ] Fase 1: Personas (C1, C2) + conversión de los contribuyentes actuales (decisión 7). No toca el cálculo.
 - [ ] Fase 2: Direcciones únicas (C3) y migración del domicilio de las personas.
 - [ ] Fase 3: Predio maestro (C4).
