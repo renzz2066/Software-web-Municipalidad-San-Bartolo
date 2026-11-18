@@ -1,6 +1,7 @@
 import { soles } from '../contribuyentes/tipos'
 
-// Respuesta de POST /rentas/calculo/{simular|ejecutar} (backend/src/rentas/calculo).
+// Respuesta de POST /rentas/calculo/{simular|ejecutar}: la determinación anual (backend/src/rentas/calculo/
+// masiva.service.ts; specs/rentas-nucleo-v2.md, Fase 6, J09).
 
 export type TipoCalculo = 'PREDIAL' | 'ARBITRIOS'
 
@@ -12,6 +13,7 @@ export interface DetallePredio {
   construccion?: string
   otras?: string
   autoavaluo?: string
+  origen?: string // de dónde salió lo declarado: DJ, determinación anterior o padrón
   error?: string | null
 }
 
@@ -24,13 +26,18 @@ export interface Resultado {
   cambios: { crear: number; actualizar: number; anular: number; sinCambio: number; protegidas: number }
   errores: string[]
   totalErrores: number
-  determinadosV2?: number // con la determinación del año liquidada desde su DJ: el cálculo v1 no los toca
+  // Quienes no se determinan: DJ pendiente que toca el año, año ya determinado desde una DJ, o una
+  // baja de deuda con valor, coactivo o convenio (L09).
+  excluidos?: { djPendiente: number; rigeDj: number; bloqueados: number }
+  sinCambioPersonas?: number
   detalle: {
     contribuyenteId: number
     predios: DetallePredio[]
     baseImponible: string
     impuestoPredial: string | null
     arbitrios: string
+    beneficios?: string[]
+    avisos?: string[]
   }[]
   ejecutado: boolean
 }
@@ -44,7 +51,7 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
         role="status"
         className={`rounded-md px-3 py-2 text-sm font-medium ${r.ejecutado ? 'bg-emerald-50 text-emerald-800' : 'bg-mar/10 text-mar-profundo'}`}
       >
-        {r.ejecutado ? `Cálculo ${r.anio} registrado en la cuenta corriente.` : `Simulación ${r.anio}: todavía no se grabó nada.`}
+        {r.ejecutado ? `Determinación ${r.anio} liquidada en la cuenta corriente.` : `Simulación ${r.anio}: todavía no se grabó nada.`}
       </p>
 
       <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
@@ -58,22 +65,21 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
         <p className="font-semibold text-mar-profundo">Efecto en la cuenta corriente (cuotas)</p>
         <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
           <li>Nuevas: {c.crear}</li>
-          <li>Actualizadas: {c.actualizar}</li>
-          <li>Anuladas: {c.anular}</li>
+          <li title="Cuotas pendientes que se rehacen con el monto nuevo (L10)">Anuladas: {c.anular}</li>
           <li>Sin cambio: {c.sinCambio}</li>
-          <li title="Cuotas pagadas, fraccionadas o en coactivo: no se modifican">Protegidas: {c.protegidas}</li>
         </ul>
         {!hayCambios && !r.ejecutado && r.totalErrores === 0 && <p className="mt-1 text-xs text-slate-500">La cuenta corriente ya está al día para este año.</p>}
-        {(r.determinadosV2 ?? 0) > 0 && (
-          <p className="mt-1 text-xs text-slate-600">
-            {r.determinadosV2} contribuyente(s) ya tienen el {r.anio} liquidado desde su DJ: no se recalculan aquí.
-          </p>
+        <p className="mt-1 text-xs text-slate-500">Lo pagado no se toca: si el monto sube, la diferencia va como cuota de ajuste; si baja, el exceso pasa a las cuotas nuevas (L10).</p>
+        {r.excluidos && r.excluidos.djPendiente + r.excluidos.rigeDj + r.excluidos.bloqueados > 0 && (
+          <ul className="mt-2 space-y-0.5 text-xs text-slate-600">
+            {r.excluidos.rigeDj > 0 && <li>{r.excluidos.rigeDj} contribuyente(s) ya tienen el {r.anio} determinado desde su DJ: se corrige con otra DJ.</li>}
+            {r.excluidos.djPendiente > 0 && <li>{r.excluidos.djPendiente} contribuyente(s) tienen una DJ pendiente que toca el {r.anio}: se determina al liquidarla.</li>}
+            {r.excluidos.bloqueados > 0 && (
+              <li className="text-amber-800">{r.excluidos.bloqueados} contribuyente(s) bajarían una deuda con valor, coactivo o convenio: no se tocan (L09; ver la lista de abajo).</li>
+            )}
+          </ul>
         )}
-        {c.protegidas > 0 && (
-          <p className="mt-1 text-xs text-amber-700">
-            Hay cuotas pagadas o en trámite que no se recalculan; si el monto cambió, la diferencia se regulariza aparte.
-          </p>
-        )}
+        {(r.sinCambioPersonas ?? 0) > 0 && <p className="mt-1 text-xs text-slate-500">{r.sinCambioPersonas} contribuyente(s) ya tenían esta misma determinación.</p>}
       </div>
 
       {r.detalle.map((d) => (
@@ -83,6 +89,7 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
                 <th scope="col" className="px-2 py-2">Predio</th>
+                <th scope="col" className="px-2 py-2">Origen</th>
                 <th scope="col" className="px-2 py-2 text-right">Terreno</th>
                 <th scope="col" className="px-2 py-2 text-right">Construcción</th>
                 <th scope="col" className="px-2 py-2 text-right">Otras</th>
@@ -94,6 +101,7 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
               {d.predios.map((p) => (
                 <tr key={p.predioId} className="border-b border-slate-100">
                   <td className="px-2 py-2">#{p.predioId}</td>
+                  <td className="px-2 py-2 text-xs text-slate-600">{p.origen ?? '—'}</td>
                   {p.error ? (
                     <td colSpan={4} className="px-2 py-2 text-ladrillo">
                       {p.error}
@@ -121,6 +129,11 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
             )}
             {' '}· arbitrios <strong>{soles(d.arbitrios)}</strong>
           </p>
+          {[...(d.beneficios ?? []), ...(d.avisos ?? [])].map((t, i) => (
+            <p key={i} className="mt-1 text-xs text-slate-600">
+              {t}
+            </p>
+          ))}
         </div>
       ))}
 

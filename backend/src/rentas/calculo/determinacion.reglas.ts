@@ -128,6 +128,34 @@ export function usosDelMes(usos: UsoDatos[], anio: number, mes: number, inicio: 
   return predominante ? [predominante] : [];
 }
 
+// ---- J09: la última determinación pasa al año nuevo ----
+
+// Lo que una determinación liquidada usó de un predio (DeterminacionPredio + sus datos).
+export interface PrevioPredio {
+  origen: string;
+  condicion: string | null;
+  porcentaje: number;
+  afectoPredial: boolean;
+  declarado: Declarado;
+  meses: MesArbitrio[];
+}
+
+// J09 (actualización anual de valores): sigue lo que regía el 31 de diciembre del último año
+// determinado. Quien lo tenía en diciembre lo tiene el 1 de enero (J10: paga el predial) y todo el
+// año de arbitrios; quien lo dejó antes, no. Los parámetros son los del año nuevo.
+export function arrastrar(p: PrevioPredio, anioPrevio: number, anio: number, inicio: InicioArbitrios): PrevioPredio | null {
+  const diciembre = p.meses.find((m) => m.mes === 12);
+  if (!diciembre) return null;
+  return {
+    origen: `Determinación ${anioPrevio}`,
+    condicion: p.condicion,
+    porcentaje: diciembre.porcentaje,
+    afectoPredial: true,
+    declarado: p.declarado,
+    meses: Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, porcentaje: diciembre.porcentaje, usos: usosDelMes(p.declarado.usos, anio, i + 1, inicio) })),
+  };
+}
+
 // ---- Beneficios (P14, P15, R06) ----
 
 export interface Resolucion {

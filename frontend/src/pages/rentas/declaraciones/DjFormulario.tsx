@@ -7,10 +7,11 @@ import { BuscadorContribuyente } from '../contribuyentes/BuscadorContribuyente'
 import { documentoTexto, type Contribuyente } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
 import { AnexoEditor, Bloque, CLASE, Campo, Select } from './AnexoEditor'
-import { RUTA_DJ, aBody, anexoVacio, desdeDetalle, formVacio, validarForm, type DjDetalle, type DjForm } from './djApi'
+import { RUTA_DJ, aBody, anexoVacio, desdeDetalle, etiquetaPredio, formVacio, validarForm, type DjDetalle, type DjForm } from './djApi'
 
 // Alta y edición de la DJ presentada (Fase 4; J01–J07, J13). Una DJ por contribuyente con un
-// anexo por predio. Queda PENDIENTE: determinar y liquidar llegan en la Fase 5. Con :id edita.
+// anexo por predio. Queda PENDIENTE: se determina y liquida desde su ficha (Fase 5). Con :id edita.
+// Reemplaza al formulario de DJ de v1 (Fase 6): las rutas viejas redirigen aquí.
 export function DjFormulario() {
   const { id } = useParams()
   const editando = Boolean(id)
@@ -21,7 +22,7 @@ export function DjFormulario() {
   const tiposAdjunto = useCatalogo('TIPO_DOC_ADJUNTO')
   const [form, setForm] = useState<DjForm>(formVacio)
   const [numero, setNumero] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(editando || params.has('contribuyente'))
+  const [isLoading, setIsLoading] = useState(editando || params.has('contribuyente') || params.has('predio'))
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,9 +36,18 @@ export function DjFormulario() {
             setForm(desdeDetalle(data))
             setNumero(data.numeroTexto)
           }
-        } else if (params.get('contribuyente')) {
-          const { data } = await api.get<Contribuyente>(`/contribuyentes/${params.get('contribuyente')}`)
-          if (vivo) setForm((f) => ({ ...f, contribuyente: { id: data.id, nombreCompleto: data.nombreCompleto, documento: documentoTexto(data) } }))
+        } else {
+          // Desde la ficha de la persona o del predio: ?contribuyente=&motivo=&predio= precargan la DJ.
+          const motivo = params.get('motivo')
+          if (motivo) setForm((f) => ({ ...f, motivo }))
+          if (params.get('contribuyente')) {
+            const { data } = await api.get<Contribuyente>(`/contribuyentes/${params.get('contribuyente')}`)
+            if (vivo) setForm((f) => ({ ...f, contribuyente: { id: data.id, nombreCompleto: data.nombreCompleto, documento: documentoTexto(data) } }))
+          }
+          if (params.get('predio')) {
+            const { data } = await api.get<{ id: number; nombre: string | null; tipo: 'URBANO' | 'RUSTICO'; direccion: { direccion: string } | null }>(`/predios/${params.get('predio')}`)
+            if (vivo) setForm((f) => ({ ...f, anexos: [{ ...anexoVacio(), predio: { id: data.id, etiqueta: etiquetaPredio(data), tipo: data.tipo } }] }))
+          }
         }
       } catch (err) {
         if (vivo) setError(mensajeError(err))

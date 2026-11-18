@@ -5,7 +5,8 @@ import { NivelGuard } from '../../auth/guards/nivel.guard.js';
 import { RequireNivel } from '../../auth/decorators/nivel.decorator.js';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../../auth/types/jwt-payload.type.js';
-import { CalculoService, type TipoCalculo } from './calculo.service.js';
+import { DeterminacionMasivaService } from './masiva.service.js';
+import type { Tributo } from './reliquidacion.reglas.js';
 
 export class CalculoDto {
   @IsInt({ message: 'Indica el año fiscal' })
@@ -20,15 +21,16 @@ export class CalculoDto {
   @IsArray()
   @ArrayUnique()
   @IsIn(['PREDIAL', 'ARBITRIOS'], { each: true, message: 'Tributo no válido' })
-  tributos?: TipoCalculo[];
+  tributos?: Tributo[];
 }
 
-// Simular no escribe nada; ejecutar es idempotente (specs/rentas-nucleo-v1.md, C5).
+// Determinación anual (specs/rentas-nucleo-v2.md, Fase 6; J09). Simular no escribe nada; ejecutar
+// liquida el año y es idempotente. Sin contribuyente es la masiva (nivel rentas.calculo-masivo).
 @UseGuards(JwtAuthGuard, NivelGuard)
 @RequireNivel('rentas.registro-tributario', 'rentas.calculo-masivo')
 @Controller('rentas/calculo')
 export class CalculoController {
-  constructor(private readonly calculo: CalculoService) {}
+  constructor(private readonly calculo: DeterminacionMasivaService) {}
 
   @Post('simular')
   @HttpCode(HttpStatus.OK)

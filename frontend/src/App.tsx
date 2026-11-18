@@ -26,7 +26,7 @@ import { Declaraciones } from './pages/rentas/declaraciones/Declaraciones'
 import { DjFormulario } from './pages/rentas/declaraciones/DjFormulario'
 import { FichaDj } from './pages/rentas/declaraciones/FichaDj'
 import { Predio } from './pages/rentas/predios/Predio'
-import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
+import { RedirigeDjV1 } from './pages/rentas/predios/RedirigeDjV1'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
 import { ControlRecaudacion } from './pages/rentas/valores/ControlRecaudacion'
 import { ValorImprimible } from './pages/rentas/valores/ValorImprimible'
@@ -245,7 +245,7 @@ function App() {
           path="/rentas/registro-tributario/predios/nuevo"
           element={
             <RequireNivel codigo="rentas.registro-tributario">
-              <DeclaracionForm key="nuevo" />
+              <RedirigeDjV1 />
             </RequireNivel>
           }
         />
@@ -261,7 +261,7 @@ function App() {
           path="/rentas/registro-tributario/predios/:id/declaracion"
           element={
             <RequireNivel codigo="rentas.registro-tributario">
-              <DeclaracionForm key="declaracion" />
+              <RedirigeDjV1 />
             </RequireNivel>
           }
         />

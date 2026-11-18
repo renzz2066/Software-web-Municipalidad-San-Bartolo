@@ -159,7 +159,8 @@ export function FichaDj() {
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {/* J04/J17: con cuenta generada la anula (y extorna) un supervisor que no la registró. */}
-                      {(!dj.liquidadaAt || (SUPERVISION.includes(user?.rol ?? '') && user?.id !== dj.creadoPorId)) && (
+                      {/* La DJ de una fiscalización no se anula: se corrige con un reclamo contra su RD. */}
+                      {dj.motivo !== 'FISCALIZACION' && (!dj.liquidadaAt || (SUPERVISION.includes(user?.rol ?? '') && user?.id !== dj.creadoPorId)) && (
                         <button
                           type="button"
                           onClick={() => setAnulando(true)}

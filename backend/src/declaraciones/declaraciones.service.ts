@@ -227,10 +227,12 @@ export class DeclaracionesService {
   // J04: una DJ no se borra; se anula con motivo, usuario y fecha. Sin cuenta generada, los predios que
   // creó quedan INACTIVOS; si ya generó cuenta (liquidada, o reabierta), la extorna y devuelve el padrón.
   async anular(id: number, dto: AnularDjDto, actor: Actor) {
-    const d = await this.prisma.djPresentada.findUnique({ where: { id }, select: { estado: true, liquidadaAt: true } });
+    const d = await this.prisma.djPresentada.findUnique({ where: { id }, select: { estado: true, liquidadaAt: true, motivo: true } });
     if (!d) throw new NotFoundException('La declaración no existe');
     const e = errorAnular(d.estado);
     if (e) throw new ConflictException(e);
+    // Fase 6: la DJ que deja una fiscalización no se anula aquí; su resultado se corrige con un reclamo contra la RD.
+    if (d.motivo === MOTIVO.FISCALIZACION) throw new ConflictException('La DJ de una fiscalización no se anula: su resultado se corrige con un reclamo contra la RD de fiscalización');
     const motivo = dto.motivo.trim();
     if (motivo.length < 10) throw new BadRequestException('Explica por qué se anula (mínimo 10 caracteres)');
     await this.prisma.$transaction(async (tx) => {

@@ -3,7 +3,8 @@ import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
 import { ResultadoCalculo, type Resultado, type TipoCalculo } from './ResultadoCalculo'
 
-// Simular → revisar → ejecutar. Sin contribuyenteId es masivo (nivel rentas.calculo-masivo).
+// Determinación anual (J09): simular → revisar → liquidar. Sin contribuyenteId es la masiva (nivel
+// rentas.calculo-masivo). Parte de las DJ, de la última determinación o del padrón (Fase 6).
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS = [ANIO_ACTUAL + 1, ANIO_ACTUAL, ANIO_ACTUAL - 1]
@@ -26,8 +27,8 @@ export function PanelCalculo({ contribuyenteId, alEjecutar }: { contribuyenteId?
       accion === 'ejecutar' &&
       !window.confirm(
         contribuyenteId
-          ? `Se registrará la deuda ${anio} de este contribuyente. ¿Continuar?`
-          : `Se registrará la deuda ${anio} de TODOS los contribuyentes y los parámetros del año quedarán bloqueados. ¿Continuar?`,
+          ? `Se determinará y liquidará el ${anio} de este contribuyente. ¿Continuar?`
+          : `Se determinará y liquidará el ${anio} de TODOS los contribuyentes (salvo los que lo tienen desde su DJ) y los parámetros del año quedarán bloqueados. ¿Continuar?`,
       )
     ) {
       return
@@ -107,7 +108,7 @@ export function PanelCalculo({ contribuyenteId, alEjecutar }: { contribuyenteId?
           className="rounded-md bg-mar-profundo px-4 py-2 text-sm font-medium text-white hover:brightness-110 focus-visible:outline-3 focus-visible:outline-turquesa disabled:opacity-40"
         >
           <i aria-hidden="true" className="bi bi-check2-circle mr-1" />
-          {isWorking === 'ejecutar' ? 'Registrando…' : 'Ejecutar cálculo'}
+          {isWorking === 'ejecutar' ? 'Liquidando…' : 'Determinar y liquidar'}
         </button>
       </div>
 
