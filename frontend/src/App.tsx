@@ -22,6 +22,9 @@ import { ContribuyenteForm } from './pages/rentas/contribuyentes/ContribuyenteFo
 import { FichaContribuyente } from './pages/rentas/contribuyentes/FichaContribuyente'
 import { Direcciones } from './pages/rentas/direcciones/Direcciones'
 import { FichaDireccion } from './pages/rentas/direcciones/FichaDireccion'
+import { Declaraciones } from './pages/rentas/declaraciones/Declaraciones'
+import { DjFormulario } from './pages/rentas/declaraciones/DjFormulario'
+import { FichaDj } from './pages/rentas/declaraciones/FichaDj'
 import { Predio } from './pages/rentas/predios/Predio'
 import { DeclaracionForm } from './pages/rentas/predios/DeclaracionForm'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
@@ -147,6 +150,38 @@ function App() {
           element={
             <RequireNivel codigo="accesibilidad.accesos-por-rol">
               <AccesosPorRol />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/declaraciones"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <Declaraciones />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/declaraciones/nueva"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <DjFormulario key="nueva" />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/declaraciones/:id"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <FichaDj />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/declaraciones/:id/editar"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <DjFormulario key="editar" />
             </RequireNivel>
           }
         />

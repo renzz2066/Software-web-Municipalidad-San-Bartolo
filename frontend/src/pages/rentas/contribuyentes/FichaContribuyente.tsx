@@ -12,6 +12,7 @@ import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
 import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
 import { RUTA_DIRECCIONES } from '../direcciones/direccionesApi'
+import { RUTA_DJ } from '../declaraciones/djApi'
 import { BeneficiosPersona } from './BeneficiosPersona'
 import { EstadoPersona } from './EstadoPersona'
 import { RUTA_BASE, TIPOS_PERSONA, documentoTexto, soles, type Contribuyente } from './tipos'
@@ -346,6 +347,21 @@ export function FichaContribuyente() {
 
               {pestana === 'deuda' && <DeudaALaFecha contribuyenteId={c.id} refreshKey={refreshKey} />}
 
+              {pestana === 'ddjj' && (
+                <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-4 py-3 text-sm">
+                  <span className="text-slate-600">DJ presentadas (un anexo por predio):</span>
+                  <Link to={`${RUTA_DJ}?q=${encodeURIComponent(c.numDoc ?? c.nombreCompleto)}`} className="font-medium text-mar hover:underline">
+                    Ver las de esta persona
+                  </Link>
+                  <Link
+                    to={`${RUTA_DJ}/nueva?contribuyente=${c.id}`}
+                    className="rounded-md border border-mar-profundo/30 px-3 py-1 text-xs font-medium text-mar-profundo hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
+                  >
+                    Nueva DJ
+                  </Link>
+                  <span className="text-xs text-slate-400">Abajo, las DJ del sistema anterior (una por predio).</span>
+                </div>
+              )}
               {pestana === 'ddjj' &&
                 (datos.declaraciones.length === 0 ? (
                   <Vacio texto="Sin declaraciones juradas." />

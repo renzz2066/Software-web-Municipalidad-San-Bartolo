@@ -135,6 +135,13 @@ export function Contribuyentes() {
             <i aria-hidden="true" className="bi bi-geo-alt mr-1" />
             Direcciones
           </Link>
+          <Link
+            to={`${RUTA_BASE}/declaraciones`}
+            className="self-center rounded-md px-3 py-2 text-sm font-medium text-mar hover:bg-slate-100 hover:text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa"
+          >
+            <i aria-hidden="true" className="bi bi-file-earmark-text mr-1" />
+            DJ presentadas
+          </Link>
         </form>
 
         <main className="mt-6 rounded-panel border border-borde bg-white">

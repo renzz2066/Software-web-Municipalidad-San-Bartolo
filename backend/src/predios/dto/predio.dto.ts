@@ -179,3 +179,17 @@ export class PersonasAnioDto {
   @Max(2100)
   anio?: number;
 }
+
+export class BuscarPrediosDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  limit?: number;
+}

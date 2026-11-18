@@ -82,6 +82,38 @@ export class PrediosService {
     return { zonas, urbanizaciones, vias };
   }
 
+  async buscar(dto: { q?: string; limit?: number }) {
+    const q = dto.q?.trim() ?? '';
+    const palabras = q.split(/\s+/).filter(Boolean).slice(0, 6);
+    const where: Prisma.PredioWhereInput = /^\d+$/.test(q)
+      ? { OR: [...(q.length <= 9 ? [{ id: Number(q) }] : []), { codigoLegacy: { startsWith: q } }, { codigoCatastro: { startsWith: q } }] }
+      : {
+          AND: palabras.map((p) => ({
+            OR: [
+              { nombre: { contains: p, mode: 'insensitive' } },
+              { codigoCatastro: { contains: p, mode: 'insensitive' } },
+              { direccion: { direccion: { contains: p, mode: 'insensitive' } } },
+            ],
+          })),
+        };
+    const items = await this.prisma.predio.findMany({
+      where: { ...where, estado: { not: EstadoRegistro.BAJA } },
+      select: {
+        id: true,
+        nombre: true,
+        tipo: true,
+        estado: true,
+        codigoCatastro: true,
+        areaTerreno: true,
+        direccion: { select: { direccion: true } },
+        contribuyentes: { where: { estado: EstadoRegistro.ACTIVO }, select: { porcentaje: true, contribuyente: { select: { id: true, nombreCompleto: true } } } },
+      },
+      orderBy: { id: 'asc' },
+      take: dto.limit ?? 10,
+    });
+    return { items };
+  }
+
   async findOne(id: number) {
     const predio = await this.prisma.predio.findUnique({
       where: { id },
