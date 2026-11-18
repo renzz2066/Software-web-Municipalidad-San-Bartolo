@@ -1,5 +1,5 @@
 # Spec: Rentas — Personas, Direcciones, Predios y DJ al modelo Lurín (v2)
-<!-- Formato fijo 5 secciones. BORRADOR 2026-11-17: no implementar hasta aprobarla. Reemplaza C1–C3 y C5 de `rentas-nucleo-v1.md`. -->
+<!-- Formato fijo 5 secciones. Decisiones cerradas 2026-11-17; cada fase se implementa cuando el usuario la aprueba. Reemplaza C1–C3 y C5 de `rentas-nucleo-v1.md`. -->
 
 - **Reglas:** `docs/rentas/reglas-negocio.md`. Esta spec las cita por ID y no las repite.
 - **Marco:** la ley nacional va en el código; lo que fija la ordenanza de cada muni es un dato en su base.
@@ -9,7 +9,7 @@
 - Como SUPERVISOR/ADMIN de Rentas, quiero llevar personas, direcciones, predios y DJ con la estructura de Lurín para declarar, determinar y liquidar igual que ellos. Esa estructura es una **DJ por contribuyente y año, con un anexo por predio**.
 - Como CAJERO, sigo consultando el estado de cuenta igual que hoy.
 - [ ] C1 **Personas**: nombres y apellidos separados; varios documentos, contactos y relacionados; perfil, clasificación y estado (P01–P15).
-- [ ] C2 Inhabilitar, dar de baja o cambiar el estado con deuda → `409` "mantiene una deuda de S/ X y no puede ser inhabilitado" (P01). Habilitar no tiene restricción (P02).
+- [ ] C2 Pasar a INHABILITADO con deuda, a mano o automático → `409` "mantiene una deuda de S/ X y no puede ser inhabilitado" (P01, P03). Habilitar no tiene restricción (P02). Estados según P16.
 - [ ] C3 **Direcciones únicas**: un catálogo que comparten personas, predios y relacionados. La dirección literal se genera con componentes ordenados (D01–D05).
 - [ ] C4 **Predio maestro** con linderos, datos para arbitrios y coordenadas, y la vista "personas asociadas" por año (R01–R06).
 - [ ] C5 **DJ presentada** (J01–J16):
@@ -59,22 +59,31 @@ Flujo: `Persona → DJ presentada → Anexo por predio (+niveles, obras, usos) �
 - **Determinación anual masiva (J09):** copia la última determinación al año nuevo con los parámetros nuevos. Reemplaza el cálculo masivo de v1 y reusa simular/ejecutar.
 - **Catálogos con código:** motivos y su tipo (informativa o declarativa), condición, usos y sub-usos, exoneraciones, tipos de documento, contacto y relacionado, componentes de dirección, frecuencias, ubicación de parques, perfiles. Son tablas en cada base. Las tasas siguen en los parámetros del año, con su ordenanza.
 - **`ReglaMuni`:** clave/valor por base, con su ordenanza. Solo para las reglas marcadas "Parám." que no son un catálogo: J05, J11, J16 y la agrupación de arbitrios en cuotas.
-- **Datos de San Bartolo:** hoy son de prueba, porque no hay producción. La migración recrea las tablas y el seed, sin ETL desde v1.
 - **No se hace:** descompilar el ejecutable de Lurín, copiar sus pantallas tal cual, alcabala, vehicular, licencias ni los intereses de Lurín (los nuestros se calculan al vuelo).
 
-**Decisiones pendientes** (cada una con su propuesta):
-1. Estados de la persona: HABILITADO / INHABILITADO / PENDIENTE. "Fiscalizado" sale del módulo de fiscalización.
-2. L13: al liquidar, actualizar la ficha de la persona con la DJ, mostrando antes las diferencias.
-3. P10: relacionados en línea, con enlace opcional a una persona ya registrada.
-4. J14: estado EN_REVISION, que se aprueba o rechaza con justificación, con alerta al vencer los 45 días hábiles.
-5. L07: determinar los arbitrios por mes y agruparlos en cuotas según `ReglaMuni`.
-6. P08: permitir personas sin documento, con código correlativo y estado PENDIENTE.
-7. Confirmar que los datos actuales de San Bartolo se pueden descartar.
+**Decisiones** (cerradas el 2026-11-17; el detalle está en cada regla):
+1. **Estados de la persona (P16):** HABILITADO, INHABILITADO y PENDIENTE.
+   - ACTIVO pasa a HABILITADO. INACTIVO y BAJA pasan a INHABILITADO: hoy son dos estados para lo mismo, y por eso INACTIVO se saltaba la regla de la deuda.
+   - "Fiscalizado" no es un estado, porque una persona puede estar fiscalizada y habilitada a la vez.
+2. **Ficha al liquidar (L13):** gana el dato más reciente.
+   - Sobrescribir siempre, como Lurín, pisa datos nuevos al reliquidar una DJ vieja.
+   - No actualizar nunca deja la ficha desactualizada.
+3. **Relacionados (P10):** se guardan en la ficha, con enlace opcional a la persona registrada. Obligar a registrarlos llenaría el padrón de personas que no tributan.
+4. **DJ a la baja (J14, J17):** queda EN_REVISION con un plazo de 45 días hábiles (CT art. 88).
+   - La aprueba un SUPERVISOR distinto de quien la registró.
+   - Al vencer el plazo no se liquida sola: queda liquidable y ya no se puede rechazar.
+5. **Arbitrios (L07):** se determinan por mes y se agrupan en cuotas según `ReglaMuni`. Es la única forma de cobrar bien una compra en mayo o un uso que empieza en agosto.
+6. **Sin documento (P08, P17, P18):** se permite, con justificación, y la persona queda PENDIENTE. Prohibirlo lleva a inventar números como 00000000, que es peor.
+7. **Datos actuales:** se convierten, no se borran.
+   - Documentos, contactos, relacionados y domicilio pasan tal cual.
+   - En persona jurídica, el nombre pasa a razón social.
+   - En persona natural, el nombre se separa como "paterno materno nombres", que es el orden en que lo arma la consulta de DNI, y la persona queda PENDIENTE para revisarlo.
+   - Las DJ de v1 (`snapshot`) no se convierten: son de prueba y la Fase 4 las reemplaza.
 
 ## 4. Tareas
-- [ ] Rama `docs/rentas-nucleo-v2`: esta spec y `docs/rentas/reglas-negocio.md`. Aprobarlas y cerrar las decisiones pendientes.
+- [x] Rama `docs/rentas-nucleo-v2`: esta spec, `docs/rentas/reglas-negocio.md` y las decisiones de §3.
 - [ ] Fase 0: catálogos + `ReglaMuni` + seed nacional. Pedir a Lurín el contenido de sus catálogos (solo catálogos, sin personas).
-- [ ] Fase 1: Personas (C1, C2). No toca el cálculo.
+- [ ] Fase 1: Personas (C1, C2) + conversión de los contribuyentes actuales (decisión 7). No toca el cálculo.
 - [ ] Fase 2: Direcciones únicas (C3) y migración del domicilio de las personas.
 - [ ] Fase 3: Predio maestro (C4).
 - [ ] Fase 4: DJ presentada + anexos (C5), sin liquidar.
@@ -85,10 +94,11 @@ Flujo: `Persona → DJ presentada → Anexo por predio (+niveles, obras, usos) �
 ## 5. Verificación
 - Comandos: `cd frontend && npm run lint && npm run build` · `cd backend && npm run lint && npm run test` · `npx prisma validate`.
 - **Tests mínimos:**
-  - P01: inhabilitar con deuda → 409.
+  - P01/P03: inhabilitar con deuda → 409; el descargo del último predio inhabilita solo si no hay deuda.
+  - P08/P17: sin documento queda PENDIENTE; 00000000 se rechaza.
   - J10: una compra en el año N afecta desde N+1.
   - J15: una DJ con 3 años genera 3 determinaciones e incluye los predios no declarados.
-  - J14: una rectificatoria a la baja no genera cuenta.
+  - J14/J17: una DJ a la baja queda EN_REVISION y no genera cuenta; quien la registró no puede aprobarla; vencidos los 45 días hábiles ya no se puede rechazar.
   - L09: no se baja una deuda que ya tiene valor emitido.
   - L10: reliquidación con una cuota pagada en parte y con exceso pagado.
   - L06: la última cuota absorbe el redondeo.
