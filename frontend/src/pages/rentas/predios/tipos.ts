@@ -42,13 +42,69 @@ export interface TitularApi {
   porcentaje: string
   esPrincipal: boolean
   fechaAdquisicion: string | null
+  condicion: string | null // R05: catálogo CONDICION_PROPIEDAD
   contribuyente: { id: number; tipoDoc: string; numDoc: string | null; nombreCompleto: string }
 }
 
-export interface PredioApi {
+export type TipoPredio = 'URBANO' | 'RUSTICO'
+
+// Linderos (R01): metros y colindante por lado.
+export const LADOS = ['Frente', 'Derecha', 'Izquierda', 'Fondo'] as const
+export type Lado = (typeof LADOS)[number]
+
+// R06: inafectación o exoneración del predio.
+export interface BeneficioPredio {
+  id: number
+  codigo: string
+  porcentaje: string
+  baseLegal: string
+  expediente: string | null
+  resolucion: string
+  fechaResolucion: string
+  anioDesde: number
+  anioHasta: number | null
+  vigente: boolean
+  observacion: string | null
+}
+
+// Maestro (Fase 3, R01/R02): lo que no se declara en la DJ.
+export interface MaestroPredio {
+  tipo: TipoPredio
+  nombre: string | null
+  latitud: string | null
+  longitud: string | null
+  linderoFrenteMetros: string | null
+  linderoFrenteColindante: string | null
+  linderoDerechaMetros: string | null
+  linderoDerechaColindante: string | null
+  linderoIzquierdaMetros: string | null
+  linderoIzquierdaColindante: string | null
+  linderoFondoMetros: string | null
+  linderoFondoColindante: string | null
+  frecuenciaBarrido: string | null
+  ubicacionParque: string | null
+  frontis: string | null
+}
+
+// C4: personas asociadas al predio en un año (GET /predios/:id/personas?anio=).
+export interface PersonaAsociada {
+  porcentaje: string
+  condicion: string | null
+  fechaAdquisicion: string | null
+  fechaFin: string | null
+  estado: 'ACTIVO' | 'INACTIVO' | 'BAJA'
+  contribuyenteDelAnio: boolean
+  finDesconocido: boolean
+  contribuyente: { id: number; tipoDoc: string; numDoc: string | null; nombreCompleto: string }
+}
+
+export interface PredioApi extends MaestroPredio {
   id: number
   codigoLegacy: string | null
   codigoCatastro: string | null
+  direccionId: number | null
+  direccion: { id: number; direccion: string; activo: boolean } | null
+  beneficios?: BeneficioPredio[]
   zonaId: number | null
   urbanizacionId: number | null
   viaId: number | null

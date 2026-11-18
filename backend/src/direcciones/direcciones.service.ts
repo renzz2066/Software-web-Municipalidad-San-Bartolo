@@ -30,7 +30,7 @@ const SELECT_LISTA = {
   direccion: true,
   referencia: true,
   activo: true,
-  _count: { select: { contribuyentes: true } },
+  _count: { select: { contribuyentes: true, predios: true } },
 } satisfies Prisma.DireccionSelect;
 
 interface Partes {
@@ -110,7 +110,12 @@ export class DireccionesService {
           orderBy: { nombreCompleto: 'asc' },
           take: 50,
         },
-        _count: { select: { contribuyentes: true } },
+        predios: {
+          select: { id: true, nombre: true, codigoCatastro: true, codigoLegacy: true, estado: true },
+          orderBy: { id: 'asc' },
+          take: 50,
+        },
+        _count: { select: { contribuyentes: true, predios: true } },
       },
     });
     if (!d) throw new NotFoundException('La dirección no existe');
@@ -159,7 +164,10 @@ export class DireccionesService {
   async actualizar(id: number, dto: ActualizarDireccionDto, actor: Actor) {
     this.exigirSupervisor(actor, 'editar una dirección');
     await this.escribir(async (tx) => {
-      const actual = await tx.direccion.findUnique({ where: { id }, include: { componentes: { orderBy: { orden: 'asc' } } } });
+      const actual = await tx.direccion.findUnique({
+        where: { id },
+        include: { componentes: { orderBy: { orden: 'asc' } }, _count: { select: { predios: true } } },
+      });
       if (!actual) throw new NotFoundException('La dirección no existe');
       const toma = <T>(v: T | undefined, previo: T) => (v !== undefined ? v : previo);
       const partes: Partes = {
@@ -179,6 +187,13 @@ export class DireccionesService {
         actual.componentes.map((c) => c.componente),
       );
       await this.asegurarUnica(tx, armada.clave, id);
+      // La ubicación de un predio (vía, sector, Mz., Lt.) cambia su arancel y sus arbitrios: eso se
+      // declara con una DJ del predio, no corrigiendo la dirección. Aquí solo referencia y coordenadas.
+      if (actual._count.predios > 0 && armada.clave !== actual.clave) {
+        throw new ConflictException(
+          `La usan ${actual._count.predios} predio(s): su ubicación se corrige con una DJ del predio. Aquí solo cambia la referencia o las coordenadas.`,
+        );
+      }
       await tx.direccion.update({
         where: { id },
         data: {
@@ -220,6 +235,32 @@ export class DireccionesService {
     if (!d) throw new BadRequestException('La dirección elegida no existe');
     if (!d.activo && d.id !== actualId) throw new BadRequestException('La dirección elegida está dada de baja: elige otra');
     return d;
+  }
+
+  // Para el predio (D01): la DJ trae vía, sector, habilitación, N°, Mz. y Lt.; si esa dirección ya
+  // existe se reusa (aunque esté de baja: el predio sigue ahí), si no se crea. Va dentro de la
+  // transacción de la DJ.
+  async obtenerOCrear(
+    tx: Prisma.TransactionClient,
+    p: { zonaId: number | null; urbanizacionId: number | null; viaId: number | null; componentes: Componente[]; referencia: string | null },
+  ) {
+    const partes: Partes = { ...p, ubigeo: await this.ubigeoMuni(tx), referencia: mayus(p.referencia), latitud: null, longitud: null };
+    const armada = await this.armar(tx, partes, partes.componentes.map((c) => c.componente));
+    const existente = await tx.direccion.findUnique({ where: { clave: armada.clave }, select: { id: true, direccion: true } });
+    if (existente) return existente;
+    return tx.direccion.create({
+      data: {
+        ubigeo: partes.ubigeo,
+        zonaId: partes.zonaId,
+        urbanizacionId: partes.urbanizacionId,
+        viaId: partes.viaId,
+        direccion: armada.literal,
+        clave: armada.clave,
+        referencia: partes.referencia,
+        componentes: { create: armada.componentes.map((c, i) => ({ orden: i + 1, ...c })) },
+      },
+      select: { id: true, direccion: true },
+    });
   }
 
   // ---- auxiliares ----

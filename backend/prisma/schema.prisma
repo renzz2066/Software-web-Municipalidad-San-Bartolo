@@ -516,6 +516,7 @@ model Direccion {
 
   componentes    DireccionComponente[]
   contribuyentes Contribuyente[]
+  predios        Predio[]
 
   @@index([direccion])
   @@index([zonaId])
@@ -587,31 +588,60 @@ model Via {
   @@map("vias")
 }
 
+// R01: urbano o rústico (TUO LTM art. 8).
+enum TipoPredio {
+  URBANO
+  RUSTICO
+}
+
+// Predio maestro (specs/rentas-nucleo-v2.md, Fase 3; R01–R06). Lo de identificación y arbitrios
+// (nombre, linderos, coordenadas, frecuencia, parques, frontis) se edita en el maestro; ubicación,
+// área y construcción siguen entrando por la DJ. zonaId…referencia quedan como copia de la
+// dirección única (D01) porque los leen el cálculo, caja, valores y fiscalización.
 model Predio {
-  id              Int            @id @default(autoincrement())
-  codigoLegacy    String?        @unique @db.VarChar(7) // CODPRED SIMUN
-  codigoCatastro  String?        @unique @db.VarChar(20) // IDCATASTRO
-  zonaId          Int?
-  zona            Zona?          @relation(fields: [zonaId], references: [id], onDelete: Restrict)
-  urbanizacionId  Int?
-  urbanizacion    Urbanizacion?  @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
-  viaId           Int?
-  via             Via?           @relation(fields: [viaId], references: [id], onDelete: Restrict)
-  numero          String?        @db.VarChar(10)
-  manzana         String?        @db.VarChar(10)
-  lote            String?        @db.VarChar(10)
-  referencia      String?        @db.VarChar(150)
-  areaTerreno     Decimal?       @db.Decimal(12, 2)
-  areaConstruida  Decimal?       @db.Decimal(12, 2)
-  valorAutovaluo  Decimal?       @db.Decimal(14, 2)
-  usoPredio       String?        @db.VarChar(10) // uso_del_predio.dbf
-  estado          EstadoRegistro @default(ACTIVO)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  creadoPorId     Int?
-  creadoPor       Usuario?       @relation("PredioCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
-  modificadoPorId Int?
-  modificadoPor   Usuario?       @relation("PredioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+  id                         Int            @id @default(autoincrement())
+  codigoLegacy               String?        @unique @db.VarChar(7) // CODPRED SIMUN
+  codigoCatastro             String?        @unique @db.VarChar(20) // IDCATASTRO
+  tipo                       TipoPredio     @default(URBANO)
+  nombre                     String?        @db.VarChar(120) // tb_nombre_predios_unicos
+  direccionId                Int?
+  direccion                  Direccion?     @relation(fields: [direccionId], references: [id], onDelete: Restrict)
+  latitud                    Decimal?       @db.Decimal(9, 6)
+  longitud                   Decimal?       @db.Decimal(9, 6)
+  // Linderos (R01): metros y colindante de cada lado.
+  linderoFrenteMetros        Decimal?       @db.Decimal(10, 2)
+  linderoFrenteColindante    String?        @db.VarChar(120)
+  linderoDerechaMetros       Decimal?       @db.Decimal(10, 2)
+  linderoDerechaColindante   String?        @db.VarChar(120)
+  linderoIzquierdaMetros     Decimal?       @db.Decimal(10, 2)
+  linderoIzquierdaColindante String?        @db.VarChar(120)
+  linderoFondoMetros         Decimal?       @db.Decimal(10, 2)
+  linderoFondoColindante     String?        @db.VarChar(120)
+  // Arbitrios (R02): la zona sale del sector de la dirección (D03).
+  frecuenciaBarrido          String?        @db.VarChar(20) // catálogo FRECUENCIA_BARRIDO
+  ubicacionParque            String?        @db.VarChar(20) // catálogo UBICACION_PARQUE
+  frontis                    Decimal?       @db.Decimal(10, 2) // metros lineales
+  zonaId                     Int?
+  zona                       Zona?          @relation(fields: [zonaId], references: [id], onDelete: Restrict)
+  urbanizacionId             Int?
+  urbanizacion               Urbanizacion?  @relation(fields: [urbanizacionId], references: [id], onDelete: Restrict)
+  viaId                      Int?
+  via                        Via?           @relation(fields: [viaId], references: [id], onDelete: Restrict)
+  numero                     String?        @db.VarChar(10)
+  manzana                    String?        @db.VarChar(10)
+  lote                       String?        @db.VarChar(10)
+  referencia                 String?        @db.VarChar(150)
+  areaTerreno                Decimal?       @db.Decimal(12, 2)
+  areaConstruida             Decimal?       @db.Decimal(12, 2)
+  valorAutovaluo             Decimal?       @db.Decimal(14, 2)
+  usoPredio                  String?        @db.VarChar(10) // uso_del_predio.dbf
+  estado                     EstadoRegistro @default(ACTIVO)
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+  creadoPorId                Int?
+  creadoPor                  Usuario?       @relation("PredioCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId            Int?
+  modificadoPor              Usuario?       @relation("PredioModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
   contribuyentes     PredioContribuyente[]
   pisos              Piso[]
@@ -621,11 +651,36 @@ model Predio {
   licencias          Licencia[]
   declaraciones      DeclaracionJurada[]
   fiscalizaciones    FiscalizacionPredio[]
+  beneficios         PredioBeneficio[]
 
   @@index([zonaId])
   @@index([urbanizacionId])
   @@index([estado])
+  @@index([direccionId])
   @@map("predios")
+}
+
+// R06: inafectación o exoneración del predio por resolución. Un predio inafecto exige que sus
+// titulares sean inafectos. Se aplica al determinar (Fase 5). No se borra: se revoca.
+model PredioBeneficio {
+  id              Int      @id @default(autoincrement())
+  predioId        Int
+  predio          Predio   @relation(fields: [predioId], references: [id], onDelete: Restrict)
+  codigo          String   @db.VarChar(20) // catálogo BENEFICIO (régimen INAFECTACION o EXONERACION)
+  porcentaje      Decimal  @db.Decimal(5, 2)
+  baseLegal       String   @db.VarChar(150)
+  expediente      String?  @db.VarChar(30)
+  resolucion      String   @db.VarChar(40)
+  fechaResolucion DateTime @db.Date
+  anioDesde       Int
+  anioHasta       Int?
+  vigente         Boolean  @default(true)
+  observacion     String?  @db.VarChar(250)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([predioId])
+  @@map("predio_beneficios")
 }
 
 model PredioContribuyente {
@@ -636,6 +691,8 @@ model PredioContribuyente {
   predio           Predio         @relation(fields: [predioId], references: [id], onDelete: Restrict)
   porcentaje       Decimal        @default(100.0) @db.Decimal(6, 2) // PORPRO SIMUN
   fechaAdquisicion DateTime?      @db.Date
+  fechaFin         DateTime?      @db.Date // deja de ser titular (venta, baja): "personas asociadas" por año
+  condicion        String?        @db.VarChar(20) // R05: catálogo CONDICION_PROPIEDAD
   esPrincipal      Boolean        @default(true)
   estado           EstadoRegistro @default(ACTIVO)
   createdAt        DateTime       @default(now())
