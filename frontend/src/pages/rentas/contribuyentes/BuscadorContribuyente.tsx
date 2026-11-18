@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
-import type { ContribuyenteResumen } from './tipos'
+import { documentoTexto, type ContribuyenteResumen } from './tipos'
 
 // Selector de contribuyente por documento o nombre (declarante, condóminos).
 
@@ -86,7 +86,7 @@ export function BuscadorContribuyente({ id, label, alElegir, excluir = [] }: Pro
                 className="w-full px-3 py-2 text-left text-sm hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
               >
                 <span className="font-mono text-xs text-slate-500">
-                  {c.tipoDoc} {c.numDoc}
+                  {documentoTexto(c)}
                 </span>{' '}
                 <span className="font-medium text-mar-profundo">{c.nombreCompleto}</span>
               </button>

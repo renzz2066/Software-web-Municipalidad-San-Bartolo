@@ -87,7 +87,11 @@ Flujo: `Persona → DJ presentada → Anexo por predio (+niveles, obras, usos) �
   - Seed idempotente: crea lo que falta y no pisa lo editado por la muni.
   - Valores por defecto elegidos (conservadores, editables): motivos DECLARATIVA salvo ACTUALIZACION_DATOS; J05 = INSCRIPCION, COMPRA, MODIFICACION, ACTUALIZACION_DATOS; J11 = mes siguiente; J16 = permitido.
   - Pendiente: pedir a Lurín el contenido de sus catálogos (solo catálogos, sin personas) y ajustar el seed.
-- [ ] Fase 1: Personas (C1, C2) + conversión de los contribuyentes actuales (decisión 7). No toca el cálculo.
+- [x] Fase 1: Personas (C1, C2) + conversión de los contribuyentes actuales (decisión 7). No toca el cálculo (rama `feat/rentas-v2-personas`).
+  - Tablas `contribuyente_documentos` (tipo + número único), `_contactos`, `_relacionados` y `_beneficios`; estado `EstadoPersona`. `tipoDoc`/`numDoc` de `contribuyentes` quedan como copia del documento principal para caja, valores y coactiva.
+  - API: `PATCH :id/estado` (P01 → 409 con el monto de la deuda a la fecha), `POST :id/aprobar-excepcion` y `DELETE :id` (SUPERVISOR/ADMIN), `POST :id/beneficios` y `PATCH …/revocar`, `GET por-documento` (P10).
+  - Elegido por ser lo conservador: INHABILITADO no declara ni se fiscaliza (como BAJA en v1); el teléfono de v1 pasa como TELEFONO_CASA; en la sucesión se conservan los nombres del causante si existen; "un cónyuge vigente" lo valida el servicio (sin índice parcial, para no desalinear Prisma).
+  - P03 (inhabilitación y rehabilitación automáticas al liquidar) y la aplicación de P14/P15 al determinar quedan para la Fase 5.
 - [ ] Fase 2: Direcciones únicas (C3) y migración del domicilio de las personas.
 - [ ] Fase 3: Predio maestro (C4).
 - [ ] Fase 4: DJ presentada + anexos (C5), sin liquidar.

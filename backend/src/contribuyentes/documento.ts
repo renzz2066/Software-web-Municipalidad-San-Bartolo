@@ -44,6 +44,20 @@ export function validarDocumento(tipoDoc: string, numDoc: string, tipoPersona: T
   return null;
 }
 
+// Tipo de la persona sin documento (P08): no es un documento, es su ausencia.
+export const SIN_DOCUMENTO = 'SIN_DOCUMENTO';
+
+// P17: números inventados para poder grabar. Todos los dígitos iguales o una escalera
+// (12345678, 87654321…). En el RUC se mira el cuerpo, sin prefijo ni dígito verificador.
+export function documentoFicticio(tipoDoc: string, numDoc: string): boolean {
+  const cuerpo = tipoDoc === 'RUC' ? numDoc.slice(2, 10) : numDoc;
+  if (!/^\d{6,}$/.test(cuerpo)) return false;
+  if (/^(\d)\1+$/.test(cuerpo)) return true;
+  const digitos = [...cuerpo].map(Number);
+  const paso = (s: 1 | -1) => digitos.every((d, i) => i === 0 || d === (digitos[i - 1] + s + 10) % 10);
+  return paso(1) || paso(-1);
+}
+
 // Normaliza para guardar y buscar: sin espacios, en mayúsculas.
 export function normalizarDocumento(numDoc: string): string {
   return numDoc.replace(/\s+/g, '').toUpperCase();

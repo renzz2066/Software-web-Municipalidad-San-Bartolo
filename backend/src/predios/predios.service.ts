@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoRegistro, MotivoDeclaracion, Prisma } from '@prisma/client';
+import { EstadoPersona, EstadoRegistro, MotivoDeclaracion, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hoyLima } from '../rentas/fechas.js';
 import { anioValido } from '../rentas/maestros/maestros.reglas.js';
@@ -281,11 +281,11 @@ export class PrediosService {
   private async asegurarContribuyentes(tx: Tx, ids: number[]) {
     const unicos = [...new Set(ids)];
     const encontrados = await tx.contribuyente.findMany({
-      where: { id: { in: unicos }, estado: { not: EstadoRegistro.BAJA } },
+      where: { id: { in: unicos }, estado: { not: EstadoPersona.INHABILITADO } },
       select: { id: true },
     });
     if (encontrados.length !== unicos.length) {
-      throw new BadRequestException('Algún contribuyente no existe o está dado de baja');
+      throw new BadRequestException('Algún contribuyente no existe o está inhabilitado: habilítalo antes de declarar');
     }
   }
 }

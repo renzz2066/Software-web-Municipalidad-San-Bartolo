@@ -85,7 +85,7 @@ describe('IdentidadService', () => {
     const { servicio, prisma } = construir();
     await servicio.consultar({ ...dni(), excluirId: 7 });
     expect(prisma.contribuyente.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { numDoc: '12345678', id: { not: 7 } } }),
+      expect.objectContaining({ where: { documentos: { some: { numDoc: '12345678' } }, id: { not: 7 } } }),
     );
   });
 

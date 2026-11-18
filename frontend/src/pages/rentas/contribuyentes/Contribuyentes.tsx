@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
 import { PageHeader } from '../../../components/layout/PageHeader'
-import { ESTILO_ESTADO, RUTA_BASE, type ContribuyenteResumen } from './tipos'
+import { ESTILO_ESTADO, ETIQUETA_ESTADO, RUTA_BASE, documentoTexto, type ContribuyenteResumen } from './tipos'
 
 // Registro Tributario → búsqueda única de contribuyentes (C1).
 
@@ -19,7 +19,8 @@ export function Contribuyentes() {
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const page = Number(params.get('page') ?? '1') || 1
-  const incluirBaja = params.get('baja') === '1'
+  // Filtro de estado (P16): por defecto sin inhabilitados; TODOS los incluye.
+  const filtro = params.get('estado') ?? ''
   const [texto, setTexto] = useState(q)
   const [datos, setDatos] = useState<Pagina | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -32,7 +33,12 @@ export function Contribuyentes() {
       setError(null)
       try {
         const { data } = await api.get<Pagina>('/contribuyentes', {
-          params: { q: q || undefined, page, pageSize: 20, incluirBaja: incluirBaja ? 'true' : undefined },
+          params: {
+            q: q || undefined,
+            page,
+            pageSize: 20,
+            ...(filtro === 'TODOS' ? { incluirInhabilitados: 'true' } : filtro ? { estado: filtro } : {}),
+          },
         })
         if (!cancelled) setDatos(data)
       } catch (err) {
@@ -45,7 +51,7 @@ export function Contribuyentes() {
     return () => {
       cancelled = true
     }
-  }, [q, page, incluirBaja])
+  }, [q, page, filtro])
 
   function buscar(e: React.FormEvent) {
     e.preventDefault()
@@ -62,10 +68,10 @@ export function Contribuyentes() {
     setParams(next)
   }
 
-  function alternarBaja() {
+  function filtrar(valor: string) {
     const next = new URLSearchParams(params)
-    if (incluirBaja) next.delete('baja')
-    else next.set('baja', '1')
+    if (!valor) next.delete('estado')
+    else next.set('estado', valor)
     next.delete('page')
     setParams(next)
   }
@@ -110,8 +116,17 @@ export function Contribuyentes() {
             Buscar
           </button>
           <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={incluirBaja} onChange={alternarBaja} className="h-4 w-4" />
-            Incluir dados de baja
+            Mostrar
+            <select
+              value={filtro}
+              onChange={(e) => filtrar(e.target.value)}
+              className="rounded-md border border-slate-300 px-2 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa"
+            >
+              <option value="">Habilitados y pendientes</option>
+              <option value="PENDIENTE">Solo pendientes de revisar</option>
+              <option value="INHABILITADO">Solo inhabilitados</option>
+              <option value="TODOS">Todos</option>
+            </select>
           </label>
         </form>
 
@@ -164,12 +179,12 @@ export function Contribuyentes() {
                         className="cursor-pointer border-b border-slate-100 hover:bg-slate-50 focus-visible:outline-3 focus-visible:outline-turquesa"
                       >
                         <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-slate-700">
-                          {c.tipoDoc} {c.numDoc}
+                          {documentoTexto(c)}
                         </td>
                         <td className="px-4 py-3 font-medium text-mar-profundo">{c.nombreCompleto}</td>
                         <td className="px-4 py-3 text-slate-600">{c.direccionFiscal ?? '—'}</td>
                         <td className="px-4 py-3">
-                          <span className={`rounded-md px-2 py-1 text-xs font-semibold ${ESTILO_ESTADO[c.estado]}`}>{c.estado}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs font-semibold ${ESTILO_ESTADO[c.estado]}`}>{ETIQUETA_ESTADO[c.estado]}</span>
                         </td>
                       </tr>
                     ))}

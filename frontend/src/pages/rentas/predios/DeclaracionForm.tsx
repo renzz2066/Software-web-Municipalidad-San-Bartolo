@@ -24,10 +24,11 @@ interface Condomino extends Persona {
 }
 
 const HOY = hoyLocal()
-const persona = (c: { id: number; nombreCompleto: string; tipoDoc: string; numDoc: string }): Persona => ({
+// numDoc null = persona sin documento (P08, specs/rentas-nucleo-v2.md).
+const persona = (c: { id: number; nombreCompleto: string; tipoDoc: string; numDoc: string | null }): Persona => ({
   id: c.id,
   nombre: c.nombreCompleto,
-  doc: `${c.tipoDoc} ${c.numDoc}`,
+  doc: c.numDoc ? `${c.tipoDoc} ${c.numDoc}` : 'Sin documento',
 })
 
 const centavos = (v: string) => Math.round(Number(v) * 100)

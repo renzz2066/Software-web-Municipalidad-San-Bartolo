@@ -77,8 +77,9 @@ export class IdentidadService {
     }
 
     // 1. ¿Ya está inscrito? Gratis, sin gastar cupo, y evita el 409 del alta.
+    // Por cualquiera de sus documentos (P06), no solo el principal.
     const ya = await this.prisma.contribuyente.findFirst({
-      where: { numDoc, ...(dto.excluirId ? { id: { not: dto.excluirId } } : {}) },
+      where: { documentos: { some: { numDoc } }, ...(dto.excluirId ? { id: { not: dto.excluirId } } : {}) },
       select: { id: true, tipoPersona: true, nombreCompleto: true, estado: true },
     });
     if (ya) {

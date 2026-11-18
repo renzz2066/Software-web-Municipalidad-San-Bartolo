@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
-import { RUTA_BASE, soles } from '../contribuyentes/tipos'
+import { RUTA_BASE, documentoTexto, soles } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
 import { AccionesValor } from './AccionesValor'
 import { RUTA_EXPEDIENTES } from '../fiscalizacion/fiscalizacionApi'
@@ -108,7 +108,7 @@ export function ValorImprimible() {
 
               <section aria-label="Deudor" className="mt-4 grid gap-2 sm:grid-cols-2">
                 <Campo titulo="Contribuyente" valor={v.contribuyente.nombreCompleto} />
-                <Campo titulo="Documento" valor={`${v.contribuyente.tipoDoc} ${v.contribuyente.numDoc}`} />
+                <Campo titulo="Documento" valor={documentoTexto(v.contribuyente)} />
                 <Campo titulo="Domicilio fiscal" valor={v.contribuyente.direccionFiscal ?? '—'} />
                 {v.tipo === 'RD' && v.predio ? (
                   <Campo

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../../lib/api'
-import { soles, type ContribuyenteResumen } from '../../rentas/contribuyentes/tipos'
+import { documentoTexto, soles, type ContribuyenteResumen } from '../../rentas/contribuyentes/tipos'
 import type { ReciboListado } from '../../caja/cajaApi'
 import type { EstadoCuenta } from '../../rentas/estado-cuenta/estadoCuentaApi'
 import {
@@ -158,7 +158,7 @@ function Panel({ id }: { id: number }) {
           <div>
             <p className="font-semibold text-mar-profundo">{c.nombreCompleto}</p>
             <p className="font-mono text-xs text-slate-500">
-              {c.tipoDoc} {c.numDoc}
+              {documentoTexto(c)}
             </p>
             <p className="mt-1 text-sm text-slate-600">{c.direccionFiscal ?? 'Sin dirección fiscal'}</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-sm">
@@ -476,11 +476,11 @@ export function BuscadorUniversal() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      onClick={() => elegir(c.id, c.nombreCompleto, `${c.tipoDoc} ${c.numDoc}`)}
+                      onClick={() => elegir(c.id, c.nombreCompleto, documentoTexto(c))}
                       className="w-full px-3 py-2 text-left text-sm hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
                     >
                       <span className="font-mono text-xs text-slate-500">
-                        {c.tipoDoc} {c.numDoc}
+                        {documentoTexto(c)}
                       </span>{' '}
                       <span className="font-medium text-mar-profundo">{c.nombreCompleto}</span>
                     </button>
@@ -496,7 +496,7 @@ export function BuscadorUniversal() {
                     <button
                       type="button"
                       onClick={() =>
-                        elegir(r.contribuyente.id, r.contribuyente.nombreCompleto, `${r.contribuyente.tipoDoc} ${r.contribuyente.numDoc}`)
+                        elegir(r.contribuyente.id, r.contribuyente.nombreCompleto, documentoTexto(r.contribuyente))
                       }
                       className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-mar/5 focus-visible:outline-3 focus-visible:outline-turquesa"
                     >

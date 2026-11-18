@@ -20,7 +20,7 @@ describe('rucValido', () => {
   it('el mismo resultado que la validación previa del formulario', () => {
     const docs = ['20131312955', '20100047218', '20131312956', '30131312955', '2013131295', '2013131295A']
     for (const doc of docs) {
-      expect(rucValido(doc)).toBe(errorDocumento('RUC', doc, 'NATURAL') === null)
+      expect(rucValido(doc)).toBe(errorDocumento('RUC', doc) === null)
     }
   })
 })

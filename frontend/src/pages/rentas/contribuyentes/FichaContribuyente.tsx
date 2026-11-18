@@ -9,10 +9,14 @@ import { ConveniosContribuyente } from '../fraccionamiento/ConveniosContribuyent
 import { ExpedientesContribuyente } from '../fiscalizacion/ExpedientesContribuyente'
 import { hoyIso, useEstadoCuenta } from '../estado-cuenta/estadoCuentaApi'
 import { TablaEstadoCuenta } from '../estado-cuenta/TablaEstadoCuenta'
+import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
-import { ESTILO_ESTADO, RUTA_BASE, TIPOS_PERSONA, soles, type Contribuyente } from './tipos'
+import { BeneficiosPersona } from './BeneficiosPersona'
+import { EstadoPersona } from './EstadoPersona'
+import { RUTA_BASE, TIPOS_PERSONA, documentoTexto, soles, type Contribuyente } from './tipos'
 
 // Ficha 360 del contribuyente (C2): datos, predios, deuda viva y DDJJ en una sola pantalla.
+// Personas v2 (specs/rentas-nucleo-v2.md, Fase 1): estado, documentos, contactos, relacionados y beneficios.
 
 interface PredioFicha {
   porcentaje: string
@@ -71,6 +75,7 @@ const PESTANAS = [
   { id: 'predios', titulo: 'Predios' },
   { id: 'deuda', titulo: 'Deuda' },
   { id: 'ddjj', titulo: 'Declaraciones juradas' },
+  { id: 'beneficios', titulo: 'Beneficios' },
   { id: 'calculo', titulo: 'Calcular deuda' },
   { id: 'valores', titulo: 'Valores', nivel: 'rentas.control-recaudacion' },
   { id: 'convenios', titulo: 'Convenios', nivel: 'rentas.control-recaudacion' },
@@ -96,6 +101,12 @@ export function FichaContribuyente() {
   const [error, setError] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const { tiene } = useAccesos()
+  const tiposDoc = useCatalogo('TIPO_DOCUMENTO')
+  const tiposContacto = useCatalogo('TIPO_CONTACTO')
+  const tiposRelacionado = useCatalogo('TIPO_RELACIONADO')
+  const perfilesCumplimiento = useCatalogo('PERFIL_CUMPLIMIENTO')
+  const perfilesCobranza = useCatalogo('PERFIL_COBRANZA')
+  const clasificaciones = useCatalogo('CLASIFICACION_CONTRIBUYENTE')
 
   useEffect(() => {
     let cancelled = false
@@ -121,11 +132,11 @@ export function FichaContribuyente() {
         <PageHeader
           titulo={c?.nombreCompleto ?? 'Ficha del contribuyente'}
           descripcion={
-            c ? `${c.tipoDoc} ${c.numDoc}${c.codigoLegacy ? ` · SIMUN ${c.codigoLegacy}` : ''}` : undefined
+            c ? `${documentoTexto(c)}${c.codigoLegacy ? ` · SIMUN ${c.codigoLegacy}` : ''}` : undefined
           }
           volverA={{ etiqueta: 'Registro Tributario', ruta: RUTA_BASE }}
           accion={
-            c && c.estado !== 'BAJA'
+            c && c.estado !== 'INHABILITADO'
               ? {
                   etiqueta: 'Inscribir predio',
                   icono: 'bi bi-house-add',
@@ -154,11 +165,16 @@ export function FichaContribuyente() {
                   {c.direccionFiscal ?? 'Sin domicilio fiscal registrado'}
                 </p>
                 <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span className={`rounded-md px-2 py-0.5 font-semibold ${ESTILO_ESTADO[c.estado]}`}>{c.estado}</span>
                   {TIPOS_PERSONA.find((t) => t.value === c.tipoPersona)?.label}
-                  {c.celular && <span>· Cel. {c.celular}</span>}
-                  {c.email && <span>· {c.email}</span>}
+                  {c.contactos.slice(0, 2).map((ct) => (
+                    <span key={ct.id}>
+                      · {nombreDe(tiposContacto, ct.tipo)}: {ct.valor}
+                    </span>
+                  ))}
                 </p>
+                <div className="mt-3">
+                  <EstadoPersona c={c} alCambiar={() => setRefreshKey((k) => k + 1)} />
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-xs uppercase tracking-wider text-slate-500">Insoluto pendiente</p>
@@ -182,9 +198,54 @@ export function FichaContribuyente() {
 
             <details className="mt-3 rounded-panel border border-borde bg-white p-5">
               <summary className="cursor-pointer text-sm font-semibold text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa">
-                Domicilio fiscal, cónyuge y representante legal
+                Documentos, contactos, relacionados y domicilio fiscal
               </summary>
               <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <Dato
+                  etiqueta="Documentos"
+                  valor={c.documentos.map((d) => `${nombreDe(tiposDoc, d.tipoDoc)} ${d.numDoc}`).join(' · ') || 'Sin documento'}
+                />
+                {c.dniCausante && <Dato etiqueta="DNI del causante" valor={c.dniCausante} />}
+                {c.fechaNacimiento && <Dato etiqueta="Fecha de nacimiento" valor={c.fechaNacimiento.slice(0, 10)} />}
+                <Dato etiqueta="Contactos" valor={c.contactos.map((ct) => `${nombreDe(tiposContacto, ct.tipo)}: ${ct.valor}`).join(' · ') || '—'} />
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Relacionados</dt>
+                  <dd className="mt-0.5 text-slate-700">
+                    {c.relacionados.length === 0 ? (
+                      '—'
+                    ) : (
+                      <ul className="space-y-1">
+                        {c.relacionados.map((r) => (
+                          <li key={r.id} className={r.vigente ? '' : 'text-slate-400'}>
+                            <span className="font-medium">{nombreDe(tiposRelacionado, r.tipo)}:</span>{' '}
+                            {r.persona ? (
+                              <Link to={`${RUTA_BASE}/contribuyentes/${r.persona.id}`} className="text-mar hover:underline">
+                                {r.nombreCompleto}
+                              </Link>
+                            ) : (
+                              r.nombreCompleto
+                            )}
+                            {r.numDoc && ` · ${r.tipoDoc} ${r.numDoc}`}
+                            {r.direccion && ` · ${r.direccion}`}
+                            {!r.vigente && ' (no vigente)'}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </dd>
+                </div>
+                <Dato
+                  etiqueta="Perfil y clasificación"
+                  valor={
+                    [
+                      c.perfilCumplimiento ? nombreDe(perfilesCumplimiento, c.perfilCumplimiento) : null,
+                      c.perfilCobranza ? nombreDe(perfilesCobranza, c.perfilCobranza) : null,
+                      c.clasificacion ? nombreDe(clasificaciones, c.clasificacion) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '—'
+                  }
+                />
                 <Dato etiqueta="Ubigeo" valor={c.distrito ? `${c.distrito.departamento} / ${c.distrito.provincia} / ${c.distrito.distrito} (${c.ubigeo})` : c.ubigeo ?? '—'} />
                 <Dato
                   etiqueta="Sector / Urbanización"
@@ -205,19 +266,6 @@ export function FichaContribuyente() {
                   }
                 />
                 <Dato etiqueta="Referencia" valor={c.referencia ?? '—'} />
-                <Dato etiqueta="Cónyuge" valor={[c.conyugeNombre, c.conyugeNumDoc ? `DNI ${c.conyugeNumDoc}` : null].filter(Boolean).join(' · ') || '—'} />
-                <Dato
-                  etiqueta="Representante legal"
-                  valor={
-                    [
-                      c.representanteNombre,
-                      c.representanteNumDoc ? `DNI ${c.representanteNumDoc}` : null,
-                      c.representanteDireccion,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ') || '—'
-                  }
-                />
               </dl>
             </details>
 
@@ -313,6 +361,9 @@ export function FichaContribuyente() {
                     </tbody>
                   </table>
                 ))}
+              {pestana === 'beneficios' && (
+                <BeneficiosPersona contribuyenteId={c.id} beneficios={c.beneficios} alCambiar={() => setRefreshKey((k) => k + 1)} />
+              )}
               {pestana === 'calculo' && (
                 <div className="p-6">
                   <PanelCalculo contribuyenteId={c.id} alEjecutar={() => setRefreshKey((k) => k + 1)} />
