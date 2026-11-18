@@ -24,6 +24,7 @@ export interface Resultado {
   cambios: { crear: number; actualizar: number; anular: number; sinCambio: number; protegidas: number }
   errores: string[]
   totalErrores: number
+  determinadosV2?: number // con la determinación del año liquidada desde su DJ: el cálculo v1 no los toca
   detalle: {
     contribuyenteId: number
     predios: DetallePredio[]
@@ -63,6 +64,11 @@ export function ResultadoCalculo({ r }: { r: Resultado }) {
           <li title="Cuotas pagadas, fraccionadas o en coactivo: no se modifican">Protegidas: {c.protegidas}</li>
         </ul>
         {!hayCambios && !r.ejecutado && r.totalErrores === 0 && <p className="mt-1 text-xs text-slate-500">La cuenta corriente ya está al día para este año.</p>}
+        {(r.determinadosV2 ?? 0) > 0 && (
+          <p className="mt-1 text-xs text-slate-600">
+            {r.determinadosV2} contribuyente(s) ya tienen el {r.anio} liquidado desde su DJ: no se recalculan aquí.
+          </p>
+        )}
         {c.protegidas > 0 && (
           <p className="mt-1 text-xs text-amber-700">
             Hay cuotas pagadas o en trámite que no se recalculan; si el monto cambió, la diferencia se regulariza aparte.

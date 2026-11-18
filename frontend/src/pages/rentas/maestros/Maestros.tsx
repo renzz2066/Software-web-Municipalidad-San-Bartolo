@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
+import { useCatalogo } from '../catalogos/catalogosApi'
 import { CLASIFICACIONES, CONCEPTOS_ARBITRIO, ESTADOS_CONSERVACION, MATERIALES } from '../catalogosConstruccion'
 import { Catalogo } from './Catalogo'
 import { CatalogosV2 } from './CatalogosV2'
@@ -11,7 +12,8 @@ import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona 
 // Maestros de Rentas (specs/rentas-nucleo-v1.md, C4): parámetros por año + ubicación.
 // Feriados y fraccionamiento: specs/rentas-valores-v1.md (decisiones 2 y 3).
 // Fiscalizadores e infracciones: specs/rentas-fiscalizacion-v1.md (decisiones 2 y 5).
-// Catálogos y reglas de la muni: specs/rentas-nucleo-v2.md (Fase 0).
+// Catálogos y reglas de la muni: specs/rentas-nucleo-v2.md (Fase 0). Tarifas por criterio (L07) y
+// aranceles rústicos (V07): Fase 5.
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS = Array.from({ length: 8 }, (_, i) => ANIO_ACTUAL + 1 - i)
@@ -20,6 +22,7 @@ const PESTANAS = [
   { id: 'uit', titulo: 'UIT' },
   { id: 'escala', titulo: 'Escala predial' },
   { id: 'aranceles', titulo: 'Aranceles' },
+  { id: 'rusticos', titulo: 'Aranceles rústicos' },
   { id: 'valores', titulo: 'Valores unitarios' },
   { id: 'depreciacion', titulo: 'Depreciación' },
   { id: 'tarifas', titulo: 'Tarifas arbitrios' },
@@ -50,6 +53,19 @@ const COL_ESCALA: Columna[] = [
   { key: 'desdeUit', label: 'Desde (UIT)', tipo: 'numero' },
   { key: 'hastaUit', label: 'Hasta (UIT)', tipo: 'numero', opcional: true, placeholder: 'Sin tope' },
   { key: 'tasa', label: 'Tasa (%)', tipo: 'numero', decimales: 4 },
+]
+
+const COL_RUSTICOS: Columna[] = [
+  { key: 'categoria', label: 'Categoría', tipo: 'texto' },
+  { key: 'clasificacion', label: 'Clasificación de tierras', tipo: 'texto', opcional: true, placeholder: 'Cualquiera' },
+  { key: 'valorHa', label: 'Arancel (S/ por ha)', tipo: 'numero' },
+]
+
+// L07: sobre qué se cobra la tasa anual de cada concepto.
+const UNIDADES = [
+  { value: 'PREDIO', label: 'Por predio' },
+  { value: 'M2', label: 'Por m² del uso' },
+  { value: 'ML', label: 'Por metro de frontis' },
 ]
 
 const COL_VALORES: Columna[] = [
@@ -152,6 +168,8 @@ export function Maestros() {
     [vias, urbs],
   )
 
+  const frecuencias = useCatalogo('FRECUENCIA_BARRIDO')
+  const parques = useCatalogo('UBICACION_PARQUE')
   const colTarifas = useMemo<Columna[]>(
     () => [
       { key: 'concepto', label: 'Concepto', tipo: 'select', opciones: CONCEPTOS_ARBITRIO },
@@ -164,9 +182,26 @@ export function Maestros() {
         opciones: zonas.map((z) => ({ value: String(z.id), label: `${z.codigo} · ${z.nombre}` })),
       },
       { key: 'uso', label: 'Uso del predio', tipo: 'texto', opcional: true, placeholder: 'Todos' },
+      {
+        key: 'frecuencia',
+        label: 'Frecuencia de barrido',
+        tipo: 'select',
+        opcional: true,
+        placeholder: 'Todas',
+        opciones: frecuencias.map((f) => ({ value: f.codigo, label: f.nombre })),
+      },
+      {
+        key: 'ubicacionParque',
+        label: 'Ubicación respecto a parques',
+        tipo: 'select',
+        opcional: true,
+        placeholder: 'Todas',
+        opciones: parques.map((p) => ({ value: p.codigo, label: p.nombre })),
+      },
+      { key: 'unidad', label: 'Se cobra', tipo: 'select', opcional: true, placeholder: 'Por predio', opciones: UNIDADES },
       { key: 'tasa', label: 'Monto anual (S/)', tipo: 'numero' },
     ],
-    [zonas],
+    [zonas, frecuencias, parques],
   )
 
   async function abrirAnio() {
@@ -232,13 +267,14 @@ export function Maestros() {
           </div>
 
           {resumen && (
-            <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-6">
+            <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-7">
               <Dato titulo="UIT" valor={resumen.uit ? `S/ ${resumen.uit.valor}` : 'Falta'} falta={!resumen.uit} />
               <Dato titulo="Tramos" valor={resumen.conteos.escalaPredial} falta={!resumen.conteos.escalaPredial} />
               <Dato titulo="Aranceles" valor={resumen.conteos.aranceles} falta={!resumen.conteos.aranceles} />
               <Dato titulo="Valores unit." valor={resumen.conteos.valoresUnitarios} falta={!resumen.conteos.valoresUnitarios} />
               <Dato titulo="Depreciación" valor={resumen.conteos.depreciaciones} falta={!resumen.conteos.depreciaciones} />
               <Dato titulo="Tarifas" valor={resumen.conteos.tarifasArbitrios} falta={!resumen.conteos.tarifasArbitrios} />
+              <Dato titulo="Ar. rústicos" valor={resumen.conteos.arancelesRusticos ?? 0} falta={false} />
             </dl>
           )}
           {bloqueado && (
@@ -296,6 +332,15 @@ export function Maestros() {
               alGuardar={refrescar}
             />
           )}
+          {pestana === 'rusticos' && (
+            <TablaEditable
+              url={`/rentas/maestros/aranceles-rusticos/${anio}`}
+              columnas={COL_RUSTICOS}
+              bloqueado={bloqueado}
+              ayuda="Arancel de predios rústicos por categoría de tierras (V07), en soles por hectárea. Sin clasificación = vale para cualquier clasificación de esa categoría."
+              alGuardar={refrescar}
+            />
+          )}
           {pestana === 'valores' && (
             <TablaEditable
               url={`/rentas/maestros/valores-unitarios/${anio}`}
@@ -319,7 +364,7 @@ export function Maestros() {
               url={`/rentas/maestros/tarifas-arbitrios/${anio}`}
               columnas={colTarifas}
               bloqueado={bloqueado}
-              ayuda="Monto anual por predio. Zona o uso vacíos = aplica a todos; la tarifa más específica tiene prioridad al calcular."
+              ayuda="Cada concepto con los criterios de su ordenanza (L07): zona, uso, frecuencia de barrido y parques; vacío = todos. Gana la tarifa más específica. «Se cobra» dice si el monto anual es por predio, por m² del uso o por metro de frontis. El cálculo v1 solo usa las tarifas por predio sin frecuencia ni parques."
               alGuardar={refrescar}
             />
           )}

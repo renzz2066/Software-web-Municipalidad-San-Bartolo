@@ -146,9 +146,47 @@ export class TarifaArbitrioDto {
   @MaxLength(10)
   uso?: string | null;
 
+  // L07 (Fase 5 de rentas v2): criterios de la ordenanza; vacío = todos.
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  frecuencia?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  ubicacionParque?: string | null;
+
+  @IsOptional()
+  @IsIn(['PREDIO', 'M2', 'ML'], { message: 'La unidad es PREDIO, M2 (m² del uso) o ML (metro de frontis)' })
+  unidad?: string | null;
+
   @IsNumber(DOS_DECIMALES, { message: 'La tarifa debe ser un monto con 2 decimales' })
   @Min(0)
   tasa: number;
+}
+
+// V07: arancel rústico por categoría (y clasificación) de tierras, en S/ por hectárea.
+export class ArancelRusticoDto {
+  @IsString()
+  @MaxLength(20)
+  categoria: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  clasificacion?: string | null;
+
+  @IsNumber(DOS_DECIMALES, { message: 'El arancel debe ser un monto con 2 decimales' })
+  @Min(0)
+  valorHa: number;
+}
+
+export class ArancelesRusticosDto extends ConOrdenanzaDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ArancelRusticoDto)
+  items: ArancelRusticoDto[];
 }
 
 export class TarifasArbitriosDto extends ConOrdenanzaDto {

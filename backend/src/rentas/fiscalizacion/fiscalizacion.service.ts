@@ -147,7 +147,7 @@ export class FiscalizacionService {
         select: { id: true, numero: true, manzana: true, lote: true, usoPredio: true, via: { select: { id: true, tipoVia: true, nombre: true } } },
         orderBy: { id: 'asc' },
       }),
-      this.prisma.declaracionJurada.count({ where: { contribuyenteId } }),
+      this.declaraciones(this.prisma, contribuyenteId),
       this.prisma.fiscalizador.findMany({ where: { activo: true }, select: { id: true, nombre: true, dni: true }, orderBy: { nombre: 'asc' } }),
     ]);
     if (!contribuyente) {
@@ -182,7 +182,7 @@ export class FiscalizacionService {
       if (titulares !== new Set(e.predioIds).size) {
         throw new BadRequestException('Algún predio no es del contribuyente o está dado de baja');
       }
-      const sinDeclaracion = (await tx.declaracionJurada.count({ where: { contribuyenteId: e.contribuyenteId } })) === 0;
+      const sinDeclaracion = (await this.declaraciones(tx, e.contribuyenteId)) === 0;
       const error = errorExpediente({
         anioDesde: e.anioDesde,
         anioHasta: e.anioHasta,
@@ -539,6 +539,16 @@ export class FiscalizacionService {
     const predioIds = predios.map((p) => p.predioId);
     const sustituir = new Map(predios.map((p) => [p.predioId, datosCalculo(p.ficha)]));
 
+    // v2 (Fase 5): un año ya liquidado desde la DJ presentada tiene su determinación en la cuenta; el
+    // motor v1 con lo declarado no es la referencia de ese año (solo la cuenta corriente).
+    const conDeterminacion = new Set(
+      (
+        await tx.determinacion.findMany({
+          where: { contribuyenteId: f.contribuyenteId, estado: 'LIQUIDADA', anio: { gte: f.anioDesde, lte: f.anioHasta } },
+          select: { anio: true },
+        })
+      ).map((d) => d.anio),
+    );
     const anios = [];
     for (let anio = f.anioDesde; anio <= f.anioHasta; anio++) {
       const { lineas, tributos, base } = await this.calculo.lineasFiscalizacion(tx, anio, f.contribuyenteId, sustituir);
@@ -551,13 +561,15 @@ export class FiscalizacionService {
       const fiscalizado = aCuotas(lineas);
       // Lo que el motor determina con lo declarado (sin la ficha). Si lo declarado no se puede valorizar,
       // la referencia es solo la cuenta corriente.
-      const determinado = await this.calculo
-        .lineasFiscalizacion(tx, anio, f.contribuyenteId, new Map())
-        .then((d) => aCuotas(d.lineas))
-        .catch((e: unknown) => {
-          if (e instanceof BadRequestException) return [];
-          throw e;
-        });
+      const determinado = conDeterminacion.has(anio)
+        ? []
+        : await this.calculo
+            .lineasFiscalizacion(tx, anio, f.contribuyenteId, new Map())
+            .then((d) => aCuotas(d.lineas))
+            .catch((e: unknown) => {
+              if (e instanceof BadRequestException) return [];
+              throw e;
+            });
       const cuentas = await tx.cuentaCorriente.findMany({
         where: {
           contribuyenteId: f.contribuyenteId,
@@ -620,6 +632,15 @@ export class FiscalizacionService {
       throw new BadRequestException(error);
     }
     return f;
+  }
+
+  // Omiso = sin ninguna DJ: ni de v1 ni presentada (v2) que siga en pie.
+  private async declaraciones(db: PrismaService | Tx, contribuyenteId: number) {
+    const [v1, v2] = await Promise.all([
+      db.declaracionJurada.count({ where: { contribuyenteId } }),
+      db.djPresentada.count({ where: { contribuyenteId, estado: { notIn: ['ANULADA', 'RECHAZADA'] } } }),
+    ]);
+    return v1 + v2;
   }
 
   // Un año se puede fiscalizar si tiene UIT y escala predial cargadas (decisión 8).

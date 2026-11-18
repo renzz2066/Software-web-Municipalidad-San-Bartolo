@@ -128,7 +128,18 @@ export interface DjDetalle extends Omit<DjResumen, '_count'> {
   anuladaAt: string | null
   anuladaPor: { usuario: string; nombres: string; apellidos: string } | null
   creadoPor: { usuario: string; nombres: string; apellidos: string } | null
+  creadoPorId: number | null
   createdAt: string
+  // Fase 5: revisión (J14/J17), liquidación (C7) y plazo de presentación (J08).
+  revisionVence: string | null
+  revisionResueltaAt: string | null
+  revisionJustificacion: string | null
+  revisionResueltaPor: { usuario: string; nombres: string; apellidos: string } | null
+  liquidadaAt: string | null
+  liquidadaPor: { usuario: string; nombres: string; apellidos: string } | null
+  multaDescartada: string | null
+  multas: { id: number; anio: number; numero: string; estado: string }[]
+  plazo: { hecho: string | null; vence: string; extemporanea: boolean } | null
   contribuyente: DjResumen['contribuyente'] & { estado: string }
   documentos: { tipo: string; numero: string | null; fecha: string | null; observacion: string | null }[]
   anexos: AnexoApi[]

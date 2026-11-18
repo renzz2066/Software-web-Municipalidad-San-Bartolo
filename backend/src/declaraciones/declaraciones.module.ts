@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { CatalogosModule } from '../catalogos/catalogos.module.js';
+import { RentasModule } from '../rentas/rentas.module.js';
 import { DeclaracionesController } from './declaraciones.controller.js';
 import { DeclaracionesService } from './declaraciones.service.js';
 
-// DJ presentada con anexos por predio (specs/rentas-nucleo-v2.md, Fase 4).
+// DJ presentada con anexos por predio (specs/rentas-nucleo-v2.md, Fase 4); RentasModule: determinar,
+// liquidar y multa 176.1 (Fase 5).
 @Module({
-  imports: [AuthModule, CatalogosModule],
+  imports: [AuthModule, CatalogosModule, RentasModule],
   controllers: [DeclaracionesController],
   providers: [DeclaracionesService],
   exports: [DeclaracionesService],

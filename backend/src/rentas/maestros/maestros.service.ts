@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   AbrirAnioDto,
   ArancelesDto,
+  ArancelesRusticosDto,
   DepreciacionesDto,
   EscalaDto,
   FeriadosDto,
@@ -29,6 +30,7 @@ const TABLAS_COPIABLES = [
   'valoresUnitarios',
   'depreciaciones',
   'tarifasArbitrios',
+  'arancelesRusticos',
   'parametrosFraccionamiento',
   'infracciones',
 ] as const;
@@ -41,7 +43,7 @@ export class MaestrosService {
 
   async resumen(anio: number) {
     this.validarAnio(anio);
-    const [uit, escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, bloqueado] =
+    const [uit, escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, arancelesRusticos, bloqueado] =
       await Promise.all([
         this.prisma.uit.findUnique({ where: { anio } }),
         this.prisma.escalaPredial.count({ where: { anio } }),
@@ -49,12 +51,13 @@ export class MaestrosService {
         this.prisma.valorUnitario.count({ where: { anio } }),
         this.prisma.depreciacion.count({ where: { anio } }),
         this.prisma.tarifaArbitrio.count({ where: { anio } }),
+        this.prisma.arancelRustico.count({ where: { anio } }),
         this.anioConDeuda(this.prisma, anio),
       ]);
     return {
       anio,
       uit,
-      conteos: { escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios },
+      conteos: { escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, arancelesRusticos },
       bloqueado,
     };
   }
@@ -190,7 +193,7 @@ export class MaestrosService {
     return this.prisma.tarifaArbitrio.findMany({
       where: { anio },
       include: { zona: true },
-      orderBy: [{ concepto: 'asc' }, { zonaId: 'asc' }, { uso: 'asc' }],
+      orderBy: [{ concepto: 'asc' }, { zonaId: 'asc' }, { uso: 'asc' }, { frecuencia: 'asc' }, { ubicacionParque: 'asc' }],
     });
   }
 
@@ -199,15 +202,46 @@ export class MaestrosService {
       concepto: t.concepto.trim().toUpperCase(),
       zonaId: t.zonaId ?? null,
       uso: this.texto(t.uso)?.toUpperCase() ?? null,
+      frecuencia: this.texto(t.frecuencia)?.toUpperCase() ?? null,
+      ubicacionParque: this.texto(t.ubicacionParque)?.toUpperCase() ?? null,
+      unidad: t.unidad || 'PREDIO',
       tasa: t.tasa,
     }));
-    this.sinDuplicados(items, (t) => `${t.concepto}|${t.zonaId ?? '*'}|${t.uso ?? '*'}`, 'Hay una tarifa repetida (concepto, zona y uso)');
+    this.sinDuplicados(
+      items,
+      (t) => `${t.concepto}|${t.zonaId ?? '*'}|${t.uso ?? '*'}|${t.frecuencia ?? '*'}|${t.ubicacionParque ?? '*'}`,
+      'Hay una tarifa repetida (concepto, zona, uso, frecuencia y parques)',
+    );
     const ordenanza = this.texto(dto.ordenanza);
     return this.prisma.$transaction(async (tx) => {
       await this.asegurarEditable(tx, anio);
       await tx.tarifaArbitrio.deleteMany({ where: { anio } });
       await tx.tarifaArbitrio.createMany({ data: items.map((t) => ({ anio, ...t, ordenanza })) });
       return tx.tarifaArbitrio.findMany({ where: { anio }, include: { zona: true } });
+    });
+  }
+
+  // ---- Aranceles rústicos (V07; Fase 5 de rentas v2) ----
+
+  listarArancelesRusticos(anio: number) {
+    this.validarAnio(anio);
+    return this.prisma.arancelRustico.findMany({ where: { anio }, orderBy: [{ categoria: 'asc' }, { clasificacion: 'asc' }] });
+  }
+
+  async guardarArancelesRusticos(anio: number, dto: ArancelesRusticosDto) {
+    const items = dto.items.map((a) => ({
+      categoria: a.categoria.trim().toUpperCase(),
+      clasificacion: this.texto(a.clasificacion)?.toUpperCase() ?? null,
+      valorHa: a.valorHa,
+    }));
+    if (items.some((a) => !a.categoria)) throw new BadRequestException('Cada arancel rústico lleva su categoría');
+    this.sinDuplicados(items, (a) => `${a.categoria}|${a.clasificacion ?? '*'}`, 'Hay un arancel rústico repetido (categoría y clasificación)');
+    const ordenanza = this.texto(dto.ordenanza);
+    return this.prisma.$transaction(async (tx) => {
+      await this.asegurarEditable(tx, anio);
+      await tx.arancelRustico.deleteMany({ where: { anio } });
+      await tx.arancelRustico.createMany({ data: items.map((a) => ({ anio, ...a, ordenanza })) });
+      return tx.arancelRustico.findMany({ where: { anio }, orderBy: [{ categoria: 'asc' }, { clasificacion: 'asc' }] });
     });
   }
 
@@ -272,6 +306,9 @@ export class MaestrosService {
       case 'tarifasArbitrios':
         if (await tx.tarifaArbitrio.count({ where: { anio: hacia } })) return 0;
         return (await tx.tarifaArbitrio.createMany({ data: sinMeta(await tx.tarifaArbitrio.findMany({ where: { anio: desde } })) })).count;
+      case 'arancelesRusticos':
+        if (await tx.arancelRustico.count({ where: { anio: hacia } })) return 0;
+        return (await tx.arancelRustico.createMany({ data: sinMeta(await tx.arancelRustico.findMany({ where: { anio: desde } })) })).count;
       case 'parametrosFraccionamiento':
         if (await tx.parametroFraccionamiento.count({ where: { anio: hacia } })) return 0;
         return (
