@@ -97,7 +97,9 @@ describe('DireccionesService', () => {
             referencia: null,
             latitud: null,
             longitud: null,
+            clave: '150129|||3|NUMERO=123',
             componentes: [{ id: 11, orden: 1, componente: 'NUMERO', valor: '123' }],
+            _count: { predios: 0 },
           }
         : null,
     );
@@ -108,6 +110,28 @@ describe('DireccionesService', () => {
       data: { direccionFiscal: 'AV LOS PINOS N° 125, SAN BARTOLO' },
     });
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('si la usa un predio, su ubicación no se corrige aquí (va por DJ); la referencia sí', async () => {
+    const { servicio, prisma } = construir();
+    const actual = {
+      id: 5,
+      ubigeo: '150129',
+      zonaId: null,
+      urbanizacionId: null,
+      viaId: 3,
+      direccion: 'AV LOS PINOS N° 123, SAN BARTOLO',
+      clave: '150129|||3|NUMERO=123',
+      referencia: null,
+      latitud: null,
+      longitud: null,
+      componentes: [{ id: 11, orden: 1, componente: 'NUMERO', valor: '123' }],
+      _count: { predios: 2 },
+    };
+    prisma.direccion.findUnique.mockImplementation(async ({ where }: { where: { id?: number } }) => (where.id ? actual : null));
+    await expect(servicio.actualizar(5, { componentes: [{ componente: 'NUMERO', valor: '125' }] }, SUPERVISOR)).rejects.toThrow(/DJ del predio/);
+    await servicio.actualizar(5, { referencia: 'frente al mar' }, SUPERVISOR);
+    expect(prisma.direccion.update.mock.calls[0][0].data).toMatchObject({ referencia: 'FRENTE AL MAR', clave: actual.clave });
   });
 
   it('una dirección dada de baja no se asigna a una persona nueva, pero quien ya la tenía la conserva', async () => {

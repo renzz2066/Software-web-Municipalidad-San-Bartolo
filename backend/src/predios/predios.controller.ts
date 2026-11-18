@@ -1,11 +1,13 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { NivelGuard } from '../auth/guards/nivel.guard.js';
 import { RequireNivel } from '../auth/decorators/nivel.decorator.js';
 import { DeclaracionDto } from './dto/declaracion.dto.js';
+import { MaestroPredioDto, PersonasAnioDto, PredioBeneficioDto, RevocarPredioBeneficioDto } from './dto/predio.dto.js';
 import { PrediosService } from './predios.service.js';
 
-// El predio solo cambia mediante una declaración jurada (C3); no hay PATCH ni DELETE directos.
+// Ubicación, área y construcción del predio solo cambian con una DJ. El maestro (Fase 3: nombre,
+// linderos, coordenadas, datos de arbitrios y condición de los titulares) se edita aparte. Sin DELETE.
 @UseGuards(JwtAuthGuard, NivelGuard)
 @RequireNivel('rentas.registro-tributario')
 @Controller('predios')
@@ -33,5 +35,29 @@ export class PrediosController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.predios.findOne(id);
+  }
+
+  @Patch(':id/maestro')
+  actualizarMaestro(@Param('id', ParseIntPipe) id: number, @Body() dto: MaestroPredioDto) {
+    return this.predios.actualizarMaestro(id, dto);
+  }
+
+  @Get(':id/personas')
+  personas(@Param('id', ParseIntPipe) id: number, @Query() dto: PersonasAnioDto) {
+    return this.predios.personasPorAnio(id, dto.anio);
+  }
+
+  @Post(':id/beneficios')
+  agregarBeneficio(@Param('id', ParseIntPipe) id: number, @Body() dto: PredioBeneficioDto) {
+    return this.predios.agregarBeneficio(id, dto);
+  }
+
+  @Patch(':id/beneficios/:beneficioId/revocar')
+  revocarBeneficio(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('beneficioId', ParseIntPipe) beneficioId: number,
+    @Body() dto: RevocarPredioBeneficioDto,
+  ) {
+    return this.predios.revocarBeneficio(id, beneficioId, dto);
   }
 }
