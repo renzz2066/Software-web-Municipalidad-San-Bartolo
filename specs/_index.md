@@ -18,3 +18,4 @@
 - `contribuyente-domicilio-representante-v1.md`: activa. Domicilio fiscal estructurado (ubigeo/zona/urb/vía) + cónyuge y representante legal opcionales; `direccionFiscal` derivada en backend.
 - `consulta-identidad-v1.md`: activa. Botón "Buscar datos" en el formulario: consulta de DNI/RUC (propia BD → caché 30 días → ApiPeruDev) que rellena solo los campos vacíos.
 - `multi-muni-v1.md`: activa. Una base por muni elegida por subdominio (`X-Muni` + JWT con `muni`), identidad visual por muni y `db:setup:todas`.
+- `rentas-nucleo-v2.md`: borrador. Personas, direcciones únicas, predio maestro y DJ al modelo Lurín (DJ por contribuyente y año con anexos por predio); reglas en `docs/rentas/reglas-negocio.md`.
