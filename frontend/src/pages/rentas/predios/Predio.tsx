@@ -4,6 +4,7 @@ import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { CLASIFICACIONES, COMPONENTES_CORTOS, ESTADOS_CONSERVACION, MATERIALES, etiqueta } from '../catalogosConstruccion'
 import { RUTA_BASE } from '../contribuyentes/tipos'
+import { RUTA_DJ } from '../declaraciones/djApi'
 import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
 import { BeneficiosPredio } from './BeneficiosPredio'
@@ -40,6 +41,8 @@ export function Predio() {
 
   const titular = predio?.contribuyentes[0]?.contribuyente
   const activo = predio?.estado !== 'BAJA'
+  // La DJ presentada (v2) es de una persona: rectificación, venta y baja las presenta el titular principal.
+  const principal = predio?.contribuyentes.find((t) => t.esPrincipal)?.contribuyente.id ?? predio?.contribuyentes[0]?.contribuyente.id
 
   return (
     <div className="p-4 sm:p-8">
@@ -86,7 +89,7 @@ export function Predio() {
                     {(['RECTIFICACION', 'COMPRA', 'VENTA', 'BAJA'] as const).map((m) => (
                       <Link
                         key={m}
-                        to={`${RUTA_BASE}/predios/${predio.id}/declaracion?motivo=${m}`}
+                        to={`${RUTA_DJ}/nueva?predio=${predio.id}&motivo=${m}${m !== 'COMPRA' && principal ? `&contribuyente=${principal}` : ''}`}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-3 focus-visible:outline-turquesa ${
                           m === 'RECTIFICACION'
                             ? 'bg-mar-profundo text-white hover:brightness-110'

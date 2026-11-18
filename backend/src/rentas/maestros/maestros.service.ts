@@ -475,7 +475,7 @@ export class MaestrosService {
     const n = await db.cuentaCorriente.count({
       where: {
         anioFiscal: anio,
-        estado: { not: 'ANULADO' },
+        estado: { notIn: ['ANULADO', 'EXTORNADO'] },
         tributo: { tipo: { in: [TipoTributo.PREDIAL, TipoTributo.ARBITRIOS] } },
       },
     });

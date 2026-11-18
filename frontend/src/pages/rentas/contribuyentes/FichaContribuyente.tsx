@@ -150,7 +150,7 @@ export function FichaContribuyente() {
               ? {
                   etiqueta: 'Inscribir predio',
                   icono: 'bi bi-house-add',
-                  to: `${RUTA_BASE}/predios/nuevo?declarante=${c.id}`,
+                  to: `${RUTA_DJ}/nueva?contribuyente=${c.id}&motivo=INSCRIPCION`,
                 }
               : undefined
           }
@@ -407,7 +407,7 @@ export function FichaContribuyente() {
                   </section>
                   <section aria-labelledby="calculo-titulo">
                     <h2 id="calculo-titulo" className="mb-2 font-serif text-lg text-mar-profundo">
-                      Cálculo por año (sistema anterior)
+                      Determinar un año sin DJ (J09)
                     </h2>
                     <PanelCalculo contribuyenteId={c.id} alEjecutar={() => setRefreshKey((k) => k + 1)} />
                   </section>

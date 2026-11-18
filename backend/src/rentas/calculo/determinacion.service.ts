@@ -1,44 +1,13 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import {
-  EstadoCuenta,
-  EstadoDeterminacion,
-  EstadoDj,
-  EstadoPersona,
-  EstadoRegistro,
-  EstadoValor,
-  GrupoCatalogo,
-  Prisma,
-  TipoPredio,
-  TipoTributo,
-} from '@prisma/client';
+import { EstadoCuenta, EstadoDeterminacion, EstadoDj, EstadoPersona, EstadoRegistro, Prisma } from '@prisma/client';
 import { CatalogosService } from '../../catalogos/catalogos.service.js';
 import { estadoAlHabilitar, pendientesDe } from '../../contribuyentes/persona.reglas.js';
 import { numeroDj } from '../../declaraciones/dj.reglas.js';
-import { asociacionEnAnio } from '../../predios/predio.reglas.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CONCEPTOS_ARBITRIO } from '../catalogos-construccion.js';
 import { iso } from '../estado-cuenta/tasas.js';
 import { hoyLima } from '../fechas.js';
-import {
-  aniosADeterminar,
-  determinarAnio,
-  exoneracionPredio,
-  huellaDeterminado,
-  mesDesde,
-  rigeEn,
-  usosDelMes,
-  vigenteArbitrios,
-  vigentePredial,
-  type DeclaracionPredio,
-  type Declarado,
-  type Determinado,
-  type InicioArbitrios,
-  type Maestro,
-  type MesArbitrio,
-  type ParametrosV2,
-  type PredioDelAnio,
-  type Resolucion,
-} from './determinacion.reglas.js';
+import { aniosADeterminar, determinarAnio, huellaDeterminado, type Determinado } from './determinacion.reglas.js';
 import {
   bajas,
   errorAnularLiquidada,
@@ -53,6 +22,21 @@ import {
   type PlanCuenta,
   type Tributo,
 } from './reliquidacion.reglas.js';
+import {
+  SIN_EFECTO_CUENTA,
+  VALOR_CON_TRAMITE,
+  cargarComun,
+  cargarPersonas,
+  cuentasActuales,
+  detalleDe,
+  guardarDeterminaciones,
+  n2,
+  parametrosDelAnio,
+  prediosDelAnio,
+  resolucionesDelAnio,
+  type DatosGuardados,
+  type DetalleGuardado,
+} from './contexto-determinacion.js';
 
 const D = Prisma.Decimal;
 type Dec = Prisma.Decimal;
@@ -60,10 +44,7 @@ type Tx = Prisma.TransactionClient;
 
 // Varios años con todos los predios del contribuyente: con la latencia a Supabase necesita margen.
 const OPCIONES_TX = { maxWait: 10_000, timeout: 120_000 };
-const SIN_EFECTO_CUENTA: EstadoCuenta[] = [EstadoCuenta.ANULADO, EstadoCuenta.EXTORNADO];
 const DEUDA_VIVA: EstadoCuenta[] = [EstadoCuenta.PENDIENTE, EstadoCuenta.FRACCIONADO, EstadoCuenta.COACTIVO];
-// L09: un valor en coactivo también protege la cuota (además de los vigentes EMITIDO/NOTIFICADO).
-const VALOR_CON_TRAMITE: EstadoValor[] = [EstadoValor.EMITIDO, EstadoValor.NOTIFICADO, EstadoValor.COACTIVO];
 const TODOS: Tributo[] = ['PREDIAL', 'ARBITRIOS'];
 
 export interface Actor {
@@ -71,18 +52,6 @@ export interface Actor {
   rol: string;
 }
 
-const n = (v: Prisma.Decimal | number | string | null | undefined) => (v === null || v === undefined ? null : Number(v));
-const n2 = (v: Dec) => v.toFixed(2);
-
-// Lo que se guarda en DeterminacionPredio.datos: lo declarado que se usó, para reconstruir el predio
-// de ese año (la "copia por año" de Lurín sale de aquí).
-interface DatosGuardados {
-  declarado: Declarado;
-  maestro: Maestro;
-  meses: MesArbitrio[];
-  arancel: string | null;
-  niveles: unknown[];
-}
 
 // Padrón antes de la primera liquidación: anular la DJ lo devuelve (J04).
 interface Aplicado {
@@ -90,18 +59,6 @@ interface Aplicado {
   predios: { predioId: number; estado: EstadoRegistro }[];
   copias: { predioId: number; areaTerreno: string | null; areaConstruida: string | null; usoPredio: string | null; valorAutovaluo: string | null; pisos: Record<string, unknown>[]; otras: Record<string, unknown>[] }[];
   persona: { estado: EstadoPersona; motivoEstado: string | null } | null;
-}
-
-interface DetalleGuardado {
-  huella: string;
-  cuotasPredial: { cuota: number; importe: string; derechoEmision: string; vence: string }[];
-  cuotasArbitrios: { predioId: number; concepto: string; cuota: number; importe: string; vence: string }[];
-  beneficios: string[];
-  errores: string[];
-  avisos: string[];
-  anuladas?: number[];
-  saldoAFavor?: { tributo: string; predioId: number | null; importe: string }[];
-  reemplazaA?: number | null;
 }
 
 type Contexto = Awaited<ReturnType<DeterminacionService['contexto']>>;
@@ -440,22 +397,7 @@ export class DeterminacionService {
   }
 
   private async cuentasActuales(tx: Tx, contribuyenteId: number, anio: number, tributoIds: number[]): Promise<CuentaActual[]> {
-    const filas = await tx.cuentaCorriente.findMany({
-      where: { contribuyenteId, anioFiscal: anio, tributoId: { in: tributoIds }, estado: { notIn: SIN_EFECTO_CUENTA } },
-      select: {
-        id: true,
-        tributoId: true,
-        predioId: true,
-        cuota: true,
-        importe: true,
-        derechoEmision: true,
-        estado: true,
-        ajusteDeId: true,
-        valorDetalles: { where: { valor: { estado: { in: VALOR_CON_TRAMITE } } }, select: { id: true }, take: 1 },
-      },
-      orderBy: [{ cuota: 'asc' }, { id: 'asc' }],
-    });
-    return filas.map(({ valorDetalles, ...f }) => ({ ...f, enValor: valorDetalles.length > 0 }));
+    return (await cuentasActuales(tx, [contribuyenteId], anio, tributoIds)).get(contribuyenteId) ?? [];
   }
 
   // J14: lo vigente en la cuenta de cada año (importe, sin derecho de emisión) contra lo determinado.
@@ -512,179 +454,18 @@ export class DeterminacionService {
   private async calcular(tx: Tx, ctx: Contexto, anios: number[]): Promise<Determinado[]> {
     const resultados: Determinado[] = [];
     for (const anio of anios) {
-      const params = await this.parametros(tx, ctx, anio);
-      resultados.push(determinarAnio(params, this.prediosDelAnio(ctx, anio), this.persona(ctx, anio), { cuotasArbitrios: ctx.cuotasArbitrios, feriados: ctx.feriados }));
+      const params = await parametrosDelAnio(tx, ctx, anio);
+      resultados.push(determinarAnio(params, prediosDelAnio(ctx, ctx, anio), resolucionesDelAnio(ctx, anio), { cuotasArbitrios: ctx.cuotasArbitrios, feriados: ctx.feriados }));
     }
     return resultados;
-  }
-
-  // Lo que rige para cada predio de la persona en el año, en este orden (J15: entran también los no
-  // declarados en esta DJ, porque la base es el total, L01):
-  // 1) su último anexo de DJ (liquidada, o esta) que ya rige ese año (J10, J11);
-  // 2) lo que usó la determinación liquidada de ese año (la "copia por año" del predio);
-  // 3) el padrón: titular al 1 de enero (predial) o en el mes (arbitrios), con los datos del predio.
-  // Si otra DJ terminó su titularidad (p. ej. el comprador lo descargó como transferente), deja de regir.
-  private prediosDelAnio(ctx: Contexto, anio: number): PredioDelAnio[] {
-    const previa = ctx.previas.get(anio) ?? new Map<number, { origen: string; condicion: string | null; porcentaje: number; afectoPredial: boolean; datos: DatosGuardados }>();
-    const ids = [...new Set([...ctx.decls.keys(), ...ctx.titularidad.keys(), ...previa.keys()])].sort((a, b) => a - b);
-    const lista: PredioDelAnio[] = [];
-    for (const predioId of ids) {
-      const m = ctx.maestros.get(predioId);
-      if (!m) continue;
-      const decls = ctx.decls.get(predioId) ?? [];
-      const t = ctx.titularidad.get(predioId);
-      const p = previa.get(predioId);
-      // Fin de la titularidad en el padrón. No pesa sobre un anexo presentado después (volvió a adquirirlo).
-      const fin = t?.fechaFin ?? null;
-      const terminoAntes = (presentado: string | null) => fin !== null && (presentado === null || presentado <= fin);
-      const finAnio = fin ? Number(fin.slice(0, 4)) : null;
-      const finMes = fin ? mesDesde(fin, anio, ctx.inicioArbitrios) : 13;
-
-      let predial: { origen: string; porcentaje: number; condicion: string | null; declarado: Declarado } | null = null;
-      const d = vigentePredial(decls, anio);
-      if (d) {
-        predial = d.descargo ? null : { origen: d.origen, porcentaje: d.porcentaje, condicion: d.condicion, declarado: d.declarado };
-        if (predial && terminoAntes(d.fechaPresentacion) && finAnio! < anio) predial = null;
-      } else if (p) {
-        predial = p.afectoPredial ? { origen: p.origen, porcentaje: p.porcentaje, condicion: p.condicion, declarado: p.datos.declarado } : null;
-        if (predial && finAnio !== null && finAnio < anio) predial = null;
-      } else if (t && asociacionEnAnio(t, anio).contribuyenteDelAnio) {
-        predial = { origen: 'Padrón', porcentaje: t.porcentaje, condicion: t.condicion, declarado: m.padron };
-      }
-
-      const meses: MesArbitrio[] = [];
-      let declaradoArbitrios: Declarado | null = null;
-      let origenArbitrios: string | null = null;
-      for (let mes = 1; mes <= 12; mes++) {
-        const da = vigenteArbitrios(decls, anio, mes);
-        if (mes >= finMes && (!da || terminoAntes(da.fechaPresentacion))) continue;
-        if (da) {
-          if (!da.descargo) {
-            meses.push({ mes, porcentaje: da.porcentaje, usos: usosDelMes(da.declarado.usos, anio, mes, ctx.inicioArbitrios) });
-            declaradoArbitrios = da.declarado;
-            origenArbitrios ??= da.origen;
-          }
-        } else if (p) {
-          const previo = p.datos.meses.find((x) => x.mes === mes);
-          if (previo) {
-            meses.push(previo);
-            origenArbitrios ??= p.origen;
-          }
-        } else if (t) {
-          const empieza = t.fechaAdquisicion ? mesDesde(t.fechaAdquisicion, anio, ctx.inicioArbitrios) : 0;
-          const finDesconocido = t.estado !== EstadoRegistro.ACTIVO && !t.fechaFin;
-          if (!finDesconocido && empieza <= mes) {
-            meses.push({ mes, porcentaje: t.porcentaje, usos: usosDelMes(m.padron.usos, anio, mes, ctx.inicioArbitrios) });
-            origenArbitrios ??= 'Padrón';
-          }
-        }
-      }
-      if (!predial && meses.length === 0) continue;
-      lista.push({
-        predioId,
-        origen: (predial?.origen ?? origenArbitrios ?? 'Padrón').slice(0, 60),
-        condicion: predial?.condicion ?? t?.condicion ?? null,
-        porcentaje: predial?.porcentaje ?? meses[0].porcentaje,
-        afectoPredial: Boolean(predial),
-        maestro: m.maestro,
-        declarado: predial?.declarado ?? declaradoArbitrios ?? m.padron,
-        meses,
-        exoneracion: exoneracionPredio(m.resoluciones, anio),
-      });
-    }
-    return lista;
-  }
-
-  private persona(ctx: Contexto, anio: number) {
-    const rige = (regimen: string) => ctx.resolucionesPersona.find((r) => r.regimen === regimen && rigeEn(r, anio)) ?? null;
-    return { inafecto: rige('INAFECTACION'), deduccion: rige('DEDUCCION'), exoneracion: rige('EXONERACION') };
-  }
-
-  private async parametros(tx: Tx, ctx: Contexto, anio: number): Promise<ParametrosV2> {
-    const cache = ctx.parametros.get(anio);
-    if (cache) return cache;
-    const [uit, escala, aranceles, valoresUnitarios, depreciaciones, tarifas, rusticos] = await Promise.all([
-      tx.uit.findUnique({ where: { anio } }),
-      tx.escalaPredial.findMany({ where: { anio }, orderBy: { tramo: 'asc' } }),
-      tx.arancel.findMany({ where: { anio } }),
-      tx.valorUnitario.findMany({ where: { anio } }),
-      tx.depreciacion.findMany({ where: { anio } }),
-      tx.tarifaArbitrio.findMany({ where: { anio }, orderBy: { id: 'asc' } }),
-      tx.arancelRustico.findMany({ where: { anio } }),
-    ]);
-    const p: ParametrosV2 = {
-      anio,
-      uit: uit?.valor ?? null,
-      derechoEmision: uit?.derechoEmision ?? 0,
-      escala,
-      aranceles,
-      valoresUnitarios,
-      depreciaciones,
-      tarifas,
-      rusticos,
-      conceptos: CONCEPTOS_ARBITRIO,
-    };
-    ctx.parametros.set(anio, p);
-    return p;
   }
 
   // ---- Persistencia ----
 
   private async guardar(tx: Tx, ctx: Contexto, r: Determinado) {
-    const detalle: DetalleGuardado = {
-      huella: huellaDeterminado(r),
-      cuotasPredial: r.cuotasPredial.map((c) => ({ cuota: c.cuota, importe: n2(c.importe), derechoEmision: n2(c.derechoEmision), vence: c.vence })),
-      cuotasArbitrios: r.cuotasArbitrios.map((c) => ({ predioId: c.predioId, concepto: c.concepto, cuota: c.cuota, importe: n2(c.importe), vence: c.vence })),
-      beneficios: r.beneficios,
-      errores: r.errores,
-      avisos: r.avisos,
-    };
-    const prediosDelAnio = new Map(this.prediosDelAnio(ctx, r.anio).map((p) => [p.predioId, p]));
-    const det = await tx.determinacion.create({
-      data: {
-        contribuyenteId: ctx.dj.contribuyenteId,
-        anio: r.anio,
-        djId: ctx.dj.id,
-        baseImponible: r.baseImponible,
-        deduccion: r.deduccion,
-        baseAfecta: r.baseAfecta,
-        impuesto: r.impuesto,
-        derechoEmision: r.derechoEmision,
-        arbitrios: r.arbitrios,
-        predialCalculable: r.predialCalculable,
-        detalle: detalle as unknown as Prisma.InputJsonValue,
-        predios: {
-          create: r.predios.map((p) => {
-            const entrada = prediosDelAnio.get(p.predioId)!;
-            const ok = p.valor?.ok === true ? p.valor : null;
-            const datos: DatosGuardados = { declarado: entrada.declarado, maestro: entrada.maestro, meses: entrada.meses, arancel: ok?.arancel ?? null, niveles: ok?.niveles ?? [] };
-            return {
-              predioId: p.predioId,
-              tipo: entrada.maestro.tipo === 'RUSTICO' ? TipoPredio.RUSTICO : TipoPredio.URBANO,
-              origen: p.origen,
-              condicion: p.condicion,
-              porcentaje: p.porcentaje,
-              afectoPredial: p.afectoPredial,
-              exoneracion: p.exoneracion,
-              terreno: ok?.terreno ?? null,
-              construccion: ok?.construccion ?? null,
-              obras: ok?.obras ?? null,
-              autoavaluo: ok?.autoavaluo ?? null,
-              valorAfecto: p.valorAfecto,
-              arbitrios: p.arbitrios,
-              error: p.valor && !p.valor.ok ? p.valor.error.slice(0, 250) : null,
-              datos: datos as unknown as Prisma.InputJsonValue,
-            };
-          }),
-        },
-      },
-      select: { id: true },
-    });
-    if (r.arbitriosMes.length) {
-      await tx.determinacionArbitrio.createMany({
-        data: r.arbitriosMes.map((a) => ({ determinacionId: det.id, predioId: a.predioId, uso: a.uso.slice(0, 10), mes: a.mes, concepto: a.concepto, importe: a.importe })),
-      });
-    }
+    await guardarDeterminaciones(tx, [
+      { contribuyenteId: ctx.dj.contribuyenteId, djId: ctx.dj.id, estado: EstadoDeterminacion.DETERMINADA, r, entradas: prediosDelAnio(ctx, ctx, r.anio), detalle: detalleDe(r) },
+    ]);
   }
 
   // ---- Padrón (titulares, predio y copia física) ----
@@ -927,216 +708,18 @@ export class DeterminacionService {
     });
     if (!fila) throw new NotFoundException('La declaración no existe');
     const dj = { ...fila, fechaPresentacion: iso(fila.fechaPresentacion), revisionVence: fila.revisionVence ? iso(fila.revisionVence) : null };
-    const C = dj.contribuyenteId;
     const anioActual = Number(hoyLima().slice(0, 4));
-
-    const reabierta = await tx.djPresentada.findFirst({
-      where: { contribuyenteId: C, id: { not: djId }, liquidadaAt: { not: null }, estado: { in: [EstadoDj.PENDIENTE, EstadoDj.EN_REVISION] } },
-      select: { anio: true, numero: true },
-    });
-    if (reabierta) {
-      throw new ConflictException(`La DJ ${numeroDj(reabierta.anio, reabierta.numero)} de la persona está reabierta: liquídala o anúlala antes de determinar otra`);
-    }
-
-    // Lo declarado que rige: DJ liquidadas de la persona y la que se determina.
-    const djs = await tx.djPresentada.findMany({
-      where: { contribuyenteId: C, OR: [{ estado: EstadoDj.LIQUIDADA }, { id: djId }] },
-      select: {
-        id: true,
-        anio: true,
-        numero: true,
-        fechaPresentacion: true,
-        anexos: { include: { niveles: { orderBy: { orden: 'asc' } }, obras: { orderBy: { orden: 'asc' } }, usos: { orderBy: { orden: 'asc' } }, rusticos: { orderBy: { orden: 'asc' } } } },
-      },
-    });
-    const decls = new Map<number, DeclaracionPredio[]>();
-    for (const d of djs) {
-      for (const a of d.anexos) {
-        const lista = decls.get(a.predioId) ?? [];
-        lista.push({
-          djId: d.id,
-          origen: `DJ ${numeroDj(d.anio, d.numero)} · anexo ${a.numero}`,
-          fechaPresentacion: iso(d.fechaPresentacion),
-          orden: a.id,
-          descargo: a.fechaDescargo !== null,
-          anioAfectacion: a.anioAfectacion,
-          fechaArbitrios: iso(a.fechaAfectacionArbitrios),
-          porcentaje: Number(a.porcentaje),
-          condicion: a.condicion,
-          declarado: {
-            areaTerreno: Number(a.areaTerreno),
-            areaComun: n(a.areaComun),
-            niveles: a.niveles.map((v) => ({
-              nivel: v.nivel,
-              anioConstruccion: v.anioConstruccion,
-              clasificacion: v.clasificacion,
-              material: v.material,
-              estadoConservacion: v.estadoConservacion,
-              categorias: v.categorias,
-              areaPropia: Number(v.areaPropia),
-              areaComun: n(v.areaComun),
-              participacion: n(v.participacion),
-            })),
-            obras: a.obras.map((o) => ({ descripcion: o.descripcion, cantidad: Number(o.cantidad), valorDeclarado: n(o.valorDeclarado) })),
-            usos: a.usos.map((u) => ({
-              uso: u.uso,
-              subUso: u.subUso,
-              area: Number(u.area),
-              frontis: n(u.frontis),
-              participacion: n(u.participacion),
-              fechaInicio: u.fechaInicio ? iso(u.fechaInicio) : null,
-              fechaFin: u.fechaFin ? iso(u.fechaFin) : null,
-              predominante: u.predominante,
-            })),
-            rusticos: a.rusticos.map((r) => ({ categoria: r.categoria, clasificacion: r.clasificacion, hectareas: Number(r.hectareas) })),
-          },
-        });
-        decls.set(a.predioId, lista);
-      }
-    }
     const anios = aniosADeterminar(
       dj.anexos.map((a) => ({ anioAfectacion: a.anioAfectacion, fechaArbitrios: iso(a.fechaAfectacionArbitrios) })),
       anioActual,
     );
-
-    const [filasTitular, previasFilas, beneficios, catalogoBeneficio, feriados, tributos, cuotasArbitrios, inicioArbitrios] = await Promise.all([
-      tx.predioContribuyente.findMany({ where: { contribuyenteId: C } }),
-      tx.determinacion.findMany({
-        where: { contribuyenteId: C, estado: EstadoDeterminacion.LIQUIDADA, anio: { in: anios } },
-        select: { anio: true, predios: { select: { predioId: true, origen: true, condicion: true, porcentaje: true, afectoPredial: true, datos: true } } },
-      }),
-      tx.contribuyenteBeneficio.findMany({ where: { contribuyenteId: C } }),
-      tx.catalogo.findMany({ where: { grupo: GrupoCatalogo.BENEFICIO }, select: { codigo: true, nombre: true, atributos: true } }),
-      tx.feriado.findMany({ select: { fecha: true } }),
-      tx.tributo.findMany({ where: { codigo: { in: ['PREDIAL', ...CONCEPTOS_ARBITRIO] }, tipo: { in: [TipoTributo.PREDIAL, TipoTributo.ARBITRIOS] } }, select: { id: true, codigo: true } }),
-      this.catalogos.valorRegla<number[][]>('arbitrios.cuotas', tx),
-      this.catalogos.valorRegla<InicioArbitrios>('arbitrios.inicioAfectacion', tx),
-    ]);
-    if (tributos.length !== CONCEPTOS_ARBITRIO.length + 1) {
-      throw new BadRequestException('Faltan tributos de rentas en la base: ejecuta "npx prisma db seed"');
+    const comun = await cargarComun(tx, this.catalogos);
+    const persona = (await cargarPersonas(tx, comun, [dj.contribuyenteId], { djId, hasta: anioActual })).get(dj.contribuyenteId)!;
+    const reabierta = persona.pendientes.find((p) => p.reabierta);
+    if (reabierta) {
+      throw new ConflictException(`La DJ ${reabierta.numero} de la persona está reabierta: liquídala o anúlala antes de determinar otra`);
     }
-    const titularidad = new Map(
-      filasTitular.map((t) => [
-        t.predioId,
-        {
-          contribuyenteId: C,
-          fechaAdquisicion: t.fechaAdquisicion ? iso(t.fechaAdquisicion) : null,
-          fechaFin: t.fechaFin ? iso(t.fechaFin) : null,
-          estado: t.estado,
-          porcentaje: Number(t.porcentaje),
-          condicion: t.condicion,
-        },
-      ]),
-    );
-    const previas = new Map<number, Map<number, { origen: string; condicion: string | null; porcentaje: number; afectoPredial: boolean; datos: DatosGuardados }>>();
-    for (const p of previasFilas) {
-      previas.set(p.anio, new Map(p.predios.map((x) => [x.predioId, { ...x, porcentaje: Number(x.porcentaje), datos: x.datos as unknown as DatosGuardados }])));
-    }
-    const atributos = new Map(catalogoBeneficio.map((c) => [c.codigo, { nombre: c.nombre, ...((c.atributos ?? {}) as { regimen?: string; deduccionUit?: number; porcentaje?: number }) }]));
-    const resolucionesPersona: Resolucion[] = beneficios.map((b) => {
-      const a = atributos.get(b.codigo);
-      return {
-        regimen: a?.regimen,
-        nombre: a?.nombre ?? b.codigo,
-        resolucion: b.resolucion,
-        porcentaje: a?.porcentaje ?? null,
-        deduccionUit: a?.deduccionUit ?? null,
-        anioDesde: b.anioDesde,
-        anioHasta: b.anioHasta,
-        vigente: b.vigente,
-      };
-    });
-
-    const predioIds = [...new Set([...decls.keys(), ...titularidad.keys(), ...previasFilas.flatMap((p) => p.predios.map((x) => x.predioId))])];
-    const predios = await tx.predio.findMany({
-      where: { id: { in: predioIds } },
-      select: {
-        id: true,
-        tipo: true,
-        viaId: true,
-        urbanizacionId: true,
-        zonaId: true,
-        frecuenciaBarrido: true,
-        ubicacionParque: true,
-        frontis: true,
-        areaTerreno: true,
-        areaConstruida: true,
-        usoPredio: true,
-        pisos: { orderBy: { nivel: 'asc' } },
-        otrasInstalaciones: { orderBy: { id: 'asc' } },
-        beneficios: true,
-      },
-    });
-    const maestros = new Map(
-      predios.map((p) => {
-        const maestro: Maestro = {
-          tipo: p.tipo,
-          viaId: p.viaId,
-          urbanizacionId: p.urbanizacionId,
-          zonaId: p.zonaId,
-          frecuenciaBarrido: p.frecuenciaBarrido,
-          ubicacionParque: p.ubicacionParque,
-          frontis: n(p.frontis),
-        };
-        // Padrón (v1): los datos actuales del predio, como los usa el cálculo v1.
-        const padron: Declarado = {
-          areaTerreno: Number(p.areaTerreno ?? 0),
-          areaComun: null,
-          niveles: p.pisos.map((pi) => ({
-            nivel: pi.nivel,
-            anioConstruccion: pi.anioConstruccion,
-            clasificacion: pi.clasificacion ?? '',
-            material: pi.material ?? '',
-            estadoConservacion: pi.estadoConservacion ?? '',
-            categorias: pi.categorias ?? '',
-            areaPropia: Number(pi.areaConstruida ?? 0),
-            areaComun: null,
-            participacion: null,
-          })),
-          obras: p.otrasInstalaciones.map((o) => ({ descripcion: o.descripcion, cantidad: Number(o.cantidad ?? 1), valorDeclarado: n(o.valor) })),
-          usos: [
-            {
-              uso: p.usoPredio ?? '',
-              subUso: null,
-              area: Number(p.areaConstruida ?? 0) || Number(p.areaTerreno ?? 0),
-              frontis: null,
-              participacion: null,
-              fechaInicio: null,
-              fechaFin: null,
-              predominante: true,
-            },
-          ],
-          rusticos: [],
-        };
-        const resoluciones: Resolucion[] = p.beneficios.map((b) => ({
-          regimen: atributos.get(b.codigo)?.regimen,
-          nombre: atributos.get(b.codigo)?.nombre ?? b.codigo,
-          resolucion: b.resolucion,
-          porcentaje: Number(b.porcentaje),
-          anioDesde: b.anioDesde,
-          anioHasta: b.anioHasta,
-          vigente: b.vigente,
-        }));
-        return [p.id, { maestro, padron, resoluciones }];
-      }),
-    );
-
-    return {
-      dj,
-      anioActual,
-      anios,
-      decls,
-      titularidad,
-      previas,
-      maestros,
-      resolucionesPersona,
-      feriados: new Set(feriados.map((f) => iso(f.fecha))),
-      tributos: new Map(tributos.map((t) => [t.codigo, t.id])),
-      codigoTributo: new Map(tributos.map((t) => [t.id, t.codigo])),
-      cuotasArbitrios,
-      inicioArbitrios,
-      parametros: new Map<number, ParametrosV2>(),
-    };
+    return { dj, anioActual, anios, ...persona, ...comun };
   }
 
   private include() {

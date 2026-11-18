@@ -40,7 +40,7 @@ export function HojasResumen({ contribuyenteId, refreshKey }: { contribuyenteId:
     return (
       <p className="text-sm text-slate-500">
         <i aria-hidden="true" className="bi bi-journal-text mr-1" />
-        Sin determinaciones desde una DJ presentada: la deuda sale del cálculo de abajo.
+        Aún sin determinaciones: se crean al liquidar una DJ o con la determinación anual de abajo.
       </p>
     )
   }
@@ -85,7 +85,7 @@ export function HojasResumen({ contribuyenteId, refreshKey }: { contribuyenteId:
         <tfoot>
           <tr>
             <td colSpan={7} className="px-3 py-2 text-xs text-slate-500">
-              {filas.length} {filas.length === 1 ? 'determinación' : 'determinaciones'}. Un año liquidado desde una DJ no se recalcula con el cálculo v1: se corrige con otra DJ.
+              {filas.length} {filas.length === 1 ? 'determinación' : 'determinaciones'}. Un año liquidado desde una DJ no lo toca la determinación anual: se corrige con otra DJ.
             </td>
           </tr>
         </tfoot>

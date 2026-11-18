@@ -1,8 +1,7 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { NivelGuard } from '../auth/guards/nivel.guard.js';
 import { RequireNivel } from '../auth/decorators/nivel.decorator.js';
-import { DeclaracionDto } from './dto/declaracion.dto.js';
 import { BuscarPrediosDto, MaestroPredioDto, PersonasAnioDto, PredioBeneficioDto, RevocarPredioBeneficioDto } from './dto/predio.dto.js';
 import { PrediosService } from './predios.service.js';
 
@@ -25,12 +24,6 @@ export class PrediosController {
   @Get()
   buscar(@Query() dto: BuscarPrediosDto) {
     return this.predios.buscar(dto);
-  }
-
-  @Post('declaraciones')
-  @HttpCode(HttpStatus.CREATED)
-  declarar(@Body() dto: DeclaracionDto) {
-    return this.predios.declarar(dto);
   }
 
   @Get('declaraciones/:id')

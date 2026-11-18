@@ -9,6 +9,7 @@ export const MOTIVO = {
   COMPRA: 'COMPRA',
   VENTA: 'VENTA',
   BAJA: 'BAJA',
+  FISCALIZACION: 'FISCALIZACION', // la registra la resolución de una fiscalización (Fase 6)
 } as const;
 
 export const DESCARGOS: string[] = [MOTIVO.VENTA, MOTIVO.BAJA];

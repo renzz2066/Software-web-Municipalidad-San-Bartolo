@@ -230,4 +230,9 @@ describe('planAjustes', () => {
       [2, '80.00'],
     ]);
   });
+
+  it('la cuota extornada al anular una DJ no es la base: lo es la que volvió a quedar pendiente', () => {
+    const r = planAjustes([aumento(1, 30)], [cuota(20, 1, 'PENDIENTE'), cuota(21, 1, 'EXTORNADO')]);
+    expect(r.actualizar.map((x) => [x.id, x.importe.toFixed(2)])).toEqual([[20, '130.00']]);
+  });
 });
