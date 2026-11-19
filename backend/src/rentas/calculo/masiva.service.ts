@@ -184,7 +184,16 @@ export class DeterminacionMasivaService {
                 })),
               },
               obras: {
-                create: p.declarado.obras.map((o, j) => ({ orden: j + 1, descripcion: o.descripcion.slice(0, 120), cantidad: o.cantidad, valorDeclarado: o.valorDeclarado })),
+                create: p.declarado.obras.map((o, j) => ({
+                  orden: j + 1,
+                  codigo: o.codigo ?? null,
+                  descripcion: o.descripcion.slice(0, 120),
+                  cantidad: o.cantidad,
+                  anioConstruccion: o.anioConstruccion ?? null,
+                  material: o.material ?? null,
+                  estadoConservacion: o.estadoConservacion ?? null,
+                  valorDeclarado: o.valorDeclarado,
+                })),
               },
               usos: {
                 create: p.declarado.usos.map((u, j) => ({ orden: j + 1, uso: u.uso.slice(0, 10), area: u.area, predominante: u.predominante })),

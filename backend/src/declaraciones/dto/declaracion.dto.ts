@@ -71,6 +71,12 @@ export class NivelDjDto {
 }
 
 export class ObraDjDto {
+  // V05 (Fase 7): código de la tabla de obras complementarias del año; vacío = valor declarado.
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  codigo?: string | null;
+
   @IsString()
   @MaxLength(120)
   descripcion: string;
@@ -486,6 +492,61 @@ export class MultaDjDto {
   @IsString()
   @MaxLength(200)
   motivo?: string;
+}
+
+// ---- Fase 7: prórrogas de presentación (J16) ----
+
+export class ProrrogaDjDto {
+  // Sin persona = prórroga general por ordenanza (la registra un supervisor y nace aprobada).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  contribuyenteId?: number | null;
+
+  @IsInt({ message: 'Indica el año del plazo que se prorroga' })
+  @Min(2000)
+  @Max(2100)
+  anio: number;
+
+  @IsOptional()
+  @Matches(CODIGO_OPCIONAL, { message: 'Motivo no válido' })
+  motivo?: string | null;
+
+  @IsDateString({}, { message: 'Indica la nueva fecha límite' })
+  fechaLimite: string;
+
+  @IsDateString({}, { message: 'Indica la fecha de la solicitud' })
+  fechaSolicitud: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Indica el sustento (ordenanza, expediente o documento)' })
+  @MaxLength(250)
+  sustento: string;
+}
+
+export class ResolverProrrogaDto {
+  @IsIn(['APROBAR', 'RECHAZAR'], { message: 'La decisión es APROBAR o RECHAZAR' })
+  accion: 'APROBAR' | 'RECHAZAR';
+
+  @IsString()
+  @IsNotEmpty({ message: 'Justifica la decisión' })
+  @MaxLength(250)
+  justificacion: string;
+}
+
+export class BuscarProrrogasDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  anio?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  contribuyenteId?: number;
 }
 
 export class DeterminacionesContribuyenteDto {

@@ -13,7 +13,7 @@ import { mensajeError, type ResumenAnio, type Urbanizacion, type Via, type Zona 
 // Feriados y fraccionamiento: specs/rentas-valores-v1.md (decisiones 2 y 3).
 // Fiscalizadores e infracciones: specs/rentas-fiscalizacion-v1.md (decisiones 2 y 5).
 // Catálogos y reglas de la muni: specs/rentas-nucleo-v2.md (Fase 0). Tarifas por criterio (L07) y
-// aranceles rústicos (V07): Fase 5.
+// aranceles rústicos (V07): Fase 5. Incremento por pisos (V03) y obras complementarias (V05): Fase 7.
 
 const ANIO_ACTUAL = new Date().getFullYear()
 const ANIOS = Array.from({ length: 8 }, (_, i) => ANIO_ACTUAL + 1 - i)
@@ -24,6 +24,7 @@ const PESTANAS = [
   { id: 'aranceles', titulo: 'Aranceles' },
   { id: 'rusticos', titulo: 'Aranceles rústicos' },
   { id: 'valores', titulo: 'Valores unitarios' },
+  { id: 'obras', titulo: 'Obras complementarias' },
   { id: 'depreciacion', titulo: 'Depreciación' },
   { id: 'tarifas', titulo: 'Tarifas arbitrios' },
   { id: 'mora', titulo: 'TIM / IPM' },
@@ -59,6 +60,14 @@ const COL_RUSTICOS: Columna[] = [
   { key: 'categoria', label: 'Categoría', tipo: 'texto' },
   { key: 'clasificacion', label: 'Clasificación de tierras', tipo: 'texto', opcional: true, placeholder: 'Cualquiera' },
   { key: 'valorHa', label: 'Arancel (S/ por ha)', tipo: 'numero' },
+]
+
+// V05: valores unitarios de obras complementarias (Reglamento Nacional de Tasaciones), por unidad.
+const COL_OBRAS: Columna[] = [
+  { key: 'codigo', label: 'Código', tipo: 'texto' },
+  { key: 'descripcion', label: 'Descripción', tipo: 'texto' },
+  { key: 'unidad', label: 'Unidad', tipo: 'texto', placeholder: 'm2, ml, m3, und' },
+  { key: 'valor', label: 'Valor (S/ por unidad)', tipo: 'numero' },
 ]
 
 // L07: sobre qué se cobra la tasa anual de cada concepto.
@@ -350,6 +359,15 @@ export function Maestros() {
               alGuardar={refrescar}
             />
           )}
+          {pestana === 'obras' && (
+            <TablaEditable
+              url={`/rentas/maestros/valores-obras/${anio}`}
+              columnas={COL_OBRAS}
+              bloqueado={bloqueado}
+              ayuda="Obras complementarias e instalaciones fijas (V05). Valor oficial = cantidad × valor × factor de oficialización (pestaña UIT), depreciado con la tabla de depreciación del año. Una obra de la DJ sin código usa su valor declarado."
+              alGuardar={refrescar}
+            />
+          )}
           {pestana === 'depreciacion' && (
             <TablaEditable
               url={`/rentas/maestros/depreciaciones/${anio}`}
@@ -476,6 +494,9 @@ function FormUit({
   const [valor, setValor] = useState(resumen?.uit?.valor ?? '')
   const [derechoEmision, setDerechoEmision] = useState(resumen?.uit?.derechoEmision ?? '0')
   const [ordenanza, setOrdenanza] = useState(resumen?.uit?.ordenanza ?? '')
+  const [desdePiso, setDesdePiso] = useState(resumen?.uit?.incrementoDesdePiso?.toString() ?? '')
+  const [incrementoPct, setIncrementoPct] = useState(resumen?.uit?.incrementoPisoPct ?? '')
+  const [factor, setFactor] = useState(resumen?.uit?.factorOficializacion ?? '')
   const [isSaving, setIsSaving] = useState(false)
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null)
 
@@ -490,12 +511,19 @@ function FormUit({
       setMensaje({ ok: false, texto: 'Ingresa un valor de UIT mayor que 0' })
       return
     }
+    if (Boolean(desdePiso) !== Boolean(incrementoPct)) {
+      setMensaje({ ok: false, texto: 'El incremento por pisos lleva el piso desde el que aplica y su %, o ninguno' })
+      return
+    }
     setIsSaving(true)
     setMensaje(null)
     try {
       await api.put(`/rentas/maestros/uit/${anio}`, {
         valor: n,
         derechoEmision: Number(derechoEmision) || 0,
+        incrementoDesdePiso: desdePiso ? Number(desdePiso) : null,
+        incrementoPisoPct: incrementoPct ? Number(incrementoPct) : null,
+        factorOficializacion: factor ? Number(factor) : null,
         ordenanza: ordenanza.trim() || undefined,
       })
       setMensaje({ ok: true, texto: 'UIT guardada.' })
@@ -555,6 +583,30 @@ function FormUit({
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100"
         />
       </div>
+      <fieldset className="grid gap-4 rounded-md border border-slate-200 p-3 sm:col-span-2 sm:grid-cols-3">
+        <legend className="px-1 text-xs text-slate-500">RM de valores unitarios {anio} (vacío = no aplica)</legend>
+        <div>
+          <label htmlFor="uit-piso" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Incremento desde el piso
+          </label>
+          <input id="uit-piso" type="number" inputMode="numeric" step="1" min="2" value={desdePiso} disabled={bloqueado || isSaving} onChange={(e) => setDesdePiso(e.target.value)} placeholder="Ej. 5" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100" />
+        </div>
+        <div>
+          <label htmlFor="uit-incpct" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            % de incremento
+          </label>
+          <input id="uit-incpct" type="number" inputMode="decimal" step="0.01" min="0" value={incrementoPct} disabled={bloqueado || isSaving} onChange={(e) => setIncrementoPct(e.target.value)} placeholder="Ej. 5" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100" />
+        </div>
+        <div>
+          <label htmlFor="uit-factor" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Factor de oficialización (obras)
+          </label>
+          <input id="uit-factor" type="number" inputMode="decimal" step="0.0001" min="0" value={factor} disabled={bloqueado || isSaving} onChange={(e) => setFactor(e.target.value)} placeholder="Ej. 0.68" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus-visible:outline-3 focus-visible:outline-turquesa disabled:bg-slate-100" />
+        </div>
+        <p className="text-xs text-slate-500 sm:col-span-3">
+          V03: el valor unitario de cada nivel desde ese piso sube el % antes de depreciar (sótanos y azoteas no cuentan). V05: factor que convierte el valor de las obras complementarias a valor oficial.
+        </p>
+      </fieldset>
       <div className="sm:col-span-2">
         {mensaje && (
           <p role={mensaje.ok ? 'status' : 'alert'} className={`mb-3 text-sm font-medium ${mensaje.ok ? 'text-emerald-700' : 'text-ladrillo'}`}>

@@ -5,11 +5,14 @@ import {
   aniosADeterminar,
   determinarAnio,
   exoneracionPredio,
+  incrementoNivel,
   mesDesde,
+  numeroPiso,
   rigeEn,
   tarifaV2,
   usosDelMes,
   valorizar,
+  valorizarObra,
   vencimientosPredial,
   vigenteArbitrios,
   vigentePredial,
@@ -263,5 +266,87 @@ describe('determinación del año (L01–L07, P14, P15, R06)', () => {
     expect(rigeEn({ anioDesde: 2024, anioHasta: 2025, vigente: false }, 2026)).toBe(false);
     expect(rigeEn({ anioDesde: 2024, anioHasta: null, vigente: false }, 2024)).toBe(false);
     expect(exoneracionPredio([{ regimen: 'EXONERACION', nombre: 'x', resolucion: 'r', porcentaje: 30, anioDesde: 2026, anioHasta: null, vigente: true }], 2026)).toBe(30);
+  });
+});
+
+// ---- Fase 7: V03 (incremento por pisos) y V05 (obras complementarias) ----
+
+describe('V03: incremento del valor unitario por piso', () => {
+  const nivel = (n: string) => ({
+    nivel: n,
+    anioConstruccion: 2026,
+    clasificacion: 'CASA_HABITACION',
+    material: 'LADRILLO',
+    estadoConservacion: 'BUENO',
+    categorias: 'CC-----',
+    areaPropia: 10,
+    areaComun: null,
+    participacion: null,
+  });
+
+  it('solo los niveles numéricos cuentan como piso', () => {
+    expect(numeroPiso('5')).toBe(5);
+    expect(numeroPiso('05')).toBe(5);
+    expect(numeroPiso('p7')).toBe(7);
+    expect(numeroPiso('S1')).toBeNull();
+    expect(numeroPiso('AZ')).toBeNull();
+    expect(numeroPiso('MZ')).toBeNull();
+  });
+
+  it('sube el % desde el piso indicado; sin parámetro no hay incremento', () => {
+    const inc = { desdePiso: 5, pct: 5 };
+    expect(incrementoNivel('4', inc).toFixed(2)).toBe('0.00');
+    expect(incrementoNivel('5', inc).toFixed(2)).toBe('5.00');
+    expect(incrementoNivel('12', inc).toFixed(2)).toBe('5.00');
+    expect(incrementoNivel('AZ', inc).toFixed(2)).toBe('0.00');
+    expect(incrementoNivel('9', null).toFixed(2)).toBe('0.00');
+  });
+
+  it('el valor unitario sube antes de depreciar (300 → 315 en el piso 5)', () => {
+    const p = { ...params, incrementoPisos: { desdePiso: 5, pct: 5 } };
+    const v = valorizar(1, maestro, declarado({ niveles: [nivel('4'), nivel('5')] }), p);
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.niveles.map((n) => [n.nivel, n.valorUnitario, n.incremento, n.valor])).toEqual([
+      ['4', '300.00', '0.00', '3000.00'],
+      ['5', '315.00', '5.00', '3150.00'],
+    ]);
+  });
+});
+
+describe('V05: obras complementarias a valor oficial', () => {
+  const p = {
+    ...params,
+    factorObras: 0.68,
+    valoresObras: [{ codigo: 'C01', unidad: 'ml', valor: 200 }],
+    depreciaciones: [
+      ...params.depreciaciones,
+      { clasificacion: 'CASA_HABITACION', material: 'CONCRETO', estadoConservacion: 'REGULAR', antiguedadHasta: 10, porcentaje: 20 },
+    ],
+  };
+  const cerco = { descripcion: 'CERCO', cantidad: 10, valorDeclarado: 999, codigo: 'C01', anioConstruccion: 2020, material: 'CONCRETO', estadoConservacion: 'REGULAR' };
+
+  it('cantidad × valor × factor × (1 − depreciación); ignora el valor declarado', () => {
+    const r = valorizarObra(cerco, 'CASA_HABITACION', p);
+    expect(r.ok && r.valor.toFixed(2)).toBe('1088.00'); // 10 × 200 × 0.68 × 0.80
+    expect(r.ok && r.obra).toMatchObject({ codigo: 'C01', valorUnitario: '200.00', factor: '0.6800', depreciacion: '20.00' });
+  });
+
+  it('sin código sigue el valor declarado (como v1 y lo guardado antes de la Fase 7)', () => {
+    const r = valorizarObra({ descripcion: 'TANQUE', cantidad: 1, valorDeclarado: 1500 }, 'CASA_HABITACION', p);
+    expect(r.ok && r.valor.toFixed(2)).toBe('1500.00');
+  });
+
+  it('sin factor, sin valor del código o sin depreciación, el predio no se valoriza', () => {
+    expect(valorizarObra(cerco, 'CASA_HABITACION', { ...p, factorObras: null })).toMatchObject({ ok: false });
+    expect(valorizarObra({ ...cerco, codigo: 'X99' }, 'CASA_HABITACION', p)).toMatchObject({ ok: false });
+    expect(valorizarObra({ ...cerco, material: 'ADOBE' }, 'CASA_HABITACION', p)).toMatchObject({ ok: false });
+    const v = valorizar(1, maestro, declarado({ obras: [cerco] }), { ...p, factorObras: null });
+    expect(v.ok).toBe(false);
+  });
+
+  it('suma al autoavalúo del predio', () => {
+    const v = valorizar(1, maestro, declarado({ obras: [cerco] }), p);
+    expect(v.ok && [v.obras.toFixed(2), v.autoavaluo.toFixed(2)]).toEqual(['1088.00', '11088.00']);
   });
 });

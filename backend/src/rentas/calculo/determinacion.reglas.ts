@@ -3,7 +3,7 @@
 // y los parámetros del año; no toca Prisma. Montos con Decimal.
 import { Prisma } from '@prisma/client';
 import { esHabil, masDias } from '../valores/plazos.js';
-import { impuestoPredial, redondear, repartir, valorizarPiso, type ParametrosAnio } from './motor.js';
+import { impuestoPredial, porcentajeDepreciacion, redondear, repartir, valorizarPiso, type ParametrosAnio } from './motor.js';
 
 const D = Prisma.Decimal;
 type Dec = Prisma.Decimal;
@@ -42,12 +42,24 @@ export interface UsoDatos {
   predominante: boolean;
 }
 
+// V05: una obra complementaria. Con código se valoriza con la tabla del año; sin código, su valor
+// declarado (como v1). Los campos opcionales faltan en lo guardado antes de la Fase 7.
+export interface ObraDatos {
+  descripcion: string;
+  cantidad: number;
+  valorDeclarado: number | null;
+  codigo?: string | null;
+  anioConstruccion?: number | null;
+  material?: string | null;
+  estadoConservacion?: string | null;
+}
+
 // La parte declarada del predio (DJ o padrón): áreas, construcción, obras y usos.
 export interface Declarado {
   areaTerreno: number;
   areaComun: number | null; // terreno común ya atribuido al predio
   niveles: NivelDatos[];
-  obras: { descripcion: string; cantidad: number; valorDeclarado: number | null }[];
+  obras: ObraDatos[];
   usos: UsoDatos[];
   rusticos: { categoria: string; clasificacion: string | null; hectareas: number }[];
 }
@@ -197,6 +209,9 @@ export interface TarifaV2 {
 
 export interface ParametrosV2 extends Pick<ParametrosAnio, 'anio' | 'valoresUnitarios' | 'depreciaciones' | 'aranceles'> {
   uit: Num | null; // null = falta la UIT del año
+  incrementoPisos?: { desdePiso: number; pct: Num } | null; // V03 (Fase 7); null = no aplica
+  factorObras?: Num | null; // V05: factor de oficialización del año
+  valoresObras?: { codigo: string; unidad: string; valor: Num }[]; // V05
   derechoEmision: Num;
   escala: ParametrosAnio['escala'];
   tarifas: TarifaV2[];
@@ -226,11 +241,63 @@ export interface NivelValorizado {
   nivel: string;
   area: string;
   valorUnitario: string;
+  incremento: string; // V03: % sumado al valor unitario ("0.00" si no aplica)
   depreciacion: string;
   valor: string;
 }
 
-export type Valor = { ok: true; terreno: Dec; construccion: Dec; obras: Dec; autoavaluo: Dec; arancel: string | null; niveles: NivelValorizado[] } | { ok: false; error: string };
+export interface ObraValorizada {
+  descripcion: string;
+  codigo: string | null; // null = valor declarado
+  cantidad: string;
+  valorUnitario: string | null;
+  factor: string | null;
+  depreciacion: string | null;
+  valor: string;
+}
+
+export type Valor =
+  | { ok: true; terreno: Dec; construccion: Dec; obras: Dec; autoavaluo: Dec; arancel: string | null; niveles: NivelValorizado[]; detalleObras: ObraValorizada[] }
+  | { ok: false; error: string };
+
+// V03: número de piso de un nivel ("5", "05", "P5"); sótanos, azoteas, mezzanines y semisótanos no son pisos.
+export function numeroPiso(nivel: string): number | null {
+  const m = /^P?0*(\d{1,3})$/.exec(nivel.trim().toUpperCase());
+  return m ? Number(m[1]) : null;
+}
+
+// V03: % de incremento del valor unitario del nivel (la RM de valores unitarios suele fijar +5% desde el 5.º piso).
+export function incrementoNivel(nivel: string, inc: ParametrosV2['incrementoPisos']): Dec {
+  if (!inc || !(inc.desdePiso > 0)) return new D(0);
+  const piso = numeroPiso(nivel);
+  return piso !== null && piso >= inc.desdePiso ? new D(inc.pct) : new D(0);
+}
+
+// V05: valor × cantidad × factor de oficialización, depreciado con la tabla del año (la clasificación
+// es la del primer nivel del predio; sin niveles, casa habitación). Sin código: el valor declarado.
+export function valorizarObra(
+  o: ObraDatos,
+  clasificacion: string,
+  params: Pick<ParametrosV2, 'anio' | 'depreciaciones' | 'factorObras' | 'valoresObras'>,
+): { ok: true; obra: ObraValorizada; valor: Dec } | { ok: false; error: string } {
+  const cantidad = new D(o.cantidad).toFixed(2);
+  if (!o.codigo) {
+    const valor = redondear(o.valorDeclarado ?? 0);
+    return { ok: true, valor, obra: { descripcion: o.descripcion, codigo: null, cantidad, valorUnitario: null, factor: null, depreciacion: null, valor: valor.toFixed(2) } };
+  }
+  const e = (m: string) => ({ ok: false as const, error: `obra "${o.descripcion}" (${o.codigo}): ${m}` });
+  const vu = params.valoresObras?.find((v) => v.codigo === o.codigo);
+  if (!vu) return e(`no hay valor de obras complementarias ${params.anio} para ese código`);
+  if (params.factorObras == null || !new D(params.factorObras).gt(0)) return e(`falta el factor de oficialización ${params.anio} (Maestros → UIT)`);
+  if (o.anioConstruccion == null || !o.material || !o.estadoConservacion) return e('indica año, material y estado de conservación para depreciarla');
+  const antiguedad = Math.max(0, params.anio - o.anioConstruccion);
+  const dep = porcentajeDepreciacion(params.depreciaciones, { clasificacion, material: o.material, estadoConservacion: o.estadoConservacion }, antiguedad);
+  if (dep === null) return e(`no hay depreciación ${params.anio} para ${clasificacion}, ${o.material} y ${o.estadoConservacion}`);
+  const factor = new D(params.factorObras);
+  const valor = redondear(new D(o.cantidad).times(vu.valor).times(factor).times(new D(100).minus(dep)).div(100));
+  const obra = { descripcion: o.descripcion, codigo: o.codigo, cantidad, valorUnitario: new D(vu.valor).toFixed(2), factor: factor.toFixed(4), depreciacion: dep.toFixed(2), valor: valor.toFixed(2) };
+  return { ok: true, valor, obra };
+}
 
 export function valorizar(predioId: number, m: Maestro, d: Declarado, params: ParametrosV2): Valor {
   const e = (msg: string): Valor => ({ ok: false, error: `Predio #${predioId}: ${msg}` });
@@ -259,7 +326,8 @@ export function valorizar(predioId: number, m: Maestro, d: Declarado, params: Pa
     terreno = redondear(new D(d.areaTerreno).plus(d.areaComun ?? 0).times(a.valorM2));
   }
 
-  // V01, V02 y V04: cada nivel con su valor unitario y depreciación; el área común entra por su %.
+  // V01–V04: cada nivel con su valor unitario (con el incremento por piso, V03) y depreciación; el
+  // área común entra por su %.
   const niveles: NivelValorizado[] = [];
   let construccion = new D(0);
   for (const n of d.niveles) {
@@ -267,14 +335,31 @@ export function valorizar(predioId: number, m: Maestro, d: Declarado, params: Pa
     const r = valorizarPiso(
       { ...n, areaConstruida: area.toDecimalPlaces(2, D.ROUND_HALF_UP).toNumber() },
       { anio: params.anio, valoresUnitarios: params.valoresUnitarios, depreciaciones: params.depreciaciones },
+      incrementoNivel(n.nivel, params.incrementoPisos),
     );
     if ('error' in r) return e(`nivel ${n.nivel}: ${r.error}`);
-    niveles.push({ nivel: n.nivel, area: area.toFixed(2), valorUnitario: r.valorUnitario.toFixed(2), depreciacion: r.depreciacion.toFixed(2), valor: r.valor.toFixed(2) });
+    niveles.push({
+      nivel: n.nivel,
+      area: area.toFixed(2),
+      valorUnitario: r.valorUnitario.toFixed(2),
+      incremento: r.incremento.toFixed(2),
+      depreciacion: r.depreciacion.toFixed(2),
+      valor: r.valor.toFixed(2),
+    });
     construccion = construccion.plus(r.valor);
   }
-  // V05: mientras no haya valores oficiales de obras, su valor declarado (como en v1).
-  const obras = redondear(d.obras.reduce((t, o) => t.plus(o.valorDeclarado ?? 0), new D(0)));
-  return { ok: true, terreno, construccion, obras, autoavaluo: redondear(terreno.plus(construccion).plus(obras)), arancel, niveles };
+  // V05: obras con código a valor oficial; sin código, su valor declarado.
+  const clasificacion = d.niveles[0]?.clasificacion || 'CASA_HABITACION';
+  const detalleObras: ObraValorizada[] = [];
+  let obras = new D(0);
+  for (const o of d.obras) {
+    const r = valorizarObra(o, clasificacion, params);
+    if (!r.ok) return e(r.error);
+    detalleObras.push(r.obra);
+    obras = obras.plus(r.valor);
+  }
+  obras = redondear(obras);
+  return { ok: true, terreno, construccion, obras, autoavaluo: redondear(terreno.plus(construccion).plus(obras)), arancel, niveles, detalleObras };
 }
 
 // ---- Determinación de un año (HR + PU/PR + arbitrios por mes) ----

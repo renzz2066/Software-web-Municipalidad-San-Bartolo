@@ -5,6 +5,7 @@ import {
   errorEditar,
   errorInscripcionRepetida,
   errorNiveles,
+  errorObjecion,
   errorPorcentajes,
   errorReabrir,
   fechaArbitriosPorDefecto,
@@ -117,5 +118,26 @@ describe('estados (J04, J05)', () => {
     expect(errorReabrir('LIQUIDADA', 'COMPRA', ['COMPRA'])).toBeNull();
     expect(errorReabrir('LIQUIDADA', 'VENTA', ['COMPRA'])).toMatch(/no se reabre/);
     expect(errorReabrir('PENDIENTE', 'COMPRA', ['COMPRA'])).toMatch(/liquidada/);
+  });
+});
+
+describe('Fase 7', () => {
+  it('V05: una obra con código necesita año, material y conservación', () => {
+    const obra = { codigo: 'C01', descripcion: 'CERCO', cantidad: 10, anioConstruccion: 2020, material: 'CONCRETO', estadoConservacion: 'BUENO' };
+    expect(errorAnexo({ ...ANEXO, obras: [obra] }, CTX, 'Anexo 1')).toBeNull();
+    expect(errorAnexo({ ...ANEXO, obras: [{ ...obra, material: null }] }, CTX, 'Anexo 1')).toMatch(/material/);
+    expect(errorAnexo({ ...ANEXO, obras: [{ ...obra, anioConstruccion: null }] }, CTX, 'Anexo 1')).toMatch(/año/);
+    expect(errorAnexo({ ...ANEXO, obras: [{ ...obra, estadoConservacion: 'NUEVO' }] }, CTX, 'Anexo 1')).toMatch(/conservación/);
+    // Sin código basta la descripción y la cantidad (valor declarado, como v1).
+    expect(errorAnexo({ ...ANEXO, obras: [{ descripcion: 'TANQUE', cantidad: 1 }] }, CTX, 'Anexo 1')).toBeNull();
+  });
+
+  it('J09: la objeción va hasta el pago al contado, sobre un año actualizado y rige desde ese año', () => {
+    const ok = { fechaPresentacion: '2026-02-10', venceContado: '2026-02-27', actualizado: true, aniosAfectacion: [2026] };
+    expect(errorObjecion(ok)).toBeNull();
+    expect(errorObjecion({ ...ok, fechaPresentacion: '2026-02-27' })).toBeNull(); // el último día vale
+    expect(errorObjecion({ ...ok, fechaPresentacion: '2026-03-02' })).toMatch(/hasta el 2026-02-27/);
+    expect(errorObjecion({ ...ok, actualizado: false })).toMatch(/no hay actualización/);
+    expect(errorObjecion({ ...ok, aniosAfectacion: [2026, 2027] })).toMatch(/rigen desde 2026/);
   });
 });

@@ -262,6 +262,10 @@ model Usuario {
   djAnuladas                 DjPresentada[]      @relation("DjAnuladaPor")
   djRevisionesResueltas      DjPresentada[]      @relation("DjRevisionResueltaPor")
   djLiquidadas               DjPresentada[]      @relation("DjLiquidadaPor")
+  prorrogasCreadas           ProrrogaDj[]        @relation("ProrrogaCreadoPor")
+  prorrogasModificadas       ProrrogaDj[]        @relation("ProrrogaModificadoPor")
+  prorrogasResueltas         ProrrogaDj[]        @relation("ProrrogaResueltaPor")
+  prorrogasAnuladas          ProrrogaDj[]        @relation("ProrrogaAnuladaPor")
   determinacionesCreadas     Determinacion[]     @relation("DeterminacionCreadoPor")
   determinacionesModificadas Determinacion[]     @relation("DeterminacionModificadoPor")
   prediosModificados         Predio[]            @relation("PredioModificadoPor")
@@ -409,6 +413,7 @@ model Contribuyente {
   licencias       Licencia[]
   declaraciones   DeclaracionJurada[]
   djPresentadas   DjPresentada[]
+  prorrogasDj     ProrrogaDj[]
   djAdquirienteEn DjAdquiriente[]            @relation("DjAdquirientePersona")
   determinaciones Determinacion[]
 
@@ -819,12 +824,16 @@ model Tributo {
 }
 
 model Uit {
-  id             Int      @id @default(autoincrement())
-  anio           Int      @unique
-  valor          Decimal  @db.Decimal(10, 2)
-  derechoEmision Decimal  @default(0) @db.Decimal(10, 2) // monto fijo anual por contribuyente (cuota 1 del predial)
-  ordenanza      String?  @db.VarChar(60) // norma que lo aprueba
-  createdAt      DateTime @default(now())
+  id                   Int      @id @default(autoincrement())
+  anio                 Int      @unique
+  valor                Decimal  @db.Decimal(10, 2)
+  derechoEmision       Decimal  @default(0) @db.Decimal(10, 2) // monto fijo anual por contribuyente (cuota 1 del predial)
+  // V03 y V05 (specs/rentas-nucleo-v2.md, Fase 7): los fija la RM de valores unitarios de cada año.
+  incrementoDesdePiso  Int? // V03: desde este piso el valor unitario sube; null = no aplica
+  incrementoPisoPct    Decimal? @db.Decimal(5, 2) // V03: % de incremento
+  factorOficializacion Decimal? @db.Decimal(6, 4) // V05: factor de oficialización de las obras complementarias
+  ordenanza            String?  @db.VarChar(60) // norma que lo aprueba
+  createdAt            DateTime @default(now())
 
   @@map("uit")
 }
@@ -906,6 +915,22 @@ model ValorUnitario {
 
   @@unique([anio, componente, categoria])
   @@map("valores_unitarios")
+}
+
+// V05: valores unitarios de obras complementarias del año (Reglamento Nacional de Tasaciones), por
+// unidad de medida. El valor oficial es valor × cantidad × factor de oficialización (Uit) con depreciación.
+model ValorObra {
+  id          Int      @id @default(autoincrement())
+  anio        Int
+  codigo      String   @db.VarChar(10)
+  descripcion String   @db.VarChar(120)
+  unidad      String   @db.VarChar(10) // m2, ml, m3, und…
+  valor       Decimal  @db.Decimal(12, 2) // S/ por unidad
+  ordenanza   String?  @db.VarChar(60)
+  createdAt   DateTime @default(now())
+
+  @@unique([anio, codigo])
+  @@map("valores_obras")
 }
 
 // % de depreciación por clasificación, material, antigüedad y estado de conservación
@@ -1022,6 +1047,12 @@ model DjPresentada {
   liquidadaPor          Usuario?       @relation("DjLiquidadaPor", fields: [liquidadaPorId], references: [id], onDelete: Restrict)
   aplicado              Json?
   multaDescartada       String?        @db.VarChar(200) // J08: DJ fuera de plazo sin multa 176.1, con motivo
+  // J08 (Fase 7): autoavalúo antes y después de una modificación, guardado al determinar (5 UIT).
+  variacion             Json?
+  // Fase 7: DJ de descargo generada de oficio desde la adquisición de otra persona (su transferente).
+  generadaDesdeId       Int?
+  generadaDesde         DjPresentada?  @relation("DjGenerada", fields: [generadaDesdeId], references: [id], onDelete: Restrict)
+  generadas             DjPresentada[] @relation("DjGenerada")
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   creadoPorId           Int?
@@ -1037,6 +1068,7 @@ model DjPresentada {
   @@unique([anio, numero])
   @@index([contribuyenteId])
   @@index([estado])
+  @@index([generadaDesdeId])
   @@map("dj_presentadas")
 }
 
@@ -1107,6 +1139,7 @@ model DjObra {
   anexoId            Int
   anexo              DjAnexo  @relation(fields: [anexoId], references: [id], onDelete: Restrict)
   orden              Int
+  codigo             String?  @db.VarChar(10) // V05: código de valores_obras (null = valor declarado)
   descripcion        String   @db.VarChar(120)
   unidad             String?  @db.VarChar(10)
   cantidad           Decimal  @db.Decimal(12, 2)
@@ -1196,6 +1229,45 @@ model DjAdquiriente {
   @@index([anexoId])
   @@index([personaId])
   @@map("dj_adquirientes")
+}
+
+// J16 (Fase 7): prórroga del plazo de presentación de DJ (J08). General (sin persona, por ordenanza)
+// o individual (solicitud que aprueba o rechaza un supervisor distinto de quien la registró).
+enum EstadoProrroga {
+  SOLICITADA
+  APROBADA
+  RECHAZADA
+  ANULADA
+}
+
+model ProrrogaDj {
+  id              Int            @id @default(autoincrement())
+  contribuyenteId Int? // null = general, para todos
+  contribuyente   Contribuyente? @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  anio            Int // año en que vence el plazo que se prorroga
+  motivo          String?        @db.VarChar(20) // catálogo MOTIVO_DJ; null = todos los motivos con plazo
+  fechaLimite     DateTime       @db.Date // nuevo vencimiento
+  fechaSolicitud  DateTime       @db.Date
+  sustento        String         @db.VarChar(250) // ordenanza, expediente o documento
+  estado          EstadoProrroga @default(SOLICITADA)
+  resueltaPorId   Int?
+  resueltaPor     Usuario?       @relation("ProrrogaResueltaPor", fields: [resueltaPorId], references: [id], onDelete: Restrict)
+  resueltaAt      DateTime?
+  justificacion   String?        @db.VarChar(250)
+  anuladaPorId    Int?
+  anuladaPor      Usuario?       @relation("ProrrogaAnuladaPor", fields: [anuladaPorId], references: [id], onDelete: Restrict)
+  anuladaAt       DateTime?
+  anuladaMotivo   String?        @db.VarChar(250)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  creadoPorId     Int?
+  creadoPor       Usuario?       @relation("ProrrogaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?       @relation("ProrrogaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([anio, estado])
+  @@index([contribuyenteId])
+  @@map("prorrogas_dj")
 }
 
 // ============================================================

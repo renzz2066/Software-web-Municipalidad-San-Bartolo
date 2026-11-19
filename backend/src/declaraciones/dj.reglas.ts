@@ -10,7 +10,12 @@ export const MOTIVO = {
   VENTA: 'VENTA',
   BAJA: 'BAJA',
   FISCALIZACION: 'FISCALIZACION', // la registra la resolución de una fiscalización (Fase 6)
+  MODIFICACION: 'MODIFICACION', // J08: cambios de más de 5 UIT (Fase 7)
+  ANUAL: 'ANUAL',
 } as const;
+
+// J09 (Fase 7): sub-motivo de la DJ anual que objeta la actualización de valores.
+export const SUB_MOTIVO_OBJECION = 'AN_OBJECION';
 
 export const DESCARGOS: string[] = [MOTIVO.VENTA, MOTIVO.BAJA];
 // Solo estos motivos pueden crear un predio que aún no existe en el padrón.
@@ -58,6 +63,19 @@ export function errorInscripcionRepetida(motivo: string, otrasInscripciones: str
   return `La persona ya tiene una DJ de inscripción (${otrasInscripciones[0]}): usa otro motivo, p. ej. adquisición`;
 }
 
+// J09 (Fase 7): la objeción a la actualización anual de valores es una DJ anual con el sub-motivo
+// AN_OBJECION. Vale hasta el vencimiento del pago al contado del año y si ese año se liquidó con la
+// actualización masiva; sus anexos rigen desde ese año.
+export function errorObjecion(o: { fechaPresentacion: string; venceContado: string; actualizado: boolean; aniosAfectacion: number[] }): string | null {
+  const anio = Number(o.fechaPresentacion.slice(0, 4));
+  if (o.fechaPresentacion > o.venceContado) {
+    return `La objeción a la actualización de ${anio} se presenta hasta el ${o.venceContado} (pago al contado). Fuera de plazo, presenta una rectificatoria`;
+  }
+  if (!o.actualizado) return `La persona no tiene el año ${anio} liquidado con la actualización masiva de valores: no hay actualización que objetar`;
+  if (o.aniosAfectacion.some((a) => a !== anio)) return `Los anexos de la objeción rigen desde ${anio}, el año que se objeta`;
+  return null;
+}
+
 // ---- Anexo ----
 
 export interface NivelDj {
@@ -74,9 +92,12 @@ export interface NivelDj {
 }
 
 export interface ObraDj {
+  codigo?: string | null;
   descripcion: string;
   cantidad: number;
   anioConstruccion?: number | null;
+  material?: string | null;
+  estadoConservacion?: string | null;
 }
 
 export interface UsoDj {
@@ -159,6 +180,12 @@ export function errorAnexo(a: AnexoDj, ctx: ContextoAnexo, prefijo: string): str
     if (!o.descripcion.trim()) return e('cada obra complementaria lleva su descripción');
     if (!(o.cantidad > 0)) return e(`la obra "${o.descripcion}" debe tener cantidad mayor que 0`);
     if (o.anioConstruccion != null && !dentro(o.anioConstruccion, 1900, ctx.anioActual)) return e(`el año de la obra "${o.descripcion}" no es válido`);
+    // V05: la obra con código se valoriza y deprecia con las tablas del año.
+    if (o.codigo) {
+      if (o.anioConstruccion == null) return e(`la obra "${o.descripcion}" tiene código: indica su año de construcción`);
+      if (!(MATERIALES as readonly string[]).includes(o.material ?? '')) return e(`la obra "${o.descripcion}" tiene código: indica su material`);
+      if (!(ESTADOS_CONSERVACION as readonly string[]).includes(o.estadoConservacion ?? '')) return e(`la obra "${o.descripcion}" tiene código: indica su estado de conservación`);
+    }
   }
   const eUsos = descargo && a.usos.length === 0 ? null : errorUsos(a.usos);
   if (eUsos) return e(eUsos);

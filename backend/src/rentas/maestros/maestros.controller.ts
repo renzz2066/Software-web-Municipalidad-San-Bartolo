@@ -17,6 +17,7 @@ import {
   TasasMoraDto,
   UitDto,
   UrbanizacionDto,
+  ValoresObrasDto,
   ValoresUnitariosDto,
   ViaDto,
   ZonaDto,
@@ -83,6 +84,18 @@ export class MaestrosController {
   @Put('valores-unitarios/:anio')
   guardarValoresUnitarios(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ValoresUnitariosDto) {
     return this.maestros.guardarValoresUnitarios(anio, dto);
+  }
+
+  // V05: la lista también la usa el formulario de DJ para elegir el código de la obra.
+  @Get('valores-obras/:anio')
+  @RequireNivel('rentas.maestros', 'rentas.registro-tributario')
+  listarValoresObras(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.listarValoresObras(anio);
+  }
+
+  @Put('valores-obras/:anio')
+  guardarValoresObras(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ValoresObrasDto) {
+    return this.maestros.guardarValoresObras(anio, dto);
   }
 
   @Get('depreciaciones/:anio')

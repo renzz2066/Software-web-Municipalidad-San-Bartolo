@@ -10,16 +10,19 @@ import { MultasService } from '../rentas/fiscalizacion/multas.service.js';
 import { reservarCorrelativos } from '../rentas/correlativos.js';
 import { iso } from '../rentas/estado-cuenta/tasas.js';
 import { hoyLima } from '../rentas/fechas.js';
+import { ultimoHabil } from '../rentas/calculo/determinacion.reglas.js';
 import {
   CREAN_PREDIO,
   DESCARGOS,
   MOTIVO,
+  SUB_MOTIVO_OBJECION,
   anioAfectacionPorDefecto,
   errorAnexo,
   errorAnular,
   errorCabecera,
   errorEditar,
   errorInscripcionRepetida,
+  errorObjecion,
   errorPorcentajes,
   errorReabrir,
   fechaArbitriosPorDefecto,
@@ -128,6 +131,9 @@ export class DeclaracionesService {
         },
         djPrevio: { select: { id: true, anio: true, numero: true } },
         rectificadaPor: { select: { id: true, anio: true, numero: true, estado: true } },
+        // Fase 7: descargo de oficio (de qué adquisición salió, y los que generó esta).
+        generadaDesde: { select: { id: true, anio: true, numero: true, contribuyente: { select: { nombreCompleto: true } } } },
+        generadas: { select: { id: true, anio: true, numero: true, estado: true, contribuyente: { select: { nombreCompleto: true } } } },
         creadoPor: { select: { usuario: true, nombres: true, apellidos: true } },
         anuladaPor: { select: { usuario: true, nombres: true, apellidos: true } },
         revisionResueltaPor: { select: { usuario: true, nombres: true, apellidos: true } },
@@ -144,6 +150,8 @@ export class DeclaracionesService {
       numeroTexto: numeroDj(d.anio, d.numero),
       djPrevio: d.djPrevio ? { ...d.djPrevio, numeroTexto: numeroDj(d.djPrevio.anio, d.djPrevio.numero) } : null,
       rectificadaPor: d.rectificadaPor.map((r) => ({ ...r, numeroTexto: numeroDj(r.anio, r.numero) })),
+      generadaDesde: d.generadaDesde ? { ...d.generadaDesde, numeroTexto: numeroDj(d.generadaDesde.anio, d.generadaDesde.numero) } : null,
+      generadas: d.generadas.map((g) => ({ ...g, numeroTexto: numeroDj(g.anio, g.numero) })),
     };
   }
 
@@ -152,6 +160,7 @@ export class DeclaracionesService {
     const id = await this.prisma.$transaction(async (tx) => {
       const { persona, tipo } = await this.prepararCabecera(tx, dto, null);
       const anexos = await this.prepararAnexos(tx, dto, null);
+      await this.validarObjecion(tx, dto, anexos);
       const anio = Number(dto.fechaPresentacion.slice(0, 4));
       const [numero] = await reservarCorrelativos(tx, 'DJ', anio);
       const dj = await tx.djPresentada.create({
@@ -184,7 +193,7 @@ export class DeclaracionesService {
     await this.prisma.$transaction(async (tx) => {
       const actual = await tx.djPresentada.findUnique({
         where: { id },
-        select: { estado: true, contribuyenteId: true, anexos: { select: { id: true, predioId: true, predioNuevo: true } } },
+        select: { estado: true, contribuyenteId: true, liquidadaAt: true, anexos: { select: { id: true, predioId: true, predioNuevo: true } } },
       });
       if (!actual) throw new NotFoundException('La declaración no existe');
       const e = errorEditar(actual.estado);
@@ -193,6 +202,7 @@ export class DeclaracionesService {
       const { tipo } = await this.prepararCabecera(tx, dto, id);
       const creados = new Set(actual.anexos.filter((a) => a.predioNuevo).map((a) => a.predioId));
       const anexos = await this.prepararAnexos(tx, dto, id, creados);
+      await this.validarObjecion(tx, dto, anexos);
       const ids = actual.anexos.map((a) => a.id);
       for (const tabla of ['djNivel', 'djObra', 'djUso', 'djArancelRustico', 'djAdquiriente'] as const) {
         await (tx[tabla] as unknown as { deleteMany: (a: object) => Promise<unknown> }).deleteMany({ where: { anexoId: { in: ids } } });
@@ -216,6 +226,8 @@ export class DeclaracionesService {
           revisionResueltaPorId: null,
           revisionResueltaAt: null,
           revisionJustificacion: null,
+          // J08: la variación de una modificación se vuelve a calcular al determinar (salvo reabierta).
+          ...(actual.liquidadaAt ? {} : { variacion: Prisma.DbNull }),
         },
       });
       await this.determinacion.descartar(tx, id);
@@ -350,6 +362,24 @@ export class DeclaracionesService {
     return { persona: copia as unknown as Prisma.InputJsonValue, tipo };
   }
 
+  // J09 (Fase 7): objeción a la actualización anual (sub-motivo AN_OBJECION en la cabecera o un anexo).
+  private async validarObjecion(tx: Tx, dto: DeclaracionDjDto, anexos: AnexoListo[]) {
+    if (![dto.subMotivo, ...dto.anexos.map((a) => a.subMotivo)].includes(SUB_MOTIVO_OBJECION)) return;
+    const fechaPresentacion = dto.fechaPresentacion.slice(0, 10);
+    const anio = Number(fechaPresentacion.slice(0, 4));
+    const [feriados, masiva] = await Promise.all([
+      tx.feriado.findMany({ where: { fecha: { gte: new Date(`${anio}-01-01`), lte: new Date(`${anio}-03-31`) } }, select: { fecha: true } }),
+      tx.determinacion.count({ where: { contribuyenteId: dto.contribuyenteId, anio, djId: null, estado: { in: ['LIQUIDADA', 'REEMPLAZADA'] } } }),
+    ]);
+    const e = errorObjecion({
+      fechaPresentacion,
+      venceContado: ultimoHabil(anio, 2, new Set(feriados.map((f) => iso(f.fecha)))),
+      actualizado: masiva > 0,
+      aniosAfectacion: anexos.map((a) => a.datos.anioAfectacion as number),
+    });
+    if (e) throw new ConflictException(e);
+  }
+
   private async asegurarSubMotivos(tx: Tx, motivo: string, codigos: (string | null | undefined)[]) {
     const pedidos = [...new Set(codigos.filter((c): c is string => Boolean(c)))];
     const items = await this.catalogos.asegurarCodigos(tx, GrupoCatalogo.SUB_MOTIVO_DJ, pedidos, 'Sub-motivo');
@@ -380,6 +410,14 @@ export class DeclaracionesService {
       adquirientes.map((x) => x.documentoTransferencia ?? ''),
       'Documento de transferencia',
     );
+
+    // V05: el código de obra debe existir en la tabla de obras complementarias (de algún año).
+    const codigosObra = [...new Set(dto.anexos.flatMap((a) => a.obras.map((o) => texto(o.codigo))).filter((c): c is string => Boolean(c)))];
+    if (codigosObra.length) {
+      const hay = new Set((await tx.valorObra.findMany({ where: { codigo: { in: codigosObra } }, select: { codigo: true }, distinct: ['codigo'] })).map((v) => v.codigo));
+      const falta = codigosObra.find((c) => !hay.has(c));
+      if (falta) throw new BadRequestException(`El código de obra ${falta} no está en Maestros → Obras complementarias`);
+    }
 
     const vistos = new Set<number>();
     const listos: AnexoListo[] = [];
@@ -459,6 +497,7 @@ export class DeclaracionesService {
           obras: {
             create: a.obras.map((o, j) => ({
               orden: j + 1,
+              codigo: texto(o.codigo),
               descripcion: texto(o.descripcion)!,
               unidad: texto(o.unidad),
               cantidad: o.cantidad,
@@ -515,10 +554,11 @@ export class DeclaracionesService {
     if (predio.estado === EstadoRegistro.INACTIVO && !creados.has(predio.id)) {
       throw new ConflictException(`${prefijo}: el predio #${predio.id} está inactivo (lo registró otra DJ aún sin liquidar)`);
     }
-    // Un descargo lo hace quien es (o declaró ser) titular.
+    // Un descargo lo hace quien es o fue titular (la compra de otro lo deja en baja y su cuenta se
+    // corrige con este descargo, Fase 7) o declaró serlo.
     if (DESCARGOS.includes(dto.motivo)) {
       const [titular, declarado] = await Promise.all([
-        tx.predioContribuyente.count({ where: { predioId: predio.id, contribuyenteId: dto.contribuyenteId, estado: EstadoRegistro.ACTIVO } }),
+        tx.predioContribuyente.count({ where: { predioId: predio.id, contribuyenteId: dto.contribuyenteId } }),
         tx.djAnexo.count({
           where: { predioId: predio.id, fechaDescargo: null, dj: { contribuyenteId: dto.contribuyenteId, estado: { notIn: SIN_EFECTO } } },
         }),

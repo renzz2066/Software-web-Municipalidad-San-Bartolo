@@ -200,6 +200,8 @@ export const CATALOGOS_NACIONALES: Partial<Record<GrupoCatalogo, ItemNacional[]>
     { codigo: 'C_AMPLIACION', nombre: 'Ampliación o construcción', padre: 'MODIFICACION' },
     { codigo: 'C_DEMOLICION_PARCIAL', nombre: 'Demolición parcial', padre: 'MODIFICACION' },
     { codigo: 'C_CAMBIO_USO', nombre: 'Cambio de uso', padre: 'MODIFICACION' },
+    // J09 (Fase 7): la objeción a la actualización anual de valores se presenta como DJ anual.
+    { codigo: 'AN_OBJECION', nombre: 'Objeción a la actualización de valores', padre: 'ANUAL', sistema: true },
   ],
   [G.TIPO_DOC_ADJUNTO]: [
     { codigo: 'ESCRITURA', nombre: 'Escritura pública' },

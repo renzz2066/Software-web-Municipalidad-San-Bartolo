@@ -1,13 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoCuenta, EstadoDeterminacion, EstadoDj, EstadoPersona, EstadoRegistro, Prisma } from '@prisma/client';
+import { EstadoCuenta, EstadoDeterminacion, EstadoDj, EstadoPersona, EstadoRegistro, Prisma, TipoPersona } from '@prisma/client';
 import { CatalogosService } from '../../catalogos/catalogos.service.js';
 import { estadoAlHabilitar, pendientesDe } from '../../contribuyentes/persona.reglas.js';
-import { numeroDj } from '../../declaraciones/dj.reglas.js';
+import { crearDescargoDeOficio, necesitaDescargo } from '../../declaraciones/descargo-oficio.js';
+import { MOTIVO, numeroDj } from '../../declaraciones/dj.reglas.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CONCEPTOS_ARBITRIO } from '../catalogos-construccion.js';
 import { iso } from '../estado-cuenta/tasas.js';
 import { hoyLima } from '../fechas.js';
-import { aniosADeterminar, determinarAnio, huellaDeterminado, type Determinado } from './determinacion.reglas.js';
+import { superaCincoUit, UIT_MODIFICACION, type VariacionDj } from '../fiscalizacion/multas.reglas.js';
+import { aniosADeterminar, determinarAnio, huellaDeterminado, valorizar, type Declarado, type Determinado } from './determinacion.reglas.js';
 import {
   bajas,
   errorAnularLiquidada,
@@ -28,6 +30,7 @@ import {
   cargarComun,
   cargarPersonas,
   cuentasActuales,
+  declaradoDeAnexo,
   detalleDe,
   guardarDeterminaciones,
   n2,
@@ -86,6 +89,12 @@ export class DeterminacionService {
       const resultados = await this.calcular(tx, ctx, ctx.anios);
       await tx.determinacion.updateMany({ where: { djId, estado: EstadoDeterminacion.DETERMINADA }, data: { estado: EstadoDeterminacion.DESCARTADA } });
       for (const r of resultados) await this.guardar(tx, ctx, r);
+      // J08 (Fase 7): una modificación guarda cuánto cambió cada predio (5 UIT). Reabierta no se
+      // recalcula: el padrón ya tiene lo nuevo y "antes" saldría igual a "después".
+      if (dj.motivo === MOTIVO.MODIFICACION && !dj.liquidadaAt) {
+        const variacion = await this.variacionModificacion(tx, ctx);
+        await tx.djPresentada.update({ where: { id: djId }, data: { variacion: variacion as unknown as Prisma.InputJsonValue } });
+      }
 
       // J14: si baja la obligación de un período ya liquidado, queda en revisión y no genera cuenta.
       if (dj.tipo !== 'INFORMATIVA') {
@@ -244,7 +253,7 @@ export class DeterminacionService {
     await this.bloquear(tx, djId);
     const dj = await tx.djPresentada.findUniqueOrThrow({
       where: { id: djId },
-      select: { id: true, contribuyenteId: true, creadoPorId: true, liquidadaAt: true, aplicado: true, anexos: { select: { predioId: true } } },
+      select: { id: true, anio: true, numero: true, contribuyenteId: true, creadoPorId: true, liquidadaAt: true, aplicado: true, anexos: { select: { predioId: true } } },
     });
     const e = errorAnularLiquidada(dj, actor);
     if (e) throw new ConflictException(e);
@@ -260,6 +269,20 @@ export class DeterminacionService {
     });
     if (posterior) {
       throw new ConflictException(`Hay una DJ liquidada después (${numeroDj(posterior.anio, posterior.numero)}) sobre la misma persona o predio: anúlala primero o presenta una rectificatoria`);
+    }
+    // Fase 7: los descargos de oficio que generó caen con ella, si aún no generaron cuenta.
+    const generadas = await tx.djPresentada.findMany({ where: { generadaDesdeId: djId, estado: { notIn: [EstadoDj.ANULADA, EstadoDj.RECHAZADA] } }, select: { id: true, anio: true, numero: true, liquidadaAt: true } });
+    const conCuenta = generadas.find((g) => g.liquidadaAt);
+    if (conCuenta) {
+      throw new ConflictException(`El descargo de oficio ${numeroDj(conCuenta.anio, conCuenta.numero)} que generó esta DJ ya se liquidó: anúlalo primero`);
+    }
+    if (generadas.length) {
+      const ids = generadas.map((g) => g.id);
+      await tx.determinacion.updateMany({ where: { djId: { in: ids }, estado: EstadoDeterminacion.DETERMINADA }, data: { estado: EstadoDeterminacion.DESCARTADA } });
+      await tx.djPresentada.updateMany({
+        where: { id: { in: ids } },
+        data: { estado: EstadoDj.ANULADA, anuladaMotivo: `Se anuló la DJ ${numeroDj(dj.anio, dj.numero)} que la generó`, anuladaPorId: actor.id, anuladaAt: new Date() },
+      });
     }
     const dets = await tx.determinacion.findMany({ where: { djId }, select: { id: true, detalle: true } });
     const ids = dets.map((d) => d.id);
@@ -326,7 +349,7 @@ export class DeterminacionService {
         liquidaPredial: true,
         liquidaArbitrios: true,
         liquidadaAt: true,
-        dj: { select: { id: true, anio: true, numero: true, estado: true } },
+        dj: { select: { id: true, anio: true, numero: true, estado: true, subMotivo: true } },
         _count: { select: { predios: true } },
       },
       orderBy: [{ anio: 'desc' }, { estado: 'asc' }, { id: 'desc' }],
@@ -460,6 +483,30 @@ export class DeterminacionService {
     return resultados;
   }
 
+  // J08 (Fase 7): autoavalúo (100 %) de cada predio antes (lo que regía sin esta DJ, o el padrón) y
+  // después (lo declarado), ambos con los parámetros del año del hecho (fecha del documento).
+  private async variacionModificacion(tx: Tx, ctx: Contexto): Promise<VariacionDj> {
+    const { dj } = ctx;
+    const fechas = dj.anexos.map((a) => a.fechaDocumento ?? a.fechaAdquisicion).filter((f): f is Date => f !== null);
+    const hecho = fechas.map((f) => iso(f)).sort()[0] ?? null;
+    const anio = Number((hecho ?? dj.fechaPresentacion).slice(0, 4));
+    const params = await parametrosDelAnio(tx, ctx, anio);
+    const sinEsta = { ...ctx, decls: new Map([...ctx.decls].map(([k, v]) => [k, v.filter((d) => d.djId !== dj.id)])) };
+    const antes = new Map(prediosDelAnio(ctx, sinEsta, anio).map((p) => [p.predioId, p.declarado]));
+    const predios = dj.anexos.map((a) => {
+      const m = ctx.maestros.get(a.predioId);
+      const valor = (d: Declarado) => {
+        const v = m ? valorizar(a.predioId, m.maestro, d, params) : null;
+        return v?.ok ? v.autoavaluo : null;
+      };
+      const va = m ? valor(antes.get(a.predioId) ?? m.padron) : null;
+      const vd = a.fechaDescargo ? null : valor(declaradoDeAnexo(a));
+      return { predioId: a.predioId, antes: va?.toFixed(2) ?? null, despues: vd?.toFixed(2) ?? null, cambio: va && vd ? vd.minus(va).toFixed(2) : null };
+    });
+    const uit = params.uit === null ? null : new D(params.uit);
+    return { anio, hecho, uit: uit?.toFixed(2) ?? null, limite: uit ? uit.times(UIT_MODIFICACION).toFixed(2) : null, predios, supera: superaCincoUit(predios, uit) };
+  }
+
   // ---- Persistencia ----
 
   private async guardar(tx: Tx, ctx: Contexto, r: Determinado) {
@@ -474,6 +521,7 @@ export class DeterminacionService {
     const { dj } = ctx;
     const C = dj.contribuyenteId;
     const aplicado: Aplicado = (dj.aplicado as unknown as Aplicado | null) ?? { titulares: [], predios: [], copias: [], persona: null };
+    let comprador: { id: number; tipoPersona: TipoPersona; tipoDoc: string | null; numDoc: string | null; nombreCompleto: string; direccionFiscal: string | null } | null = null;
     const anotarTitular = async (contribuyenteId: number, predioId: number) => {
       if (aplicado.titulares.some((t) => t.contribuyenteId === contribuyenteId && t.predioId === predioId)) return;
       const fila = await tx.predioContribuyente.findUnique({ where: { contribuyenteId_predioId: { contribuyenteId, predioId } } });
@@ -544,8 +592,33 @@ export class DeterminacionService {
         await anotarTitular(x.personaId, a.predioId);
         const fin = a.fechaAdquisicion ?? new Date(dj.fechaPresentacion);
         await tx.predioContribuyente.update({ where: { id: suya.id }, data: { estado: EstadoRegistro.BAJA, fechaFin: fin, esPrincipal: false } });
-        // Su cuenta no se toca desde la DJ de otra persona: se corrige con su propio descargo.
-        avisos.push(`${x.nombreCompleto} deja de ser titular del predio #${a.predioId} desde el ${iso(fin)}: su cuenta se corrige con su DJ de descargo`);
+        // Fase 7: su cuenta no se toca desde la DJ de otra persona; si ya tenía el predio desde el año
+        // del hecho, se le genera de oficio su DJ de descargo (pendiente, pasa por la revisión J14).
+        const prefijo = `${x.nombreCompleto} deja de ser titular del predio #${a.predioId} desde el ${iso(fin)}`;
+        if (!(await necesitaDescargo(tx, x.personaId, a.predioId, iso(fin)))) {
+          avisos.push(`${prefijo}: no tiene cuenta posterior del predio que corregir`);
+          continue;
+        }
+        comprador ??= await tx.contribuyente.findUniqueOrThrow({
+          where: { id: C },
+          select: { id: true, tipoPersona: true, tipoDoc: true, numDoc: true, nombreCompleto: true, direccionFiscal: true },
+        });
+        const generada = await crearDescargoDeOficio(tx, {
+          transferenteId: x.personaId,
+          predioId: a.predioId,
+          fechaDescargo: iso(fin),
+          condicion: suya.condicion,
+          porcentaje: suya.porcentaje,
+          comprador: { ...comprador, direccion: comprador.direccionFiscal },
+          origen: { id: dj.id, anio: dj.anio, numero: dj.numero, subMotivo: dj.subMotivo },
+          hoy: hoyLima(),
+          inicioArbitrios: ctx.inicioArbitrios,
+        });
+        avisos.push(
+          generada
+            ? `${prefijo}: se generó de oficio su DJ de descargo ${generada} (pendiente: determínala y liquídala para corregir su cuenta)`
+            : `${prefijo}: está inhabilitada, su cuenta se corrige a mano`,
+        );
       }
       await this.actualizarCopia(tx, ctx, a, aplicado, resultados);
     }
@@ -598,8 +671,16 @@ export class DeterminacionService {
       });
     }
     if (a.obras.length) {
+      // V05: con código, la copia lleva el valor oficial calculado; sin código, el declarado.
+      const valoradas = ultimo?.valor?.ok ? ultimo.valor.detalleObras : [];
       await tx.otraInstalacion.createMany({
-        data: a.obras.map((o) => ({ predioId: a.predioId, descripcion: o.descripcion, unidad: o.unidad, cantidad: o.cantidad, valor: o.valorDeclarado })),
+        data: a.obras.map((o, i) => ({
+          predioId: a.predioId,
+          descripcion: o.descripcion,
+          unidad: o.unidad,
+          cantidad: o.cantidad,
+          valor: o.codigo && valoradas[i] ? valoradas[i].valor : o.valorDeclarado,
+        })),
       });
     }
     await tx.predio.update({
@@ -694,6 +775,7 @@ export class DeterminacionService {
         numero: true,
         contribuyenteId: true,
         motivo: true,
+        subMotivo: true,
         tipo: true,
         estado: true,
         fechaPresentacion: true,
@@ -786,6 +868,7 @@ export class DeterminacionService {
           error: p.error,
           arancel: datos.arancel,
           niveles: datos.niveles,
+          obrasValorizadas: datos.obras ?? [],
           meses: datos.meses.map((m) => m.mes),
         };
       }),

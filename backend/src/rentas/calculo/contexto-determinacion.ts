@@ -49,6 +49,7 @@ export interface DatosGuardados {
   meses: MesArbitrio[];
   arancel: string | null;
   niveles: unknown[];
+  obras?: unknown[]; // V05 (Fase 7): obras valorizadas
 }
 
 export interface DetalleGuardado {
@@ -165,7 +166,15 @@ export function declaradoDeAnexo(a: AnexoCargado): Declarado {
       areaComun: n(v.areaComun),
       participacion: n(v.participacion),
     })),
-    obras: a.obras.map((o) => ({ descripcion: o.descripcion, cantidad: Number(o.cantidad), valorDeclarado: n(o.valorDeclarado) })),
+    obras: a.obras.map((o) => ({
+      descripcion: o.descripcion,
+      cantidad: Number(o.cantidad),
+      valorDeclarado: n(o.valorDeclarado),
+      codigo: o.codigo,
+      anioConstruccion: o.anioConstruccion,
+      material: o.material,
+      estadoConservacion: o.estadoConservacion,
+    })),
     usos: a.usos.map((u) => ({
       uso: u.uso,
       subUso: u.subUso,
@@ -375,7 +384,7 @@ async function cargarMaestros(tx: Tx, comun: Comun, ids: number[]) {
 export async function parametrosDelAnio(tx: Tx, comun: Comun, anio: number): Promise<ParametrosV2> {
   const cache = comun.parametros.get(anio);
   if (cache) return cache;
-  const [uit, escala, aranceles, valoresUnitarios, depreciaciones, tarifas, rusticos] = await Promise.all([
+  const [uit, escala, aranceles, valoresUnitarios, depreciaciones, tarifas, rusticos, valoresObras] = await Promise.all([
     tx.uit.findUnique({ where: { anio } }),
     tx.escalaPredial.findMany({ where: { anio }, orderBy: { tramo: 'asc' } }),
     tx.arancel.findMany({ where: { anio } }),
@@ -383,10 +392,15 @@ export async function parametrosDelAnio(tx: Tx, comun: Comun, anio: number): Pro
     tx.depreciacion.findMany({ where: { anio } }),
     tx.tarifaArbitrio.findMany({ where: { anio }, orderBy: { id: 'asc' } }),
     tx.arancelRustico.findMany({ where: { anio } }),
+    tx.valorObra.findMany({ where: { anio } }),
   ]);
   const p: ParametrosV2 = {
     anio,
     uit: uit?.valor ?? null,
+    // V03 y V05 (Fase 7): sin dato del año, no hay incremento y las obras con código no se valorizan.
+    incrementoPisos: uit?.incrementoDesdePiso && uit.incrementoPisoPct ? { desdePiso: uit.incrementoDesdePiso, pct: uit.incrementoPisoPct } : null,
+    factorObras: uit?.factorOficializacion ?? null,
+    valoresObras,
     derechoEmision: uit?.derechoEmision ?? 0,
     escala,
     aranceles,
@@ -592,7 +606,14 @@ export async function guardarDeterminaciones(tx: Tx, items: PorGuardar[]): Promi
       for (const p of x.r.predios) {
         const entrada = entradas.get(p.predioId)!;
         const ok = p.valor?.ok === true ? p.valor : null;
-        const datos: DatosGuardados = { declarado: entrada.declarado, maestro: entrada.maestro, meses: entrada.meses, arancel: ok?.arancel ?? null, niveles: ok?.niveles ?? [] };
+        const datos: DatosGuardados = {
+          declarado: entrada.declarado,
+          maestro: entrada.maestro,
+          meses: entrada.meses,
+          arancel: ok?.arancel ?? null,
+          niveles: ok?.niveles ?? [],
+          obras: ok?.detalleObras ?? [],
+        };
         predios.push({
           determinacionId,
           predioId: p.predioId,
