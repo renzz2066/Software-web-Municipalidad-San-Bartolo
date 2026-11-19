@@ -335,6 +335,20 @@ function TarjetaAnio({ d }: { d: Determinacion }) {
                   {p.error && <span className="block text-xs text-ladrillo">{p.error}</span>}
                   {!p.afectoPredial && <span className="block text-xs text-slate-500">Sin predial este año (J10)</span>}
                   {Number(p.exoneracion) > 0 && <span className="block text-xs text-emerald-800">{Number(p.exoneracion) === 100 ? 'Inafecto' : `Exonerado ${Number(p.exoneracion)}%`} (R06)</span>}
+                  {p.niveles
+                    .filter((n) => Number(n.incremento ?? 0) > 0)
+                    .map((n) => (
+                      <span key={n.nivel} className="block text-xs text-slate-500">
+                        Nivel {n.nivel}: valor unitario {soles(n.valorUnitario)} con +{Number(n.incremento)}% por piso (V03)
+                      </span>
+                    ))}
+                  {(p.obrasValorizadas ?? [])
+                    .filter((o) => o.codigo)
+                    .map((o, i) => (
+                      <span key={i} className="block text-xs text-slate-500">
+                        Obra {o.codigo}: {Number(o.cantidad)} × {soles(o.valorUnitario)} × {o.factor} − {Number(o.depreciacion)}% = {soles(o.valor)} (V05)
+                      </span>
+                    ))}
                 </td>
                 <td className="px-2 py-1.5 text-xs text-slate-600">{p.origen}</td>
                 <td className="px-2 py-1.5 whitespace-nowrap text-right tabular-nums">{Number(p.porcentaje)}</td>

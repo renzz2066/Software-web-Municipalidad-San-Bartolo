@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { mensajeError } from '../maestros/maestrosApi'
-import { RUTA_DJ } from './djApi'
+import { RUTA_DJ, SUB_MOTIVO_OBJECION } from './djApi'
 import { ESTILO_DETERMINACION, ETIQUETA_DETERMINACION, soles, type HojaResumen } from './determinacionApi'
 
 // HR por año de la persona (specs/rentas-nucleo-v2.md, Fase 5): la liquidada vigente y la que espera
@@ -74,7 +74,10 @@ export function HojasResumen({ contribuyenteId, refreshKey }: { contribuyenteId:
               <td className="px-3 py-2">
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${ESTILO_DETERMINACION[h.estado]}`}>{ETIQUETA_DETERMINACION[h.estado]}</span>
               </td>
-              <td className="px-3 py-2 font-mono text-mar">{h.dj?.numeroTexto ?? '—'}</td>
+              <td className="px-3 py-2 font-mono text-mar">
+                {h.dj?.numeroTexto ?? '—'}
+                {h.dj?.subMotivo === SUB_MOTIVO_OBJECION && <span className="ml-1 font-sans text-xs text-amber-800">objeción (J09)</span>}
+              </td>
               <td className="px-3 py-2 text-right tabular-nums">{soles(h.baseAfecta)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{soles(h.impuesto)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{soles(h.derechoEmision)}</td>

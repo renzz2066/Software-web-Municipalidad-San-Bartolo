@@ -24,6 +24,29 @@ export const CLASE = 'mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5
 const decimal = (v: string) => v.replace(/[^\d.]/g, '')
 const entero = (v: string) => v.replace(/\D/g, '')
 
+// V05 (Fase 7): obras complementarias del año (Maestros) para elegir el código.
+interface ValorObra {
+  codigo: string
+  descripcion: string
+  unidad: string
+  valor: string
+}
+
+function useValoresObras(): ValorObra[] {
+  const [valores, setValores] = useState<ValorObra[]>([])
+  useEffect(() => {
+    let vivo = true
+    api
+      .get<ValorObra[]>(`/rentas/maestros/valores-obras/${new Date().getFullYear()}`)
+      .then(({ data }) => vivo && setValores(data))
+      .catch(() => vivo && setValores([]))
+    return () => {
+      vivo = false
+    }
+  }, [])
+  return valores
+}
+
 interface PredioBuscado {
   id: number
   nombre: string | null
@@ -71,6 +94,18 @@ export function AnexoEditor({
   const usos = lista('usos')
   const rusticos = lista('rusticos')
   const adq = lista('adquirientes')
+  const valoresObras = useValoresObras()
+
+  // Elegir un código completa la descripción y la unidad si estaban vacías.
+  function elegirCodigo(i: number, codigo: string) {
+    const v = valoresObras.find((x) => x.codigo === codigo)
+    set(
+      'obras',
+      anexo.obras.map((x, j) =>
+        j === i ? { ...x, codigo, descripcion: x.descripcion || v?.descripcion || '', unidad: x.unidad || v?.unidad || '' } : x,
+      ) as AnexoForm['obras'],
+    )
+  }
 
   return (
     <section className="rounded-panel border border-borde bg-white" aria-labelledby={id('titulo')}>
@@ -254,6 +289,17 @@ export function AnexoEditor({
         <Bloque titulo="Obras complementarias">
           {anexo.obras.map((o, i) => (
             <Fila key={i} onQuitar={() => obras.quitar(i)} etiquetaQuitar={`Quitar obra ${i + 1}`}>
+              <Campo id={id(`obracod-${i}`)} label="Código (tabla del año)">
+                <select id={id(`obracod-${i}`)} value={o.codigo} onChange={(e) => elegirCodigo(i, e.target.value)} className={CLASE}>
+                  <option value="">Sin código: valor declarado</option>
+                  {o.codigo && !valoresObras.some((v) => v.codigo === o.codigo) && <option value={o.codigo}>{o.codigo}</option>}
+                  {valoresObras.map((v) => (
+                    <option key={v.codigo} value={v.codigo}>
+                      {v.codigo} · {v.descripcion} ({v.unidad})
+                    </option>
+                  ))}
+                </select>
+              </Campo>
               <div className="sm:col-span-2">
                 <Campo id={id(`obra-${i}`)} label="Descripción">
                   <input id={id(`obra-${i}`)} value={o.descripcion} maxLength={120} onChange={(e) => obras.cambiar(i, 'descripcion', e.target.value)} className={`${CLASE} uppercase`} />
@@ -275,9 +321,31 @@ export function AnexoEditor({
               <Campo id={id(`obraanio-${i}`)} label="Año">
                 <input id={id(`obraanio-${i}`)} value={o.anioConstruccion} maxLength={4} inputMode="numeric" onChange={(e) => obras.cambiar(i, 'anioConstruccion', entero(e.target.value))} className={CLASE} />
               </Campo>
-              <Campo id={id(`obravalor-${i}`)} label="Valor declarado (S/)">
-                <input id={id(`obravalor-${i}`)} value={o.valorDeclarado} inputMode="decimal" onChange={(e) => obras.cambiar(i, 'valorDeclarado', decimal(e.target.value))} className={CLASE} />
+              <Campo id={id(`obramat-${i}`)} label={o.codigo ? 'Material *' : 'Material'}>
+                <select id={id(`obramat-${i}`)} value={o.material} onChange={(e) => obras.cambiar(i, 'material', e.target.value)} className={CLASE}>
+                  <option value="">—</option>
+                  {MATERIALES.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
               </Campo>
+              <Campo id={id(`obraest-${i}`)} label={o.codigo ? 'Conservación *' : 'Conservación'}>
+                <select id={id(`obraest-${i}`)} value={o.estadoConservacion} onChange={(e) => obras.cambiar(i, 'estadoConservacion', e.target.value)} className={CLASE}>
+                  <option value="">—</option>
+                  {ESTADOS_CONSERVACION.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+              {!o.codigo && (
+                <Campo id={id(`obravalor-${i}`)} label="Valor declarado (S/)">
+                  <input id={id(`obravalor-${i}`)} value={o.valorDeclarado} inputMode="decimal" onChange={(e) => obras.cambiar(i, 'valorDeclarado', decimal(e.target.value))} className={CLASE} />
+                </Campo>
+              )}
             </Fila>
           ))}
           <Agregar onClick={() => obras.agregar({ ...OBRA_VACIA })}>Agregar obra</Agregar>

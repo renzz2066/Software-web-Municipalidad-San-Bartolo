@@ -8,7 +8,7 @@ import { CLASIFICACIONES, ESTADOS_CONSERVACION, MATERIALES, etiqueta } from '../
 import { RUTA_BASE } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
 import { DeterminacionDj } from './DeterminacionDj'
-import { ESTILO_ESTADO_DJ, ETIQUETA_ESTADO_DJ, RUTA_DJ, etiquetaPredio, type AnexoApi, type DjDetalle } from './djApi'
+import { ESTILO_ESTADO_DJ, ETIQUETA_ESTADO_DJ, RUTA_DJ, SUB_MOTIVO_OBJECION, etiquetaPredio, type AnexoApi, type DjDetalle } from './djApi'
 
 // Ficha de la DJ presentada: cabecera, documentos, determinación y liquidación (Fase 5) y anexos.
 // Se edita mientras está pendiente; se reabre una liquidada (J05, supervisor). Nunca se borra: se
@@ -99,6 +99,18 @@ export function FichaDj() {
                       </dd>
                     </div>
                   )}
+                  {dj.generadaDesde && (
+                    <div>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">De oficio, desde la adquisición</dt>
+                      <dd className="mt-0.5">
+                        <Link to={`${RUTA_DJ}/${dj.generadaDesde.id}`} className="font-mono text-mar hover:underline">
+                          {dj.generadaDesde.numeroTexto}
+                        </Link>{' '}
+                        <span className="text-slate-600">de {dj.generadaDesde.contribuyente.nombreCompleto}</span>
+                      </dd>
+                    </div>
+                  )}
+                  {dj.subMotivo === SUB_MOTIVO_OBJECION && <Dato etiqueta="Objeción (J09)" valor={`Objeta la actualización de valores de ${dj.anio}`} />}
                   <Dato etiqueta="Registrada por" valor={dj.creadoPor ? `${dj.creadoPor.nombres} ${dj.creadoPor.apellidos}`.trim() : '—'} />
                   {dj.observacion && <Dato etiqueta="Observación" valor={dj.observacion} />}
                   {dj.estado === 'ANULADA' && (
@@ -126,6 +138,24 @@ export function FichaDj() {
                   </ul>
                 </div>
               )}
+
+              {dj.generadas.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-3 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Descargos de oficio generados (cuenta del transferente)</p>
+                  <ul className="mt-1 space-y-0.5 text-slate-700">
+                    {dj.generadas.map((g) => (
+                      <li key={g.id}>
+                        <Link to={`${RUTA_DJ}/${g.id}`} className="font-mono text-mar hover:underline">
+                          {g.numeroTexto}
+                        </Link>{' '}
+                        · {g.contribuyente.nombreCompleto} · {ETIQUETA_ESTADO_DJ[g.estado].toLowerCase()}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {dj.variacion && <Variacion v={dj.variacion} />}
 
               <MultaPlazo dj={dj} alCambiar={setDj} />
 
@@ -256,8 +286,12 @@ function Anexo({ a }: { a: AnexoApi }) {
         <Lista titulo="Obras complementarias">
           {a.obras.map((o, i) => (
             <li key={i}>
+              {o.codigo && <span className="mr-1 font-mono text-xs text-slate-500">{o.codigo}</span>}
               {o.descripcion} · {Number(o.cantidad)} {o.unidad ?? ''}
-              {o.valorDeclarado && ` · S/ ${Number(o.valorDeclarado)}`}
+              {o.anioConstruccion && ` · ${o.anioConstruccion}`}
+              {o.material && ` · ${etiqueta(MATERIALES, o.material)}`}
+              {o.estadoConservacion && ` · ${etiqueta(ESTADOS_CONSERVACION, o.estadoConservacion)}`}
+              {o.codigo ? ' · valor oficial (V05)' : o.valorDeclarado && ` · S/ ${Number(o.valorDeclarado)} declarado`}
             </li>
           ))}
         </Lista>
@@ -328,7 +362,9 @@ function MultaPlazo({ dj, alCambiar }: { dj: DjDetalle; alCambiar: (dj: DjDetall
     <div className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
       <p>
         <i aria-hidden="true" className="bi bi-alarm mr-1" />
-        Presentada fuera de plazo: {dj.plazo.hecho ? `el hecho fue el ${dj.plazo.hecho} y ` : ''}el plazo venció el {dj.plazo.vence} (TUO LTM art. 14, J08).
+        Presentada fuera de plazo: {dj.plazo.hecho ? `el hecho fue el ${dj.plazo.hecho} y ` : ''}el plazo venció el {dj.plazo.vence}
+        {dj.plazo.prorroga ? ` (prorrogado desde el ${dj.plazo.venceOriginal}, J16)` : ''} (TUO LTM art. 14, J08).
+        {dj.plazo.cambio5Uit && ' La modificación cambió el autoavalúo en más de 5 UIT.'}
       </p>
       {multa ? (
         <p className="mt-1">
@@ -383,6 +419,34 @@ function MultaPlazo({ dj, alCambiar }: { dj: DjDetalle; alCambiar: (dj: DjDetall
           {error}
         </p>
       )}
+    </div>
+  )
+}
+
+// J08 (Fase 7): cuánto cambió el autoavalúo de cada predio con la modificación (guardado al determinar).
+function Variacion({ v }: { v: NonNullable<DjDetalle['variacion']> }) {
+  const soles = (x: string | null) => (x === null ? 'sin valorizar' : `S/ ${Number(x).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`)
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-3 text-sm">
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        Cambio del autoavalúo (J08, valores {v.anio}
+        {v.hecho ? `, documento del ${v.hecho}` : ', sin fecha de documento'})
+      </p>
+      <ul className="mt-1 space-y-0.5 text-slate-700">
+        {v.predios.map((p) => (
+          <li key={p.predioId}>
+            Predio #{p.predioId}: {soles(p.antes)} → {soles(p.despues)}
+            {p.cambio !== null && ` (${Number(p.cambio) >= 0 ? '+' : ''}${soles(p.cambio)})`}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-xs text-slate-500">
+        {v.limite === null
+          ? `Falta la UIT ${v.anio}: no se evalúa el plazo de 5 UIT.`
+          : v.supera
+            ? `Supera 5 UIT (${soles(v.limite)}): se declara hasta el último día hábil del mes siguiente al documento.`
+            : `No supera 5 UIT (${soles(v.limite)}): sin plazo sancionable por modificación.`}
+      </p>
     </div>
   )
 }

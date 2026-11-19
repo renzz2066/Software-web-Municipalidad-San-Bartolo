@@ -77,9 +77,9 @@ Si una regla cambia, se edita aquí; no se copia a otro archivo.
 |---|---|---|---|---|
 | V01 | Terreno = área × arancel del año. Edificación = valores unitarios oficiales del año (7 categorías) vigentes al 31/10 del año anterior (TUO LTM art. 11). | LEY | Código + Parám. | ✅ |
 | V02 | Depreciación por antigüedad, material, clasificación y estado de conservación, según las tablas oficiales vigentes. | LEY | Parám. | ✅ |
-| V03 | **Incremento** del valor unitario en edificios de varios pisos (la RM de valores unitarios suele fijar +5% desde el 5.º piso). Verificar la RM vigente. | LEY + LUR + MAN | Parám. | ✗ |
+| V03 | **Incremento** del valor unitario en edificios de varios pisos (la RM de valores unitarios suele fijar +5% desde el 5.º piso). Verificar la RM vigente. | LEY + LUR + MAN | Parám. | ✅ (UIT del año: piso y %) |
 | V04 | **Áreas comunes**: su valor se reparte por % de participación. | LUR | Código | ✗ |
-| V05 | Obras complementarias: valor unitario × cantidad × factor de oficialización, con depreciación (TUO LTM art. 11). | LEY + LUR | Código | ◐ (hoy es un valor directo) |
+| V05 | Obras complementarias: valor unitario × cantidad × factor de oficialización, con depreciación (TUO LTM art. 11). | LEY + LUR | Código | ✅ (con código; sin código, valor declarado) |
 | V06 | No se liquida un predio sin arancel. | LUR + SB | Código | ✅ |
 | V07 | Predio rústico: arancel rústico por categoría y clasificación de tierras. | LUR | Parám. | ✗ |
 
@@ -94,7 +94,7 @@ Si una regla cambia, se edita aquí; no se copia a otro archivo.
 | J05 | Solo se reabren DJ de ciertos motivos. | LUR | Parám. | ✗ |
 | J06 | El motivo **inscripción** se usa una sola vez por persona. | LUR | Código | ✗ |
 | J07 | DJ **informativa**: no genera cuenta corriente y se determina al registrarla. El manual llama informativas a la inscripción, el descargo y el cambio de características, y declarativas a la anual y la sustitutoria. | LUR + MAN | Código (el tipo es un atributo del motivo) | ✗ |
-| J08 | Plazos. DJ anual: último día hábil de febrero, salvo prórroga por ordenanza. Por transferencia, o por cambios en el predio de más de 5 UIT: último día hábil del mes siguiente (TUO LTM art. 14). Fuera de plazo se propone la multa 176.1. | LEY | Código + Parám. (prórroga) | ◐ (multa 176.1 existe) |
+| J08 | Plazos. DJ anual: último día hábil de febrero, salvo prórroga por ordenanza. Por transferencia, o por cambios en el predio de más de 5 UIT: último día hábil del mes siguiente (TUO LTM art. 14). Fuera de plazo se propone la multa 176.1. | LEY | Código + Parám. (prórroga) | ✅ (5 UIT con lo guardado al determinar; prórroga J16) |
 | J09 | La **actualización anual de valores** por la muni sustituye la DJ anual, si el contribuyente no la objeta en el plazo de pago al contado (TUO LTM art. 14). En Lurín es la "DJ automática". | LEY + LUR | Código | ◐ (cálculo masivo v1) |
 | J10 | Sujeto del impuesto al 1 de enero. Si alguien adquiere un predio durante el año, es contribuyente desde el 1 de enero del año siguiente; el que transfiere paga el año en curso (TUO LTM art. 10). | LEY | Código | ✗ |
 | J11 | Los arbitrios afectan desde el mes que fija la ordenanza. | LUR | Parám. | ✗ |
@@ -102,7 +102,7 @@ Si una regla cambia, se edita aquí; no se copia a otro archivo.
 | J13 | Documentos adjuntos por DJ: tipo, número y fecha. | LUR | Código | ✗ |
 | J14 | **DJ que baja la obligación** de un período ya liquidado: al determinarla queda EN_REVISION y no genera cuenta. Un SUPERVISOR la aprueba o la rechaza, con justificación, dentro de los 45 días hábiles desde su recepción (se cuentan con los feriados). Vencido el plazo, surte efecto: se puede liquidar y ya no se puede rechazar; lo que quede por revisar va a fiscalización. Si sube o mantiene la obligación, surte efecto al presentarse (CT art. 88). | LEY + MAN | Código | ✗ |
 | J15 | Una DJ puede cubrir **varios años** (tramos): se determina un resultado por año, desde el año de afectación hasta el actual. Los predios no declarados del contribuyente entran a la determinación del año, porque la base es el total (L01). | LUR | Código | ✗ |
-| J16 | Prórroga de presentación: se registra y se aprueba o rechaza. | LUR | Parám. | ✗ |
+| J16 | Prórroga de presentación: se registra y se aprueba o rechaza. | LUR | Parám. | ✅ |
 | J17 | Quien registró la DJ no puede aprobar su revisión (J14) ni anularla una vez liquidada. | SB | Código | ✗ |
 
 ## L — Determinación y liquidación ("Generar Cta.")

@@ -8,12 +8,16 @@ import { DeclaracionesService } from './declaraciones.service.js';
 import {
   AnularDjDto,
   BuscarDjDto,
+  BuscarProrrogasDto,
   DeclaracionDjDto,
   DeterminacionesContribuyenteDto,
   LiquidarDjDto,
   MultaDjDto,
+  ProrrogaDjDto,
+  ResolverProrrogaDto,
   RevisionDjDto,
 } from './dto/declaracion.dto.js';
+import { ProrrogasService } from './prorrogas.service.js';
 
 // DJ presentada (specs/rentas-nucleo-v2.md, Fases 4 y 5). C9: nivel de Registro Tributario.
 // Sin DELETE (J04): se anula con motivo; si ya generó cuenta, la anulación la extorna.
@@ -21,7 +25,10 @@ import {
 @RequireNivel('rentas.registro-tributario')
 @Controller('declaraciones')
 export class DeclaracionesController {
-  constructor(private readonly declaraciones: DeclaracionesService) {}
+  constructor(
+    private readonly declaraciones: DeclaracionesService,
+    private readonly prorrogas: ProrrogasService,
+  ) {}
 
   @Get()
   buscar(@Query() dto: BuscarDjDto) {
@@ -32,6 +39,30 @@ export class DeclaracionesController {
   @Get('determinaciones')
   determinacionesContribuyente(@Query() dto: DeterminacionesContribuyenteDto) {
     return this.declaraciones.determinacionesContribuyente(dto.contribuyenteId);
+  }
+
+  // J16 (Fase 7): prórrogas de presentación (antes de :id).
+  @Get('prorrogas')
+  buscarProrrogas(@Query() dto: BuscarProrrogasDto) {
+    return this.prorrogas.buscar(dto);
+  }
+
+  @Post('prorrogas')
+  @HttpCode(HttpStatus.CREATED)
+  registrarProrroga(@Body() dto: ProrrogaDjDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.prorrogas.registrar(dto, user);
+  }
+
+  @Post('prorrogas/:id/resolver')
+  @HttpCode(HttpStatus.OK)
+  resolverProrroga(@Param('id', ParseIntPipe) id: number, @Body() dto: ResolverProrrogaDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.prorrogas.resolver(id, dto, user);
+  }
+
+  @Post('prorrogas/:id/anular')
+  @HttpCode(HttpStatus.OK)
+  anularProrroga(@Param('id', ParseIntPipe) id: number, @Body() dto: AnularDjDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.prorrogas.anular(id, dto, user);
   }
 
   @Get(':id')

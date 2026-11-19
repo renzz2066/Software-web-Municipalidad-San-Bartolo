@@ -5,7 +5,7 @@ import { reservarCorrelativos } from '../correlativos.js';
 import { cargarTasas, iso, liquidarCuenta } from '../estado-cuenta/tasas.js';
 import { hoyLima } from '../fechas.js';
 import { masDias } from '../valores/plazos.js';
-import { esExtemporanea, montoMulta, plazoDjPresentada, porcentajeMulta, vencePlazoDJ } from './multas.reglas.js';
+import { esExtemporanea, montoMulta, plazoDjPresentada, porcentajeMulta, vencePlazoDJ, type VariacionDj } from './multas.reglas.js';
 
 type Tx = Prisma.TransactionClient;
 type Db = PrismaService | Tx;
@@ -175,18 +175,40 @@ export class MultasService {
   }
 
   // J08: la DJ presentada (v2) fuera de plazo propone la 176.1; quien registra la emite o la descarta
-  // con motivo, una sola vez por DJ (igual que F7 para la DJ de v1).
+  // con motivo, una sola vez por DJ (igual que F7 para la DJ de v1). Fase 7: la modificación de más de
+  // 5 UIT (según lo guardado al determinar) y las prórrogas aprobadas (J16). La DJ de oficio no tiene plazo.
   async plazoDjPresentada(db: Db, djId: number) {
     const dj = await db.djPresentada.findUnique({
       where: { id: djId },
-      select: { motivo: true, fechaPresentacion: true, anexos: { select: { fechaAdquisicion: true, fechaDescargo: true } } },
+      select: {
+        motivo: true,
+        contribuyenteId: true,
+        fechaPresentacion: true,
+        variacion: true,
+        generadaDesdeId: true,
+        anexos: { select: { fechaAdquisicion: true, fechaDescargo: true } },
+      },
     });
     if (!dj) throw new NotFoundException('La declaración no existe');
+    if (dj.generadaDesdeId) return null;
     const feriados = new Set((await db.feriado.findMany({ select: { fecha: true } })).map((f) => iso(f.fecha)));
     const presentada = iso(dj.fechaPresentacion);
     const hechos = dj.anexos.flatMap((a) => [a.fechaAdquisicion, a.fechaDescargo]).map((f) => (f ? iso(f) : null));
-    const plazo = plazoDjPresentada(dj.motivo, hechos, Number(presentada.slice(0, 4)), feriados);
-    return plazo ? { ...plazo, extemporanea: presentada > plazo.vence } : null;
+    const variacion = (dj.variacion as unknown as VariacionDj | null) ?? null;
+    const anio = Number(presentada.slice(0, 4));
+    const sinProrroga = plazoDjPresentada(dj.motivo, hechos, anio, feriados, { variacion });
+    if (!sinProrroga) return null;
+    const prorrogas = await db.prorrogaDj.findMany({
+      where: {
+        estado: 'APROBADA',
+        anio: Number(sinProrroga.vence.slice(0, 4)),
+        OR: [{ contribuyenteId: null }, { contribuyenteId: dj.contribuyenteId }],
+        AND: [{ OR: [{ motivo: null }, { motivo: dj.motivo }] }],
+      },
+      select: { id: true, fechaLimite: true },
+    });
+    const plazo = plazoDjPresentada(dj.motivo, hechos, anio, feriados, { variacion, prorrogas: prorrogas.map((p) => ({ id: p.id, fechaLimite: iso(p.fechaLimite) })) })!;
+    return { ...plazo, extemporanea: presentada > plazo.vence };
   }
 
   async decidirDjPresentada(djId: number, accion: 'EMITIR' | 'DESCARTAR', motivo?: string) {

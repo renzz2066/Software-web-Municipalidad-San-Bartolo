@@ -15,6 +15,7 @@ import {
   TasasMoraDto,
   UitDto,
   UrbanizacionDto,
+  ValoresObrasDto,
   ValoresUnitariosDto,
   ViaDto,
   ZonaDto,
@@ -31,6 +32,7 @@ const TABLAS_COPIABLES = [
   'depreciaciones',
   'tarifasArbitrios',
   'arancelesRusticos',
+  'valoresObras',
   'parametrosFraccionamiento',
   'infracciones',
 ] as const;
@@ -43,7 +45,7 @@ export class MaestrosService {
 
   async resumen(anio: number) {
     this.validarAnio(anio);
-    const [uit, escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, arancelesRusticos, bloqueado] =
+    const [uit, escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, arancelesRusticos, valoresObras, bloqueado] =
       await Promise.all([
         this.prisma.uit.findUnique({ where: { anio } }),
         this.prisma.escalaPredial.count({ where: { anio } }),
@@ -52,12 +54,13 @@ export class MaestrosService {
         this.prisma.depreciacion.count({ where: { anio } }),
         this.prisma.tarifaArbitrio.count({ where: { anio } }),
         this.prisma.arancelRustico.count({ where: { anio } }),
+        this.prisma.valorObra.count({ where: { anio } }),
         this.anioConDeuda(this.prisma, anio),
       ]);
     return {
       anio,
       uit,
-      conteos: { escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, arancelesRusticos },
+      conteos: { escalaPredial, aranceles, valoresUnitarios, depreciaciones, tarifasArbitrios, arancelesRusticos, valoresObras },
       bloqueado,
     };
   }
@@ -67,7 +70,18 @@ export class MaestrosService {
   async guardarUit(anio: number, dto: UitDto) {
     return this.prisma.$transaction(async (tx) => {
       await this.asegurarEditable(tx, anio);
-      const data = { valor: dto.valor, derechoEmision: dto.derechoEmision ?? 0, ordenanza: this.texto(dto.ordenanza) };
+      // V03: el incremento va completo (piso y %) o no va.
+      if ((dto.incrementoDesdePiso == null) !== (dto.incrementoPisoPct == null)) {
+        throw new BadRequestException('El incremento por pisos lleva el piso desde el que aplica y su %, o ninguno');
+      }
+      const data = {
+        valor: dto.valor,
+        derechoEmision: dto.derechoEmision ?? 0,
+        incrementoDesdePiso: dto.incrementoDesdePiso ?? null,
+        incrementoPisoPct: dto.incrementoPisoPct ?? null,
+        factorOficializacion: dto.factorOficializacion ?? null,
+        ordenanza: this.texto(dto.ordenanza),
+      };
       return tx.uit.upsert({ where: { anio }, update: data, create: { anio, ...data } });
     });
   }
@@ -245,6 +259,30 @@ export class MaestrosService {
     });
   }
 
+  // ---- Obras complementarias (V05; Fase 7 de rentas v2) ----
+
+  listarValoresObras(anio: number) {
+    this.validarAnio(anio);
+    return this.prisma.valorObra.findMany({ where: { anio }, orderBy: { codigo: 'asc' } });
+  }
+
+  async guardarValoresObras(anio: number, dto: ValoresObrasDto) {
+    const items = dto.items.map((v) => ({
+      codigo: v.codigo.trim().toUpperCase(),
+      descripcion: v.descripcion.trim().toUpperCase(),
+      unidad: v.unidad.trim(),
+      valor: v.valor,
+    }));
+    this.sinDuplicados(items, (v) => v.codigo, 'Hay un código de obra repetido');
+    const ordenanza = this.texto(dto.ordenanza);
+    return this.prisma.$transaction(async (tx) => {
+      await this.asegurarEditable(tx, anio);
+      await tx.valorObra.deleteMany({ where: { anio } });
+      await tx.valorObra.createMany({ data: items.map((v) => ({ anio, ...v, ordenanza })) });
+      return tx.valorObra.findMany({ where: { anio }, orderBy: { codigo: 'asc' } });
+    });
+  }
+
   // ---- TIM / IPM (series por fecha, no por año) ----
 
   listarTasasMora(tipo: TipoTasaMora) {
@@ -309,6 +347,9 @@ export class MaestrosService {
       case 'arancelesRusticos':
         if (await tx.arancelRustico.count({ where: { anio: hacia } })) return 0;
         return (await tx.arancelRustico.createMany({ data: sinMeta(await tx.arancelRustico.findMany({ where: { anio: desde } })) })).count;
+      case 'valoresObras':
+        if (await tx.valorObra.count({ where: { anio: hacia } })) return 0;
+        return (await tx.valorObra.createMany({ data: sinMeta(await tx.valorObra.findMany({ where: { anio: desde } })) })).count;
       case 'parametrosFraccionamiento':
         if (await tx.parametroFraccionamiento.count({ where: { anio: hacia } })) return 0;
         return (

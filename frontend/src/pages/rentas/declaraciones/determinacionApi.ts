@@ -49,7 +49,9 @@ export interface PredioDeterminado {
   arbitrios: Dec
   error: string | null
   arancel: string | null
-  niveles: { nivel: string; area: string; valorUnitario: string; depreciacion: string; valor: string }[]
+  niveles: { nivel: string; area: string; valorUnitario: string; incremento?: string; depreciacion: string; valor: string }[]
+  // V05 (Fase 7): obras valorizadas (codigo null = valor declarado).
+  obrasValorizadas: { descripcion: string; codigo: string | null; cantidad: string; valorUnitario: string | null; factor: string | null; depreciacion: string | null; valor: string }[]
   meses: number[]
 }
 
@@ -120,7 +122,7 @@ export interface HojaResumen {
   liquidaPredial: boolean
   liquidaArbitrios: boolean
   liquidadaAt: string | null
-  dj: { id: number; anio: number; numero: number; estado: string; numeroTexto: string } | null
+  dj: { id: number; anio: number; numero: number; estado: string; numeroTexto: string; subMotivo: string | null } | null
   predios: number
 }
 

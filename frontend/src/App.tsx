@@ -25,6 +25,7 @@ import { FichaDireccion } from './pages/rentas/direcciones/FichaDireccion'
 import { Declaraciones } from './pages/rentas/declaraciones/Declaraciones'
 import { DjFormulario } from './pages/rentas/declaraciones/DjFormulario'
 import { FichaDj } from './pages/rentas/declaraciones/FichaDj'
+import { Prorrogas } from './pages/rentas/declaraciones/Prorrogas'
 import { Predio } from './pages/rentas/predios/Predio'
 import { RedirigeDjV1 } from './pages/rentas/predios/RedirigeDjV1'
 import { EstadoCuentaImprimible } from './pages/rentas/estado-cuenta/EstadoCuentaImprimible'
@@ -166,6 +167,14 @@ function App() {
           element={
             <RequireNivel codigo="rentas.registro-tributario">
               <DjFormulario key="nueva" />
+            </RequireNivel>
+          }
+        />
+        <Route
+          path="/rentas/registro-tributario/declaraciones/prorrogas"
+          element={
+            <RequireNivel codigo="rentas.registro-tributario">
+              <Prorrogas />
             </RequireNivel>
           }
         />

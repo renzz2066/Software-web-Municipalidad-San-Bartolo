@@ -25,6 +25,8 @@ export const ESTILO_ESTADO_DJ: Record<EstadoDj, string> = {
 // Motivos que el sistema trata distinto (filas `sistema` del catálogo MOTIVO_DJ).
 export const DESCARGOS = ['VENTA', 'BAJA']
 export const CREAN_PREDIO = ['INSCRIPCION', 'COMPRA']
+// J09 (Fase 7): sub-motivo de la DJ anual que objeta la actualización de valores.
+export const SUB_MOTIVO_OBJECION = 'AN_OBJECION'
 
 export interface DjResumen {
   id: number
@@ -55,6 +57,7 @@ export interface NivelApi {
   participacion: Dec | null
 }
 export interface ObraApi {
+  codigo: string | null // V05: código de la tabla de obras del año (null = valor declarado)
   descripcion: string
   unidad: string | null
   cantidad: Dec
@@ -62,6 +65,8 @@ export interface ObraApi {
   ancho: Dec | null
   alto: Dec | null
   anioConstruccion: number | null
+  material: string | null
+  estadoConservacion: string | null
   valorDeclarado: Dec | null
 }
 export interface UsoApi {
@@ -139,7 +144,25 @@ export interface DjDetalle extends Omit<DjResumen, '_count'> {
   liquidadaPor: { usuario: string; nombres: string; apellidos: string } | null
   multaDescartada: string | null
   multas: { id: number; anio: number; numero: string; estado: string }[]
-  plazo: { hecho: string | null; vence: string; extemporanea: boolean } | null
+  plazo: {
+    hecho: string | null
+    vence: string
+    venceOriginal: string
+    prorroga: { id: number; fechaLimite: string } | null // J16
+    cambio5Uit: boolean // J08: modificación de más de 5 UIT
+    extemporanea: boolean
+  } | null
+  // Fase 7: cambio del autoavalúo de una modificación (5 UIT) y descargo de oficio del transferente.
+  variacion: {
+    anio: number
+    hecho: string | null
+    uit: string | null
+    limite: string | null
+    predios: { predioId: number; antes: string | null; despues: string | null; cambio: string | null }[]
+    supera: boolean
+  } | null
+  generadaDesde: { id: number; numeroTexto: string; contribuyente: { nombreCompleto: string } } | null
+  generadas: { id: number; numeroTexto: string; estado: EstadoDj; contribuyente: { nombreCompleto: string } }[]
   contribuyente: DjResumen['contribuyente'] & { estado: string }
   documentos: { tipo: string; numero: string | null; fecha: string | null; observacion: string | null }[]
   anexos: AnexoApi[]
@@ -160,6 +183,7 @@ export interface NivelForm {
   participacion: string
 }
 export interface ObraForm {
+  codigo: string
   descripcion: string
   unidad: string
   cantidad: string
@@ -167,6 +191,8 @@ export interface ObraForm {
   ancho: string
   alto: string
   anioConstruccion: string
+  material: string
+  estadoConservacion: string
   valorDeclarado: string
 }
 export interface UsoForm {
@@ -260,7 +286,19 @@ export const NIVEL_VACIO: NivelForm = {
   areaComun: '',
   participacion: '',
 }
-export const OBRA_VACIA: ObraForm = { descripcion: '', unidad: '', cantidad: '', largo: '', ancho: '', alto: '', anioConstruccion: '', valorDeclarado: '' }
+export const OBRA_VACIA: ObraForm = {
+  codigo: '',
+  descripcion: '',
+  unidad: '',
+  cantidad: '',
+  largo: '',
+  ancho: '',
+  alto: '',
+  anioConstruccion: '',
+  material: '',
+  estadoConservacion: '',
+  valorDeclarado: '',
+}
 export const USO_VACIO: UsoForm = { uso: 'CASA', subUso: '', inquilino: '', area: '', frontis: '', fechaInicio: '', fechaFin: '', predominante: false }
 export const RUSTICO_VACIO: RusticoForm = { categoria: '', clasificacion: '', hectareas: '' }
 export const ADQUIRIENTE_VACIO = (rol: string): AdquirienteForm => ({
@@ -354,6 +392,7 @@ export function desdeDetalle(d: DjDetalle): DjForm {
         participacion: s(n.participacion),
       })),
       obras: a.obras.map((o) => ({
+        codigo: s(o.codigo),
         descripcion: o.descripcion,
         unidad: s(o.unidad),
         cantidad: String(Number(o.cantidad)),
@@ -361,6 +400,8 @@ export function desdeDetalle(d: DjDetalle): DjForm {
         ancho: s(o.ancho),
         alto: s(o.alto),
         anioConstruccion: s(o.anioConstruccion),
+        material: s(o.material),
+        estadoConservacion: s(o.estadoConservacion),
         valorDeclarado: s(o.valorDeclarado),
       })),
       usos: a.usos.map((u) => ({
@@ -436,6 +477,7 @@ export function aBody(f: DjForm) {
         participacion: num(n.participacion),
       })),
       obras: a.obras.map((o) => ({
+        codigo: txt(o.codigo)?.toUpperCase() ?? null,
         descripcion: o.descripcion.trim(),
         unidad: txt(o.unidad),
         cantidad: Number(o.cantidad),
@@ -443,6 +485,8 @@ export function aBody(f: DjForm) {
         ancho: num(o.ancho),
         alto: num(o.alto),
         anioConstruccion: num(o.anioConstruccion),
+        material: txt(o.material),
+        estadoConservacion: txt(o.estadoConservacion),
         valorDeclarado: num(o.valorDeclarado),
       })),
       usos: a.usos.map((u) => ({
@@ -488,6 +532,8 @@ export function validarForm(f: DjForm): string | null {
     if (a.niveles.some((n) => !n.nivel.trim() || !(Number(n.areaPropia) > 0) || !/^[A-I-]{7}$/i.test(n.categorias.trim())))
       return `${p}: cada nivel necesita nombre, área y 7 categorías (A–I o "-").`
     if (a.obras.some((o) => !o.descripcion.trim() || !(Number(o.cantidad) > 0))) return `${p}: cada obra necesita descripción y cantidad.`
+    if (a.obras.some((o) => o.codigo.trim() && (!o.anioConstruccion || !o.material || !o.estadoConservacion)))
+      return `${p}: una obra con código necesita año, material y estado de conservación (se valoriza y deprecia con las tablas del año).`
     if (a.adquirientes.some((x) => !x.nombreCompleto.trim())) return `${p}: cada adquiriente o transferente necesita su nombre.`
   }
   return null

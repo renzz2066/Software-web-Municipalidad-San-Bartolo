@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
@@ -69,6 +69,12 @@ export function Declaraciones() {
           volverA={{ etiqueta: 'Registro Tributario', ruta: RUTA_BASE }}
           accion={{ etiqueta: 'Nueva DJ', icono: 'bi bi-file-earmark-plus', to: `${RUTA_DJ}/nueva` }}
         />
+        <p className="mt-3 text-sm">
+          <Link to={`${RUTA_DJ}/prorrogas`} className="font-medium text-mar hover:underline">
+            <i aria-hidden="true" className="bi bi-calendar-plus mr-1" />
+            Prórrogas de presentación (J16)
+          </Link>
+        </p>
 
         <form
           role="search"
