@@ -233,7 +233,8 @@ export interface PlanAjustes {
 // `sinCalcular`: lo declarado que faltaba en la cuenta corriente (cuenta corriente → referencia); en una
 // cuota protegida va en su propia fila de diferencia, fuera de la RD.
 export function planAjustes(aumentos: DiferenciaCuota[], cuotas: CuotaDeclarada[], sinCalcular: DiferenciaCuota[] = []): PlanAjustes {
-  const base = new Map(cuotas.filter((c) => c.ajusteDeId === null && c.estado !== 'ANULADO').map((c) => [clave(c), c]));
+  // Una cuota anulada o extornada (la extorna anular una DJ liquidada, rentas v2) ya no es la base.
+  const base = new Map(cuotas.filter((c) => c.ajusteDeId === null && c.estado !== 'ANULADO' && c.estado !== 'EXTORNADO').map((c) => [clave(c), c]));
   const omitido = new Map(aumentos.map((a) => [clave(a), a]));
   const previo = new Map(sinCalcular.map((s) => [clave(s), s]));
   const plan: PlanAjustes = { actualizar: [], ajustes: [], crear: [] };

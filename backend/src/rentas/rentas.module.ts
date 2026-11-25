@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
+import { CatalogosModule } from '../catalogos/catalogos.module.js';
 import { PrediosModule } from '../predios/predios.module.js';
 import { CalculoController } from './calculo/calculo.controller.js';
-import { CalculoService } from './calculo/calculo.service.js';
+import { DeterminacionService } from './calculo/determinacion.service.js';
+import { DeterminacionMasivaService } from './calculo/masiva.service.js';
 import { EstadoCuentaController } from './estado-cuenta/estado-cuenta.controller.js';
 import { EstadoCuentaService } from './estado-cuenta/estado-cuenta.service.js';
 import { FiscalizacionController } from './fiscalizacion/fiscalizacion.controller.js';
@@ -20,10 +22,12 @@ import { ValoresService } from './valores/valores.service.js';
 // Rentas núcleo v1 (specs/rentas-nucleo-v1.md): maestros (A), cálculo (D) y estado de cuenta (E).
 // Valores v1 (specs/rentas-valores-v1.md): emisión de OP/RD, fraccionamiento y transferencia a coactivo.
 // Fiscalización v1 (specs/rentas-fiscalizacion-v1.md): expedientes, fichas, RD por diferencias y multas.
+// Rentas v2 (specs/rentas-nucleo-v2.md): determinación y liquidación de la DJ (Fase 5) y determinación
+// anual masiva (Fase 6, J09), que reemplaza al cálculo de v1.
 @Module({
-  imports: [AuthModule, PrediosModule],
+  imports: [AuthModule, PrediosModule, CatalogosModule],
   controllers: [MaestrosController, CalculoController, EstadoCuentaController, ValoresController, FraccionamientoController, TransferenciasController, FiscalizacionController],
-  providers: [MaestrosService, CalculoService, EstadoCuentaService, ValoresService, FraccionamientoService, TransferenciasService, FiscalizacionService, MultasService],
-  exports: [MaestrosService, EstadoCuentaService],
+  providers: [MaestrosService, DeterminacionMasivaService, DeterminacionService, EstadoCuentaService, ValoresService, FraccionamientoService, TransferenciasService, FiscalizacionService, MultasService],
+  exports: [MaestrosService, EstadoCuentaService, DeterminacionService, MultasService],
 })
 export class RentasModule {}

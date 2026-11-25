@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
-import { RUTA_BASE, soles } from '../contribuyentes/tipos'
+import { RUTA_BASE, documentoTexto, soles } from '../contribuyentes/tipos'
 import { mensajeError } from '../maestros/maestrosApi'
 import { direccionPredio } from '../valores/valoresApi'
 import { ESTILO_CONVENIO, ETIQUETA_CONVENIO, type Convenio } from './fraccionamientoApi'
@@ -74,7 +74,7 @@ export function ConvenioImprimible() {
 
               <section aria-label="Deudor" className="mt-4 grid gap-2 sm:grid-cols-2">
                 <Campo titulo="Contribuyente" valor={c.contribuyente.nombreCompleto} />
-                <Campo titulo="Documento" valor={`${c.contribuyente.tipoDoc} ${c.contribuyente.numDoc}`} />
+                <Campo titulo="Documento" valor={documentoTexto(c.contribuyente)} />
                 <Campo titulo="Domicilio fiscal" valor={c.contribuyente.direccionFiscal ?? '—'} />
                 <Campo
                   titulo="Condiciones"

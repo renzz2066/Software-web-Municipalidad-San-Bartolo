@@ -50,3 +50,80 @@ export function esExtemporanea(motivo: MotivoDeclaracion, fechaHecho: string | n
   const vence = vencePlazoDJ(motivo, fechaHecho, feriados);
   return vence !== null && fechaPresentacion > vence;
 }
+
+// J08 (Fase 7): lo que cambió el autoavalúo de cada predio con una DJ de modificación, guardado al
+// determinarla (antes = lo que regía sin esta DJ; después = lo declarado), con los parámetros del año del hecho.
+export interface VariacionDj {
+  anio: number;
+  hecho: string | null;
+  uit: string | null; // null = falta la UIT de ese año: no se evalúa
+  limite: string | null; // 5 UIT
+  predios: { predioId: number; antes: string | null; despues: string | null; cambio: string | null }[];
+  supera: boolean;
+}
+
+export const UIT_MODIFICACION = 5;
+
+// TUO LTM art. 14 b): cambios en el predio de más de 5 UIT. Cuenta el cambio de cada predio, suba o baje.
+export function superaCincoUit(predios: VariacionDj['predios'], uit: Num | null): boolean {
+  if (uit === null) return false;
+  const limite = new D(uit).times(UIT_MODIFICACION);
+  return predios.some((p) => p.cambio !== null && new D(p.cambio).abs().gt(limite));
+}
+
+// J16: prórroga aprobada que alcanza a la DJ (ya filtrada por persona, motivo y año del vencimiento).
+export interface ProrrogaAplicable {
+  id: number;
+  fechaLimite: string;
+}
+
+export interface PlazoDj {
+  hecho: string | null;
+  vence: string;
+  venceOriginal: string;
+  prorroga: ProrrogaAplicable | null;
+  cambio5Uit: boolean;
+}
+
+// Mes siguiente al hecho: último día hábil.
+function mesSiguiente(hecho: string, feriados: ReadonlySet<string>) {
+  const [y, m] = hecho.split('-').map(Number);
+  const siguiente = new Date(Date.UTC(y, m, 1));
+  return ultimoDiaHabilDelMes(siguiente.getUTCFullYear(), siguiente.getUTCMonth() + 1, feriados);
+}
+
+// J08 para la DJ presentada (v2, specs/rentas-nucleo-v2.md, Fases 5 y 7). TUO LTM art. 14:
+// - inscripción, adquisición o transferencia: último día hábil del mes siguiente al primer hecho
+//   declarado (adquisición o descargo de cualquier anexo);
+// - modificación de más de 5 UIT (según lo guardado al determinar): igual, desde la fecha del documento;
+// - anual: último día hábil de febrero del año.
+// Una prórroga aprobada (J16) mueve el vencimiento a su fecha límite, si es posterior.
+export function plazoDjPresentada(
+  motivo: string,
+  hechos: (string | null)[],
+  anioPresentacion: number,
+  feriados: ReadonlySet<string>,
+  op: { variacion?: VariacionDj | null; prorrogas?: ProrrogaAplicable[] } = {},
+): PlazoDj | null {
+  const base = plazoBase(motivo, hechos, anioPresentacion, feriados, op.variacion ?? null);
+  if (!base) return null;
+  return { ...base, venceOriginal: base.vence, ...aplicarProrroga(base.vence, op.prorrogas ?? []) };
+}
+
+function plazoBase(motivo: string, hechos: (string | null)[], anioPresentacion: number, feriados: ReadonlySet<string>, variacion: VariacionDj | null) {
+  if (motivo === 'ANUAL') return { hecho: null, vence: ultimoDiaHabilDelMes(anioPresentacion, 2, feriados), cambio5Uit: false };
+  if (motivo === 'MODIFICACION') {
+    if (!variacion?.supera || !variacion.hecho) return null;
+    return { hecho: variacion.hecho, vence: mesSiguiente(variacion.hecho, feriados), cambio5Uit: true };
+  }
+  if (!['INSCRIPCION', 'COMPRA', 'VENTA'].includes(motivo)) return null;
+  const hecho = hechos.filter((h): h is string => Boolean(h)).sort()[0];
+  if (!hecho) return null;
+  return { hecho, vence: mesSiguiente(hecho, feriados), cambio5Uit: false };
+}
+
+// J16: gana la fecha límite más lejana de las prórrogas que alcanzan a la DJ, si es posterior al plazo.
+export function aplicarProrroga(vence: string, prorrogas: ProrrogaAplicable[]): { vence: string; prorroga: ProrrogaAplicable | null } {
+  const mejor = [...prorrogas].sort((a, b) => b.fechaLimite.localeCompare(a.fechaLimite))[0];
+  return mejor && mejor.fechaLimite > vence ? { vence: mejor.fechaLimite, prorroga: mejor } : { vence, prorroga: null };
+}

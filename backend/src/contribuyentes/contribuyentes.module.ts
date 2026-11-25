@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module.js';
+import { CatalogosModule } from '../catalogos/catalogos.module.js';
+import { DireccionesModule } from '../direcciones/direcciones.module.js';
+import { RentasModule } from '../rentas/rentas.module.js';
 import { ContribuyentesController } from './contribuyentes.controller.js';
 import { ContribuyentesService } from './contribuyentes.service.js';
 import { IdentidadService } from './identidad/identidad.service.js';
 import { IdentidadProvider } from './identidad/identidad.provider.js';
 
 @Module({
-  imports: [AuthModule],
+  // RentasModule: EstadoCuentaService da el monto de la deuda en el 409 de inhabilitación (P01).
+  // DireccionesModule: el domicilio fiscal del distrito se elige del catálogo de direcciones (P11).
+  imports: [AuthModule, CatalogosModule, DireccionesModule, RentasModule],
   controllers: [ContribuyentesController],
   providers: [
     ContribuyentesService,

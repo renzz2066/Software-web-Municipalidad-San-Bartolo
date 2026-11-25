@@ -6,6 +6,7 @@ import { RequireNivel } from '../../auth/decorators/nivel.decorator.js';
 import {
   AbrirAnioDto,
   ArancelesDto,
+  ArancelesRusticosDto,
   DepreciacionesDto,
   EscalaDto,
   FeriadosDto,
@@ -16,6 +17,7 @@ import {
   TasasMoraDto,
   UitDto,
   UrbanizacionDto,
+  ValoresObrasDto,
   ValoresUnitariosDto,
   ViaDto,
   ZonaDto,
@@ -64,6 +66,16 @@ export class MaestrosController {
     return this.maestros.guardarAranceles(anio, dto);
   }
 
+  @Get('aranceles-rusticos/:anio')
+  listarArancelesRusticos(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.listarArancelesRusticos(anio);
+  }
+
+  @Put('aranceles-rusticos/:anio')
+  guardarArancelesRusticos(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ArancelesRusticosDto) {
+    return this.maestros.guardarArancelesRusticos(anio, dto);
+  }
+
   @Get('valores-unitarios/:anio')
   listarValoresUnitarios(@Param('anio', ParseIntPipe) anio: number) {
     return this.maestros.listarValoresUnitarios(anio);
@@ -72,6 +84,18 @@ export class MaestrosController {
   @Put('valores-unitarios/:anio')
   guardarValoresUnitarios(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ValoresUnitariosDto) {
     return this.maestros.guardarValoresUnitarios(anio, dto);
+  }
+
+  // V05: la lista también la usa el formulario de DJ para elegir el código de la obra.
+  @Get('valores-obras/:anio')
+  @RequireNivel('rentas.maestros', 'rentas.registro-tributario')
+  listarValoresObras(@Param('anio', ParseIntPipe) anio: number) {
+    return this.maestros.listarValoresObras(anio);
+  }
+
+  @Put('valores-obras/:anio')
+  guardarValoresObras(@Param('anio', ParseIntPipe) anio: number, @Body() dto: ValoresObrasDto) {
+    return this.maestros.guardarValoresObras(anio, dto);
   }
 
   @Get('depreciaciones/:anio')

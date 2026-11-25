@@ -1,6 +1,10 @@
-import { EstadoRegistro, TipoPersona } from '@prisma/client';
+import { EstadoPersona, TipoPersona } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsIn,
   IsInt,
@@ -11,221 +15,238 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
-import { TIPOS_DOC } from '../documento.js';
 
-// Domicilio fiscal y representante legal (specs/contribuyente-domicilio-representante-v1.md).
-// En SIMUN solo el código postal, el tipo de persona y el nombre son obligativos; el resto, no.
+// Personas v2 (specs/rentas-nucleo-v2.md, Fase 1). Los tipos (documento, contacto, relacionado,
+// sucesión, perfiles) son códigos de catálogo: el servicio los valida contra la base de la muni.
+// Las listas, si se envían, reemplazan a las guardadas (lo que no venga se quita).
 
-export class CreateContribuyenteDto {
-  @IsEnum(TipoPersona, { message: 'Tipo de persona no válido' })
-  tipoPersona: TipoPersona;
-
-  @IsIn(TIPOS_DOC, { message: 'Tipo de documento no válido' })
+export class DocumentoDto {
+  @IsString()
+  @Matches(/^[A-Z0-9_]{1,20}$/, { message: 'Tipo de documento no válido' })
   tipoDoc: string;
 
   @IsString()
   @IsNotEmpty({ message: 'El número de documento es obligatorio' })
   @MaxLength(20)
   numDoc: string;
+}
+
+export class ContactoDto {
+  @IsString()
+  @Matches(/^[A-Z0-9_]{1,20}$/, { message: 'Tipo de contacto no válido' })
+  tipo: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'El nombre o razón social es obligatorio' })
-  @MaxLength(120, { message: 'El nombre debe tener máximo 120 caracteres' })
+  @MaxLength(100, { message: 'El contacto tiene máximo 100 caracteres' })
+  valor: string;
+}
+
+export class RelacionadoDto {
+  // Para conservar el registro (y su historia) al editar; sin id es uno nuevo.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  id?: number;
+
+  @IsString()
+  @Matches(/^[A-Z0-9_]{1,20}$/, { message: 'Tipo de relacionado no válido' })
+  tipo: string;
+
+  @IsOptional()
+  @Matches(/^([A-Z0-9_]{1,20})?$/, { message: 'Tipo de documento del relacionado no válido' })
+  tipoDoc?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  numDoc?: string | null;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El nombre del relacionado es obligatorio' })
+  @MaxLength(120, { message: 'El nombre del relacionado tiene máximo 120 caracteres' })
   nombreCompleto: string;
 
-  // Opcional: sin código se usa el de San Bartolo (150129), como en el alta de SIMUN.
+  @IsOptional()
+  @IsString()
+  @MaxLength(150, { message: 'La dirección del relacionado tiene máximo 150 caracteres' })
+  direccion?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  vigente?: boolean;
+}
+
+class DatosPersonaDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(60, { message: 'El apellido paterno tiene máximo 60 caracteres' })
+  apellidoPaterno?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60, { message: 'El apellido materno tiene máximo 60 caracteres' })
+  apellidoMaterno?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80, { message: 'Los nombres tienen máximo 80 caracteres' })
+  nombres?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120, { message: 'La razón social tiene máximo 120 caracteres' })
+  razonSocial?: string | null;
+
+  @IsOptional()
+  @Matches(/^([A-Z0-9_]{1,20})?$/, { message: 'Tipo de sucesión no válido' })
+  tipoSucesion?: string | null;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'La fecha de nacimiento debe tener formato AAAA-MM-DD' })
+  fechaNacimiento?: string | null;
+
+  @IsOptional()
+  @Matches(/^(\d{8})?$/, { message: 'El DNI del causante debe tener 8 dígitos' })
+  dniCausante?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => DocumentoDto)
+  documentos?: DocumentoDto[];
+
+  // P08: obligatoria cuando no hay documentos.
+  @IsOptional()
+  @IsString()
+  @MaxLength(250, { message: 'La justificación tiene máximo 250 caracteres' })
+  sinDocumentoMotivo?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ContactoDto)
+  contactos?: ContactoDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => RelacionadoDto)
+  relacionados?: RelacionadoDto[];
+
+  @IsOptional()
+  @Matches(/^([A-Z0-9_]{1,20})?$/, { message: 'Perfil de cumplimiento no válido' })
+  perfilCumplimiento?: string | null;
+
+  @IsOptional()
+  @Matches(/^([A-Z0-9_]{1,20})?$/, { message: 'Perfil de cobranza no válido' })
+  perfilCobranza?: string | null;
+
+  @IsOptional()
+  @Matches(/^([A-Z0-9_]{1,20})?$/, { message: 'Clasificación no válida' })
+  clasificacion?: string | null;
+
+  // Domicilio fiscal (P11, specs/rentas-nucleo-v2.md Fase 2): en el distrito, direccionId del
+  // catálogo de direcciones únicas; foráneo, ubigeo + domicilioTexto. No ambos.
+  @IsOptional()
+  @IsInt({ message: 'La dirección no es válida' })
+  @Min(1)
+  direccionId?: number | null;
+
   @IsOptional()
   @Matches(/^(\d{6})$/, { message: 'El ubigeo tiene 6 dígitos' })
   ubigeo?: string | null;
 
   @IsOptional()
-  @Matches(/^([0-9+\-\s]{6,15})?$/, { message: 'Teléfono no válido' })
-  telefono?: string;
-
-  @IsOptional()
-  @Matches(/^(9\d{8})?$/, { message: 'El celular debe tener 9 dígitos y empezar en 9' })
-  celular?: string;
-
-  @IsOptional()
-  @Matches(/^([^\s@]+@[^\s@]+\.[^\s@]+)?$/, { message: 'Correo no válido' })
-  @MaxLength(100)
-  email?: string;
-
-  @IsOptional()
-  @IsInt({ message: 'La zona no es válida' })
-  @Min(1)
-  zonaId?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'La urbanización no es válida' })
-  @Min(1)
-  urbanizacionId?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'La vía no es válida' })
-  @Min(1)
-  viaId?: number | null;
-
-  @IsOptional()
   @IsString()
-  @MaxLength(10)
-  numero?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  interior?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  manzana?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  lote?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  referencia?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  conyugeNombre?: string;
-
-  @IsOptional()
-  @Matches(/^(\d{8})?$/, { message: 'El DNI del cónyuge debe tener 8 dígitos' })
-  conyugeNumDoc?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  representanteNombre?: string;
-
-  @IsOptional()
-  @Matches(/^(\d{8})?$/, { message: 'El DNI del representante legal debe tener 8 dígitos' })
-  representanteNumDoc?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(70)
-  representanteDireccion?: string;
+  @MaxLength(250, { message: 'El domicilio tiene máximo 250 caracteres' })
+  domicilioTexto?: string | null;
 }
 
-// Todos opcionales; el servicio vuelve a validar documento con los valores resultantes.
-export class UpdateContribuyenteDto {
+// Sin `documentos` (o vacío) = persona sin documento: exige sinDocumentoMotivo (P08).
+export class CreateContribuyenteDto extends DatosPersonaDto {
+  @IsEnum(TipoPersona, { message: 'Tipo de persona no válido' })
+  tipoPersona: TipoPersona;
+}
+
+// Todos opcionales: el servicio vuelve a validar con los valores resultantes.
+export class UpdateContribuyenteDto extends DatosPersonaDto {
   @IsOptional()
   @IsEnum(TipoPersona, { message: 'Tipo de persona no válido' })
   tipoPersona?: TipoPersona;
+}
 
-  @IsOptional()
-  @IsIn(TIPOS_DOC, { message: 'Tipo de documento no válido' })
-  tipoDoc?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty({ message: 'El número de documento es obligatorio' })
-  @MaxLength(20)
-  numDoc?: string;
+// P01/P02: inhabilitar (con la regla de la deuda) o habilitar (sin restricción).
+export class CambiarEstadoDto {
+  @IsIn([EstadoPersona.HABILITADO, EstadoPersona.INHABILITADO], { message: 'El estado debe ser HABILITADO o INHABILITADO' })
+  estado: EstadoPersona;
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'El nombre o razón social es obligatorio' })
-  @MaxLength(120, { message: 'El nombre debe tener máximo 120 caracteres' })
-  nombreCompleto?: string;
+  @MaxLength(250, { message: 'El motivo tiene máximo 250 caracteres' })
+  motivo?: string | null;
+}
 
-  @IsOptional()
-  @Matches(/^(\d{6})$/, { message: 'El ubigeo tiene 6 dígitos' })
-  ubigeo?: string | null;
-
-  @IsOptional()
-  @Matches(/^([0-9+\-\s]{6,15})?$/, { message: 'Teléfono no válido' })
-  telefono?: string;
-
-  @IsOptional()
-  @Matches(/^(9\d{8})?$/, { message: 'El celular debe tener 9 dígitos y empezar en 9' })
-  celular?: string;
-
-  @IsOptional()
-  @Matches(/^([^\s@]+@[^\s@]+\.[^\s@]+)?$/, { message: 'Correo no válido' })
-  @MaxLength(100)
-  email?: string;
-
-  @IsOptional()
-  @IsInt({ message: 'La zona no es válida' })
-  @Min(1)
-  zonaId?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'La urbanización no es válida' })
-  @Min(1)
-  urbanizacionId?: number | null;
-
-  @IsOptional()
-  @IsInt({ message: 'La vía no es válida' })
-  @Min(1)
-  viaId?: number | null;
+// P14/P15: resolución que reconoce la inafectación o la deducción.
+export class BeneficioDto {
+  @Matches(/^[A-Z0-9_]{1,20}$/, { message: 'Beneficio no válido' })
+  codigo: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(10)
-  numero?: string;
+  @MaxLength(150, { message: 'La base legal tiene máximo 150 caracteres' })
+  baseLegal?: string | null;
 
   @IsOptional()
   @IsString()
-  @MaxLength(10)
-  interior?: string;
+  @MaxLength(30, { message: 'El expediente tiene máximo 30 caracteres' })
+  expediente?: string | null;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El número de resolución es obligatorio' })
+  @MaxLength(40, { message: 'La resolución tiene máximo 40 caracteres' })
+  resolucion: string;
+
+  @IsDateString({}, { message: 'La fecha de la resolución debe tener formato AAAA-MM-DD' })
+  fechaResolucion: string;
+
+  @IsInt({ message: 'Indica desde qué año aplica' })
+  @Min(2000)
+  @Max(2100)
+  anioDesde: number;
+
+  @IsOptional()
+  @IsInt({ message: 'El año final no es válido' })
+  @Min(2000)
+  @Max(2100)
+  anioHasta?: number | null;
 
   @IsOptional()
   @IsString()
-  @MaxLength(10)
-  manzana?: string;
+  @MaxLength(250)
+  observacion?: string | null;
+}
 
+export class RevocarBeneficioDto {
   @IsOptional()
+  @IsInt({ message: 'El año final no es válido' })
+  @Min(2000)
+  @Max(2100)
+  anioHasta?: number | null;
+
   @IsString()
-  @MaxLength(10)
-  lote?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  referencia?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  conyugeNombre?: string;
-
-  @IsOptional()
-  @Matches(/^(\d{8})?$/, { message: 'El DNI del cónyuge debe tener 8 dígitos' })
-  conyugeNumDoc?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  representanteNombre?: string;
-
-  @IsOptional()
-  @Matches(/^(\d{8})?$/, { message: 'El DNI del representante legal debe tener 8 dígitos' })
-  representanteNumDoc?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(70)
-  representanteDireccion?: string;
-
-  @IsOptional()
-  @IsEnum(EstadoRegistro, { message: 'Estado no válido' })
-  estado?: EstadoRegistro;
+  @IsNotEmpty({ message: 'Indica por qué se revoca' })
+  @MaxLength(250)
+  observacion: string;
 }
 
 // Consulta de identidad para autocompletar el formulario (specs/consulta-identidad-v1.md).
 export class ConsultarIdentidadDto {
-  @IsIn(TIPOS_DOC, { message: 'Tipo de documento no válido' })
+  @IsIn(['DNI', 'RUC'], { message: 'Solo se consultan DNI y RUC' })
   tipoDoc: string;
 
   @IsString()
@@ -239,6 +260,17 @@ export class ConsultarIdentidadDto {
   @IsInt()
   @Min(1)
   excluirId?: number;
+}
+
+// P10: ¿el documento del relacionado es de una persona registrada? (para enlazar y precargar)
+export class PorDocumentoDto {
+  @Matches(/^[A-Z0-9_]{1,20}$/, { message: 'Tipo de documento no válido' })
+  tipoDoc: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'El número de documento es obligatorio' })
+  @MaxLength(20)
+  numDoc: string;
 }
 
 export class BuscarUbigeosDto {
@@ -276,5 +308,9 @@ export class BuscarContribuyentesDto {
 
   @IsOptional()
   @IsIn(['true', 'false'])
-  incluirBaja?: string;
+  incluirInhabilitados?: string;
+
+  @IsOptional()
+  @IsEnum(EstadoPersona, { message: 'Estado no válido' })
+  estado?: EstadoPersona;
 }

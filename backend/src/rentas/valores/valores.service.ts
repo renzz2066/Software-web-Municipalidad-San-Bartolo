@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { EstadoCuenta, EstadoValor, ModalidadNotificacion, Prisma, TipoTributo, TipoValor } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { CalculoService, type TipoCalculo } from '../calculo/calculo.service.js';
+import { DeterminacionMasivaService } from '../calculo/masiva.service.js';
+import type { Tributo as TipoCalculo } from '../calculo/reliquidacion.reglas.js';
 import { vencimientos } from '../calculo/motor.js';
 import { reservarCorrelativos } from '../correlativos.js';
 import { liquidar } from '../estado-cuenta/liquidacion.js';
@@ -75,7 +76,7 @@ function comparacionFiscalizacion(f: { id: number; anio: number; numero: string;
 export class ValoresService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly calculo: CalculoService,
+    private readonly calculo: DeterminacionMasivaService,
   ) {}
 
   simular(entrada: EmisionEntrada) {

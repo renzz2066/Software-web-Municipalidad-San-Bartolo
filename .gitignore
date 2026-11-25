@@ -20,3 +20,6 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea/
 .DS_Store
+
+# Material de terceros (p. ej. estructura de la BD de Lurín): no subir, el repo es público
+docs/privado/

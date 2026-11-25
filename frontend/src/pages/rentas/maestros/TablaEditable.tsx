@@ -155,8 +155,9 @@ export function TablaEditable({ url, columnas, bloqueado = false, conOrdenanza =
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
+      <div className="relative overflow-x-auto">
+        {/* Ancho mínimo según las columnas: en pantallas angostas hace scroll en vez de cortar los campos. */}
+        <table className="w-full text-left text-sm" style={{ minWidth: Math.max(560, columnas.length * 140) }}>
           <thead>
             <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500">
               <th scope="col" className="w-10 px-2 py-2">

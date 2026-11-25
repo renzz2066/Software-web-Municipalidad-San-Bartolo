@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EstadoCuenta, EstadoValor, Prisma, TipoTributo } from '@prisma/client';
+import { numeroDj } from '../../declaraciones/dj.reglas.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { vencimientos } from '../calculo/motor.js';
 import { hoyLima } from '../fechas.js';
@@ -55,6 +56,9 @@ export class EstadoCuentaService {
           derechoEmision: true,
           fechaVencimiento: true,
           estado: true,
+          ajusteDeId: true,
+          // Rentas v2 (Fase 5): la DJ cuya determinación generó la cuota.
+          determinacion: { select: { dj: { select: { id: true, anio: true, numero: true } } } },
           tributo: { select: { codigo: true, nombre: true, tipo: true } },
           predio: {
             select: { id: true, numero: true, manzana: true, lote: true, via: { select: { tipoVia: true, nombre: true } } },
@@ -113,6 +117,8 @@ export class EstadoCuentaService {
         vencimiento: c.fechaVencimiento ? iso(c.fechaVencimiento) : null,
         estado: c.estado,
         situacion: situacion(c),
+        origen: c.determinacion?.dj ? { djId: c.determinacion.dj.id, numeroTexto: numeroDj(c.determinacion.dj.anio, c.determinacion.dj.numero) } : null,
+        ajuste: c.ajusteDeId !== null,
         diasAtraso: l.diasAtraso,
         insoluto: l.insoluto.toFixed(2),
         reajuste: l.reajuste.toFixed(2),

@@ -1,20 +1,28 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { EstadoRegistro, MotivoDeclaracion, Prisma } from '@prisma/client';
+import { EstadoRegistro, GrupoCatalogo, MotivoDeclaracion, Prisma } from '@prisma/client';
+import { CatalogosService } from '../catalogos/catalogos.service.js';
+import { errorCoordenadas } from '../direcciones/direccion.reglas.js';
+import { DireccionesService } from '../direcciones/direcciones.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hoyLima } from '../rentas/fechas.js';
-import { anioValido } from '../rentas/maestros/maestros.reglas.js';
 import { iso } from '../rentas/estado-cuenta/tasas.js';
 import { vencePlazoDJ, esExtemporanea } from '../rentas/fiscalizacion/multas.reglas.js';
-import { validarDeclaracion } from './declaracion.reglas.js';
 import { DatosPredioDto, DeclaracionDto } from './dto/declaracion.dto.js';
+import { MaestroPredioDto, PredioBeneficioDto, RevocarPredioBeneficioDto } from './dto/predio.dto.js';
+import {
+  LADOS,
+  asociacionEnAnio,
+  errorBeneficioPredio,
+  errorLinderos,
+  seSolapan,
+} from './predio.reglas.js';
 
 type Tx = Prisma.TransactionClient;
 type Construccion = Pick<DeclaracionDto, 'pisos' | 'otrasInstalaciones'>;
 
-// Una DJ hace ~15 consultas seguidas; con la latencia a Supabase el límite de 5 s no alcanza.
-const OPCIONES_TX = { maxWait: 10_000, timeout: 20_000 };
 
 export const INCLUDE_PREDIO = {
+  direccion: { select: { id: true, direccion: true, activo: true } },
   zona: { select: { id: true, codigo: true, nombre: true } },
   urbanizacion: { select: { id: true, codigo: true, nombre: true } },
   via: { select: { id: true, tipoVia: true, nombre: true } },
@@ -26,6 +34,7 @@ export const INCLUDE_PREDIO = {
       porcentaje: true,
       esPrincipal: true,
       fechaAdquisicion: true,
+      condicion: true,
       contribuyente: { select: { id: true, tipoDoc: true, numDoc: true, nombreCompleto: true } },
     },
     orderBy: [{ esPrincipal: 'desc' }, { contribuyenteId: 'asc' }],
@@ -47,9 +56,15 @@ export async function asegurarCodigoCatastroUnico(tx: Tx, codigoCatastro: string
   }
 }
 
+const texto = (v?: string | null) => v?.trim().replace(/\s+/g, ' ').toUpperCase() || null;
+
 @Injectable()
 export class PrediosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly direcciones: DireccionesService,
+    private readonly catalogosV2: CatalogosService,
+  ) {}
 
   // Catálogos de ubicación en solo lectura para quien registra DDJJ (sin nivel de maestros).
   async catalogos() {
@@ -61,11 +76,44 @@ export class PrediosService {
     return { zonas, urbanizaciones, vias };
   }
 
+  async buscar(dto: { q?: string; limit?: number }) {
+    const q = dto.q?.trim() ?? '';
+    const palabras = q.split(/\s+/).filter(Boolean).slice(0, 6);
+    const where: Prisma.PredioWhereInput = /^\d+$/.test(q)
+      ? { OR: [...(q.length <= 9 ? [{ id: Number(q) }] : []), { codigoLegacy: { startsWith: q } }, { codigoCatastro: { startsWith: q } }] }
+      : {
+          AND: palabras.map((p) => ({
+            OR: [
+              { nombre: { contains: p, mode: 'insensitive' } },
+              { codigoCatastro: { contains: p, mode: 'insensitive' } },
+              { direccion: { direccion: { contains: p, mode: 'insensitive' } } },
+            ],
+          })),
+        };
+    const items = await this.prisma.predio.findMany({
+      where: { ...where, estado: { not: EstadoRegistro.BAJA } },
+      select: {
+        id: true,
+        nombre: true,
+        tipo: true,
+        estado: true,
+        codigoCatastro: true,
+        areaTerreno: true,
+        direccion: { select: { direccion: true } },
+        contribuyentes: { where: { estado: EstadoRegistro.ACTIVO }, select: { porcentaje: true, contribuyente: { select: { id: true, nombreCompleto: true } } } },
+      },
+      orderBy: { id: 'asc' },
+      take: dto.limit ?? 10,
+    });
+    return { items };
+  }
+
   async findOne(id: number) {
     const predio = await this.prisma.predio.findUnique({
       where: { id },
       include: {
         ...INCLUDE_PREDIO,
+        beneficios: { orderBy: [{ vigente: 'desc' }, { anioDesde: 'desc' }] },
         declaraciones: {
           select: {
             id: true,
@@ -112,82 +160,13 @@ export class PrediosService {
     return dj;
   }
 
-  // Toda DJ cambia el predio y queda versionada con su foto (snapshot), en una sola transacción.
-  async declarar(dto: DeclaracionDto) {
-    if (!anioValido(dto.anio)) {
-      throw new BadRequestException('El año no es válido');
-    }
-    if (dto.motivo !== MotivoDeclaracion.BAJA && !dto.predio) {
-      throw new BadRequestException('Completa los datos del predio');
-    }
-    const fecha = dto.fecha.slice(0, 10);
-
-    return this.prisma.$transaction(async (tx) => {
-      const actual = dto.predioId
-        ? await tx.predio.findUnique({
-            where: { id: dto.predioId },
-            select: { id: true, estado: true, contribuyentes: { where: { estado: EstadoRegistro.ACTIVO }, select: { contribuyenteId: true } } },
-          })
-        : null;
-      if (dto.predioId && !actual) {
-        throw new NotFoundException('El predio no existe');
-      }
-      if (actual?.estado === EstadoRegistro.BAJA) {
-        throw new ConflictException('El predio está dado de baja');
-      }
-
-      const error = validarDeclaracion(
-        { ...dto, fecha, fechaHecho: dto.fechaHecho?.slice(0, 10) ?? null },
-        { hoy: hoyLima(), titularesActuales: actual?.contribuyentes.map((c) => c.contribuyenteId) ?? [] },
-      );
-      if (error) {
-        throw new BadRequestException(error);
-      }
-      await this.asegurarContribuyentes(tx, [dto.declaranteId, ...dto.condominos.map((c) => c.contribuyenteId)]);
-
-      let predioId: number;
-      if (dto.motivo === MotivoDeclaracion.BAJA) {
-        predioId = actual!.id;
-        await tx.predio.update({ where: { id: predioId }, data: { estado: EstadoRegistro.BAJA } });
-        await tx.predioContribuyente.updateMany({
-          where: { predioId, estado: EstadoRegistro.ACTIVO },
-          data: { estado: EstadoRegistro.BAJA },
-        });
-      } else {
-        const datos = this.datosPredio(dto.predio!, dto);
-        await asegurarCodigoCatastroUnico(tx, datos.codigoCatastro, actual?.id ?? null);
-        predioId = actual
-          ? (await tx.predio.update({ where: { id: actual.id }, data: datos })).id
-          : (await tx.predio.create({ data: datos })).id;
-        await this.reemplazarConstruccion(tx, predioId, dto);
-        await this.sincronizarCondominos(tx, predioId, dto, fecha);
-      }
-
-      const snapshot = await tx.predio.findUniqueOrThrow({ where: { id: predioId }, include: INCLUDE_PREDIO });
-      const dj = await tx.declaracionJurada.create({
-        data: {
-          predioId,
-          contribuyenteId: dto.declaranteId,
-          anio: dto.anio,
-          motivo: dto.motivo,
-          fecha: new Date(fecha),
-          fechaHecho: dto.fechaHecho ? new Date(dto.fechaHecho.slice(0, 10)) : null,
-          snapshot: JSON.parse(JSON.stringify(snapshot)) as Prisma.InputJsonValue,
-          observacion: dto.observacion?.trim() || null,
-        },
-        select: { id: true },
-      });
-      return { declaracionId: dj.id, predioId };
-    }, OPCIONES_TX);
-  }
-
   // DJ de motivo FISCALIZACION (specs/rentas-fiscalizacion-v1.md, F5): aplica la ficha de inspección al
   // predio dentro de la transacción de la resolución; los condóminos no cambian. Queda versionada igual.
   async aplicarFicha(
     tx: Tx,
     e: { predioId: number; contribuyenteId: number; anio: number; fecha: string; ficha: Construccion & { predio: DatosPredioDto }; observacion: string },
   ) {
-    const datosFicha = this.datosPredio(e.ficha.predio, e.ficha);
+    const datosFicha = await this.datosPredio(tx, e.ficha.predio, e.ficha);
     await asegurarCodigoCatastroUnico(tx, datosFicha.codigoCatastro, e.predioId);
     await tx.predio.update({ where: { id: e.predioId }, data: datosFicha });
     await this.reemplazarConstruccion(tx, e.predioId, e.ficha);
@@ -207,17 +186,215 @@ export class PrediosService {
     return dj.id;
   }
 
-  private datosPredio(p: DatosPredioDto, dto: Construccion) {
-    const texto = (v?: string) => v?.trim().toUpperCase() || null;
+  // ---- Predio maestro (R01, R02, R05): identificación y arbitrios, sin DJ ----
+
+  async actualizarMaestro(id: number, dto: MaestroPredioDto) {
+    await this.prisma.$transaction(async (tx) => {
+      const actual = await tx.predio.findUnique({
+        where: { id },
+        include: { contribuyentes: { where: { estado: EstadoRegistro.ACTIVO }, select: { contribuyenteId: true, condicion: true } } },
+      });
+      if (!actual) throw new NotFoundException('El predio no existe');
+      if (actual.estado === EstadoRegistro.BAJA) throw new ConflictException('El predio está dado de baja');
+      const data: Record<string, unknown> = {};
+      if (dto.tipo) data.tipo = dto.tipo;
+      if (dto.nombre !== undefined) data.nombre = texto(dto.nombre);
+
+      if (dto.latitud !== undefined || dto.longitud !== undefined) {
+        const numero = (v: Prisma.Decimal | null) => (v === null ? null : Number(v));
+        const latitud = dto.latitud !== undefined ? dto.latitud : numero(actual.latitud);
+        const longitud = dto.longitud !== undefined ? dto.longitud : numero(actual.longitud);
+        const e = errorCoordenadas(latitud ?? null, longitud ?? null);
+        if (e) throw new BadRequestException(e);
+        Object.assign(data, { latitud: latitud ?? null, longitud: longitud ?? null });
+      }
+
+      const linderos = LADOS.map((lado) => {
+        const metros = dto[`lindero${lado}Metros`];
+        const colindante = dto[`lindero${lado}Colindante`];
+        if (metros !== undefined) data[`lindero${lado}Metros`] = metros;
+        if (colindante !== undefined) data[`lindero${lado}Colindante`] = texto(colindante);
+        return { lado, metros: metros ?? null, colindante: colindante ?? null };
+      });
+      const eLinderos = errorLinderos(linderos);
+      if (eLinderos) throw new BadRequestException(eLinderos);
+
+      const catalogados = [
+        ['frecuenciaBarrido', GrupoCatalogo.FRECUENCIA_BARRIDO, 'Código de frecuencia de barrido'],
+        ['ubicacionParque', GrupoCatalogo.UBICACION_PARQUE, 'Código de ubicación respecto a parques'],
+      ] as const;
+      for (const [campo, grupo, etiqueta] of catalogados) {
+        if (dto[campo] === undefined) continue;
+        const codigo = dto[campo] || null;
+        if (codigo) await this.catalogosV2.asegurarCodigos(tx, grupo, [codigo], etiqueta, actual[campo] ? [actual[campo]] : []);
+        data[campo] = codigo;
+      }
+      if (dto.frontis !== undefined) data.frontis = dto.frontis;
+      if (Object.keys(data).length) await tx.predio.update({ where: { id }, data: data as Prisma.PredioUncheckedUpdateInput });
+
+      // R05: condición de propiedad de cada titular vigente.
+      if (dto.titulares?.length) {
+        const vigentes = new Map(actual.contribuyentes.map((t) => [t.contribuyenteId, t.condicion]));
+        await this.catalogosV2.asegurarCodigos(
+          tx,
+          GrupoCatalogo.CONDICION_PROPIEDAD,
+          dto.titulares.map((t) => t.condicion),
+          'Código de condición de propiedad',
+          [...vigentes.values()].filter((c): c is string => Boolean(c)),
+        );
+        for (const t of dto.titulares) {
+          if (!vigentes.has(t.contribuyenteId)) throw new BadRequestException('Uno de los titulares no es titular vigente del predio');
+          if (vigentes.get(t.contribuyenteId) === t.condicion) continue;
+          await tx.predioContribuyente.update({
+            where: { contribuyenteId_predioId: { contribuyenteId: t.contribuyenteId, predioId: id } },
+            data: { condicion: t.condicion },
+          });
+        }
+      }
+    });
+    return this.findOne(id);
+  }
+
+  // C4: quiénes fueron titulares en el año y quién era el contribuyente al 1 de enero (J10).
+  async personasPorAnio(id: number, anio = Number(hoyLima().slice(0, 4))) {
+    const p = await this.prisma.predio.findUnique({
+      where: { id },
+      select: {
+        contribuyentes: {
+          select: {
+            porcentaje: true,
+            condicion: true,
+            fechaAdquisicion: true,
+            fechaFin: true,
+            estado: true,
+            contribuyente: { select: { id: true, tipoDoc: true, numDoc: true, nombreCompleto: true } },
+          },
+          orderBy: [{ fechaAdquisicion: 'asc' }, { contribuyenteId: 'asc' }],
+        },
+      },
+    });
+    if (!p) throw new NotFoundException('El predio no existe');
+    const personas = p.contribuyentes
+      .map((t) => {
+        const fechaAdquisicion = t.fechaAdquisicion ? iso(t.fechaAdquisicion) : null;
+        const fechaFin = t.fechaFin ? iso(t.fechaFin) : null;
+        const a = asociacionEnAnio({ contribuyenteId: t.contribuyente.id, fechaAdquisicion, fechaFin, estado: t.estado }, anio);
+        return { ...t, fechaAdquisicion, fechaFin, ...a };
+      })
+      .filter((t) => t.asociado)
+      .map(({ asociado: _a, ...t }) => t);
+    return { anio, personas };
+  }
+
+  // ---- Beneficios del predio (R06) ----
+
+  async agregarBeneficio(id: number, dto: PredioBeneficioDto) {
+    const predio = await this.prisma.predio.findUnique({
+      where: { id },
+      select: {
+        estado: true,
+        beneficios: { where: { vigente: true } },
+        contribuyentes: {
+          where: { estado: EstadoRegistro.ACTIVO },
+          select: {
+            contribuyente: {
+              select: { nombreCompleto: true, beneficios: { where: { vigente: true }, select: { codigo: true, anioDesde: true, anioHasta: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (!predio) throw new NotFoundException('El predio no existe');
+    if (predio.estado === EstadoRegistro.BAJA) throw new ConflictException('El predio está dado de baja');
+    const item = (await this.catalogosV2.asegurarCodigos(this.prisma, GrupoCatalogo.BENEFICIO, [dto.codigo], 'Beneficio')).get(dto.codigo)!;
+    const attrs = (item.atributos ?? {}) as { regimen?: string; porcentaje?: number; baseLegal?: string };
+
+    // Régimen de lo que ya hay: resoluciones de los titulares y del propio predio.
+    const otros = [
+      ...predio.contribuyentes.flatMap((t) => t.contribuyente.beneficios.map((b) => b.codigo)),
+      ...predio.beneficios.map((b) => b.codigo),
+    ];
+    const regimenes = await this.catalogosV2.asegurarCodigos(this.prisma, GrupoCatalogo.BENEFICIO, otros, 'Beneficio', otros);
+    const regimen = (codigo: string) => (regimenes.get(codigo)?.atributos as { regimen?: string } | null)?.regimen;
+
+    const anioHasta = dto.anioHasta ?? null;
+    // Primero el régimen: una deducción (P15) es de la persona, no se pide su porcentaje aquí.
+    const porcentaje =
+      attrs.regimen === 'INAFECTACION' ? 100 : attrs.regimen === 'EXONERACION' ? (dto.porcentaje ?? attrs.porcentaje ?? null) : 100;
+    if (porcentaje === null) throw new BadRequestException('Indica el porcentaje de la exoneración');
+    const error = errorBeneficioPredio(
+      { regimen: attrs.regimen, porcentaje, nombre: item.nombre, anioDesde: dto.anioDesde, anioHasta },
+      predio.contribuyentes.map((t) => ({
+        nombre: t.contribuyente.nombreCompleto,
+        inafectaciones: t.contribuyente.beneficios.filter((b) => regimen(b.codigo) === 'INAFECTACION'),
+      })),
+    );
+    if (error) throw new BadRequestException(error);
+    if (dto.fechaResolucion.slice(0, 10) > hoyLima()) throw new BadRequestException('La fecha de la resolución no puede ser futura');
+    const choque = predio.beneficios.find((b) => regimen(b.codigo) === attrs.regimen && seSolapan(b, { anioDesde: dto.anioDesde, anioHasta }));
+    if (choque) {
+      throw new ConflictException(`El predio ya tiene una resolución vigente del mismo régimen para esos años (${choque.resolucion}): revócala primero`);
+    }
+    const baseLegal = dto.baseLegal?.trim() || attrs.baseLegal;
+    if (!baseLegal) throw new BadRequestException('Indica la base legal');
+    await this.prisma.predioBeneficio.create({
+      data: {
+        predioId: id,
+        codigo: dto.codigo,
+        porcentaje,
+        baseLegal,
+        expediente: dto.expediente?.trim() || null,
+        resolucion: dto.resolucion.trim().toUpperCase(),
+        fechaResolucion: new Date(dto.fechaResolucion.slice(0, 10)),
+        anioDesde: dto.anioDesde,
+        anioHasta,
+        observacion: dto.observacion?.trim() || null,
+      },
+    });
+    return this.findOne(id);
+  }
+
+  async revocarBeneficio(id: number, beneficioId: number, dto: RevocarPredioBeneficioDto) {
+    const b = await this.prisma.predioBeneficio.findFirst({ where: { id: beneficioId, predioId: id } });
+    if (!b) throw new NotFoundException('La resolución no existe');
+    if (!b.vigente) throw new ConflictException('La resolución ya estaba revocada');
+    const anioHasta = dto.anioHasta ?? b.anioHasta;
+    if (anioHasta !== null && anioHasta < b.anioDesde) throw new BadRequestException('El año final no puede ser menor que el inicial');
+    await this.prisma.predioBeneficio.update({ where: { id: beneficioId }, data: { vigente: false, anioHasta, observacion: dto.observacion.trim() } });
+    return this.findOne(id);
+  }
+
+  // La ubicación que trae la DJ se guarda como dirección única (D01) y como copia en el predio, que es
+  // lo que leen el cálculo (arancel por vía, arbitrios por zona), caja, valores y fiscalización.
+  private async datosPredio(tx: Tx, p: DatosPredioDto, dto: Construccion) {
     const areaConstruida = dto.pisos.reduce((acc, piso) => acc + Math.round(piso.areaConstruida * 100), 0) / 100;
-    return {
+    const numero = texto(p.numero);
+    const manzana = texto(p.manzana);
+    const lote = texto(p.lote);
+    const referencia = texto(p.referencia);
+    const componentes = [
+      ['NUMERO', numero],
+      ['MZ', manzana],
+      ['LT', lote],
+    ]
+      .filter((c): c is [string, string] => Boolean(c[1]))
+      .map(([componente, valor]) => ({ componente, valor }));
+    const direccion = await this.direcciones.obtenerOCrear(tx, {
       zonaId: p.zonaId ?? null,
       urbanizacionId: p.urbanizacionId ?? null,
       viaId: p.viaId,
-      numero: texto(p.numero),
-      manzana: texto(p.manzana),
-      lote: texto(p.lote),
-      referencia: texto(p.referencia),
+      componentes,
+      referencia,
+    });
+    return {
+      direccionId: direccion.id,
+      zonaId: p.zonaId ?? null,
+      urbanizacionId: p.urbanizacionId ?? null,
+      viaId: p.viaId,
+      numero,
+      manzana,
+      lote,
+      referencia,
       codigoCatastro: texto(p.codigoCatastro),
       areaTerreno: p.areaTerreno,
       areaConstruida,
@@ -253,39 +430,6 @@ export class PrediosService {
           valor: o.valor ?? null,
         })),
       });
-    }
-  }
-
-  // Los condóminos enviados quedan ACTIVOS con su %; los que salen pasan a BAJA (historial intacto).
-  private async sincronizarCondominos(tx: Tx, predioId: number, dto: DeclaracionDto, fecha: string) {
-    const ids = dto.condominos.map((c) => c.contribuyenteId);
-    await tx.predioContribuyente.updateMany({
-      where: { predioId, estado: EstadoRegistro.ACTIVO, contribuyenteId: { notIn: ids } },
-      data: { estado: EstadoRegistro.BAJA, esPrincipal: false },
-    });
-    for (const [i, c] of dto.condominos.entries()) {
-      await tx.predioContribuyente.upsert({
-        where: { contribuyenteId_predioId: { contribuyenteId: c.contribuyenteId, predioId } },
-        update: { porcentaje: c.porcentaje, esPrincipal: i === 0, estado: EstadoRegistro.ACTIVO },
-        create: {
-          contribuyenteId: c.contribuyenteId,
-          predioId,
-          porcentaje: c.porcentaje,
-          esPrincipal: i === 0,
-          fechaAdquisicion: new Date(fecha),
-        },
-      });
-    }
-  }
-
-  private async asegurarContribuyentes(tx: Tx, ids: number[]) {
-    const unicos = [...new Set(ids)];
-    const encontrados = await tx.contribuyente.findMany({
-      where: { id: { in: unicos }, estado: { not: EstadoRegistro.BAJA } },
-      select: { id: true },
-    });
-    if (encontrados.length !== unicos.length) {
-      throw new BadRequestException('Algún contribuyente no existe o está dado de baja');
     }
   }
 }

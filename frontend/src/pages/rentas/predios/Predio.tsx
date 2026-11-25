@@ -4,17 +4,24 @@ import { PageHeader } from '../../../components/layout/PageHeader'
 import { api } from '../../../lib/api'
 import { CLASIFICACIONES, COMPONENTES_CORTOS, ESTADOS_CONSERVACION, MATERIALES, etiqueta } from '../catalogosConstruccion'
 import { RUTA_BASE } from '../contribuyentes/tipos'
+import { RUTA_DJ } from '../declaraciones/djApi'
+import { nombreDe, useCatalogo } from '../catalogos/catalogosApi'
 import { mensajeError } from '../maestros/maestrosApi'
+import { BeneficiosPredio } from './BeneficiosPredio'
+import { MaestroPredio } from './MaestroPredio'
 import { MultaDJ } from './MultaDJ'
+import { PersonasPredio } from './PersonasPredio'
 import { direccion, etiquetaMotivo, type PredioApi } from './tipos'
 
-// Detalle del predio: datos vigentes + historial de DDJJ. Todo cambio entra por una DJ.
+// Detalle del predio: maestro (Fase 3: identificación, linderos, arbitrios, beneficios), titulares y
+// personas por año, construcción e historial de DDJJ. Ubicación, área y construcción entran por una DJ.
 
 export function Predio() {
   const { id } = useParams()
   const [predio, setPredio] = useState<PredioApi | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [recarga, setRecarga] = useState(0)
+  const condiciones = useCatalogo('CONDICION_PROPIEDAD')
 
   useEffect(() => {
     let cancelled = false
@@ -34,12 +41,14 @@ export function Predio() {
 
   const titular = predio?.contribuyentes[0]?.contribuyente
   const activo = predio?.estado !== 'BAJA'
+  // La DJ presentada (v2) es de una persona: rectificación, venta y baja las presenta el titular principal.
+  const principal = predio?.contribuyentes.find((t) => t.esPrincipal)?.contribuyente.id ?? predio?.contribuyentes[0]?.contribuyente.id
 
   return (
     <div className="p-4 sm:p-8">
       <div className="mx-auto max-w-content">
         <PageHeader
-          titulo={predio ? direccion(predio) : 'Predio'}
+          titulo={predio ? (predio.nombre ?? predio.direccion?.direccion ?? direccion(predio)) : 'Predio'}
           volverA={
             titular
               ? { etiqueta: titular.nombreCompleto, ruta: `${RUTA_BASE}/contribuyentes/${titular.id}` }
@@ -64,7 +73,9 @@ export function Predio() {
                     Predio #{predio.id}
                     {predio.codigoLegacy && ` · SIMUN ${predio.codigoLegacy}`}
                     {predio.codigoCatastro && ` · Catastro ${predio.codigoCatastro}`}
+                    {predio.tipo === 'RUSTICO' && ' · Rústico'}
                   </p>
+                  {predio.nombre && predio.direccion && <p className="text-sm text-slate-600">{predio.direccion.direccion}</p>}
                   <p className="text-sm text-slate-600">
                     {predio.zona ? `Zona ${predio.zona.codigo} · ` : ''}Uso {predio.usoPredio ?? '—'} · Terreno {predio.areaTerreno ?? '—'} m² ·
                     Construido {predio.areaConstruida ?? '—'} m²
@@ -78,7 +89,7 @@ export function Predio() {
                     {(['RECTIFICACION', 'COMPRA', 'VENTA', 'BAJA'] as const).map((m) => (
                       <Link
                         key={m}
-                        to={`${RUTA_BASE}/predios/${predio.id}/declaracion?motivo=${m}`}
+                        to={`${RUTA_DJ}/nueva?predio=${predio.id}&motivo=${m}${m !== 'COMPRA' && principal ? `&contribuyente=${principal}` : ''}`}
                         className={`rounded-md px-3 py-1.5 text-sm font-medium focus-visible:outline-3 focus-visible:outline-turquesa ${
                           m === 'RECTIFICACION'
                             ? 'bg-mar-profundo text-white hover:brightness-110'
@@ -106,11 +117,26 @@ export function Predio() {
                           {t.contribuyente.tipoDoc} {t.contribuyente.numDoc}
                         </span>
                       </Link>
-                      <span className="font-semibold">{Number(t.porcentaje)}%</span>
+                      <span className="text-right">
+                        <span className="font-semibold">{Number(t.porcentaje)}%</span>
+                        {t.condicion && <span className="block text-xs text-slate-500">{nombreDe(condiciones, t.condicion)}</span>}
+                      </span>
                     </li>
                   ))}
                 </ul>
               )}
+            </Seccion>
+
+            <Seccion titulo="Personas asociadas por año">
+              <PersonasPredio predioId={predio.id} recarga={recarga} />
+            </Seccion>
+
+            <Seccion titulo="Datos del predio">
+              <MaestroPredio predio={predio} editable={activo} alCambiar={() => setRecarga((r) => r + 1)} />
+            </Seccion>
+
+            <Seccion titulo="Inafectación y exoneración">
+              <BeneficiosPredio predioId={predio.id} beneficios={predio.beneficios ?? []} editable={activo} alCambiar={() => setRecarga((r) => r + 1)} />
             </Seccion>
 
             <Seccion titulo="Construcción">

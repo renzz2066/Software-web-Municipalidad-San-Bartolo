@@ -13,6 +13,8 @@ export interface LineaEstado {
   vencimiento: string | null
   estado: 'PENDIENTE' | 'COACTIVO' | 'FRACCIONADO'
   situacion: string | null // valor que la cobra o convenio al que pertenece
+  origen?: { djId: number; numeroTexto: string } | null // DJ cuya determinación generó la cuota (rentas v2)
+  ajuste?: boolean // diferencia sobre una cuota ya pagada o protegida (L10, fiscalización)
   diasAtraso: number
   insoluto: string
   reajuste: string

@@ -38,6 +38,26 @@ export class UitDto extends ConOrdenanzaDto {
   @IsNumber(DOS_DECIMALES, { message: 'El derecho de emisión debe ser un monto con 2 decimales' })
   @Min(0)
   derechoEmision?: number;
+
+  // V03 (Fase 7): desde qué piso sube el valor unitario y cuánto; vacío = no aplica.
+  @IsOptional()
+  @IsInt({ message: 'El piso del incremento debe ser un número entero' })
+  @Min(2)
+  @Max(200)
+  incrementoDesdePiso?: number | null;
+
+  @IsOptional()
+  @IsNumber(DOS_DECIMALES, { message: 'El % de incremento tiene máximo 2 decimales' })
+  @Min(0.01)
+  @Max(100)
+  incrementoPisoPct?: number | null;
+
+  // V05: factor de oficialización de las obras complementarias.
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 4 }, { message: 'El factor de oficialización tiene máximo 4 decimales' })
+  @Min(0.0001)
+  @Max(10)
+  factorOficializacion?: number | null;
 }
 
 export class TramoDto {
@@ -146,9 +166,74 @@ export class TarifaArbitrioDto {
   @MaxLength(10)
   uso?: string | null;
 
+  // L07 (Fase 5 de rentas v2): criterios de la ordenanza; vacío = todos.
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  frecuencia?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  ubicacionParque?: string | null;
+
+  @IsOptional()
+  @IsIn(['PREDIO', 'M2', 'ML'], { message: 'La unidad es PREDIO, M2 (m² del uso) o ML (metro de frontis)' })
+  unidad?: string | null;
+
   @IsNumber(DOS_DECIMALES, { message: 'La tarifa debe ser un monto con 2 decimales' })
   @Min(0)
   tasa: number;
+}
+
+// V07: arancel rústico por categoría (y clasificación) de tierras, en S/ por hectárea.
+export class ArancelRusticoDto {
+  @IsString()
+  @MaxLength(20)
+  categoria: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  clasificacion?: string | null;
+
+  @IsNumber(DOS_DECIMALES, { message: 'El arancel debe ser un monto con 2 decimales' })
+  @Min(0)
+  valorHa: number;
+}
+
+// V05 (Fase 7): valores unitarios de obras complementarias del año.
+export class ValorObraDto {
+  @Matches(/^[A-Za-z0-9_-]{1,10}$/, { message: 'El código de obra tiene hasta 10 letras, números, - o _' })
+  codigo: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Cada obra lleva su descripción' })
+  @MaxLength(120)
+  descripcion: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'Cada obra lleva su unidad (m2, ml, m3, und…)' })
+  @MaxLength(10)
+  unidad: string;
+
+  @IsNumber(DOS_DECIMALES, { message: 'El valor debe ser un monto con 2 decimales' })
+  @Min(0)
+  valor: number;
+}
+
+export class ValoresObrasDto extends ConOrdenanzaDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ValorObraDto)
+  items: ValorObraDto[];
+}
+
+export class ArancelesRusticosDto extends ConOrdenanzaDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ArancelRusticoDto)
+  items: ArancelRusticoDto[];
 }
 
 export class TarifasArbitriosDto extends ConOrdenanzaDto {

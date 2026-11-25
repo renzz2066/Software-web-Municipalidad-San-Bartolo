@@ -23,7 +23,7 @@ export interface ParametrosAnio {
   aranceles: { viaId: number; urbanizacionId: number | null; valorM2: Num }[];
   valoresUnitarios: { componente: string; categoria: string; valor: Num }[];
   depreciaciones: { clasificacion: string; material: string; estadoConservacion: string; antiguedadHasta: number; porcentaje: Num }[];
-  tarifas: { concepto: string; zonaId: number | null; uso: string | null; tasa: Num }[];
+  tarifas: { concepto: string; zonaId: number | null; uso: string | null; tasa: Num; unidad?: string; frecuencia?: string | null; ubicacionParque?: string | null }[];
 }
 
 export interface PisoCalculo {
@@ -95,7 +95,24 @@ export function valorizarPredio(p: PredioCalculo, params: ParametrosAnio): Valor
   };
 }
 
-function valorizarPiso(piso: PisoCalculo, params: ParametrosAnio) {
+// V02: % de depreciación de la tabla del año: primer rango que cubre la antigüedad; si la supera a
+// todos, el último (tope de la tabla). null = no hay filas para esa clasificación, material y estado.
+export function porcentajeDepreciacion(
+  depreciaciones: ParametrosAnio['depreciaciones'],
+  clave: { clasificacion: string | null; material: string | null; estadoConservacion: string | null },
+  antiguedad: number,
+): Dec | null {
+  const filas = depreciaciones
+    .filter((d) => d.clasificacion === clave.clasificacion && d.material === clave.material && d.estadoConservacion === clave.estadoConservacion)
+    .sort((a, b) => a.antiguedadHasta - b.antiguedadHasta);
+  if (filas.length === 0) return null;
+  const fila = filas.find((d) => d.antiguedadHasta >= antiguedad) ?? filas[filas.length - 1];
+  return new D(fila.porcentaje);
+}
+
+// También la usa la determinación v2 (determinacion.reglas.ts) para valorizar los niveles de la DJ.
+// `incrementoPct` (V03, solo v2): el valor unitario del nivel sube ese % antes de depreciar.
+export function valorizarPiso(piso: PisoCalculo, params: Pick<ParametrosAnio, 'anio' | 'valoresUnitarios' | 'depreciaciones'>, incrementoPct: Num = 0) {
   if (!piso.categorias || piso.categorias.length !== COMPONENTES.length) {
     return { error: 'faltan las categorías de construcción' };
   }
@@ -110,18 +127,15 @@ function valorizarPiso(piso: PisoCalculo, params: ParametrosAnio) {
     if (!vu) return { error: `no hay valor unitario ${params.anio} para ${COMPONENTES[i]} categoría ${letra}` };
     valorUnitario = valorUnitario.plus(vu.valor);
   }
+  const incremento = new D(incrementoPct);
+  if (incremento.gt(0)) valorUnitario = redondear(valorUnitario.times(new D(100).plus(incremento)).div(100));
   const antiguedad = Math.max(0, params.anio - piso.anioConstruccion);
-  const filas = params.depreciaciones
-    .filter((d) => d.clasificacion === piso.clasificacion && d.material === piso.material && d.estadoConservacion === piso.estadoConservacion)
-    .sort((a, b) => a.antiguedadHasta - b.antiguedadHasta);
-  if (filas.length === 0) {
+  const depreciacion = porcentajeDepreciacion(params.depreciaciones, piso, antiguedad);
+  if (depreciacion === null) {
     return { error: 'no hay depreciación para su clasificación, material y conservación' };
   }
-  // Primer rango que cubre la antigüedad; si la supera a todos, el último (tope de la tabla).
-  const fila = filas.find((d) => d.antiguedadHasta >= antiguedad) ?? filas[filas.length - 1];
-  const depreciacion = new D(fila.porcentaje);
   const valor = redondear(new D(piso.areaConstruida).times(valorUnitario).times(new D(100).minus(depreciacion)).div(100));
-  return { valorUnitario, depreciacion, valor };
+  return { valorUnitario, depreciacion, valor, incremento };
 }
 
 // ---- Impuesto predial (por contribuyente, sobre la suma de sus predios en el distrito) ----
@@ -143,10 +157,18 @@ export function impuestoPredial(base: Num, params: Pick<ParametrosAnio, 'uit' | 
 
 // ---- Arbitrios: tarifa más específica (zona+uso > zona > uso > general) ----
 
+// v1 solo entiende la tarifa anual por predio: las de la ordenanza por criterios (frecuencia, parques,
+// m² o frontis; L07) las aplica la determinación v2.
 export function tarifaArbitrio(predio: Pick<PredioCalculo, 'zonaId' | 'usoPredio'>, concepto: string, tarifas: ParametrosAnio['tarifas']) {
   const uso = predio.usoPredio?.toUpperCase() ?? null;
   const candidatas = tarifas.filter(
-    (t) => t.concepto === concepto && (t.zonaId === null || t.zonaId === predio.zonaId) && (t.uso === null || t.uso === uso),
+    (t) =>
+      t.concepto === concepto &&
+      (t.unidad ?? 'PREDIO') === 'PREDIO' &&
+      !t.frecuencia &&
+      !t.ubicacionParque &&
+      (t.zonaId === null || t.zonaId === predio.zonaId) &&
+      (t.uso === null || t.uso === uso),
   );
   const puntaje = (t: (typeof candidatas)[number]) => (t.zonaId !== null ? 2 : 0) + (t.uso !== null ? 1 : 0);
   return candidatas.sort((a, b) => puntaje(b) - puntaje(a))[0] ?? null;

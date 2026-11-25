@@ -60,7 +60,7 @@ const DATASETS: Dataset[] = [
       return filas.map((c) => ({
         tipoPersona: c.tipoPersona,
         tipoDoc: c.tipoDoc,
-        numDoc: c.numDoc,
+        numDoc: c.numDoc ?? '',
         nombreCompleto: c.nombreCompleto,
         direccionFiscal: c.direccionFiscal ?? '',
         estado: c.estado,

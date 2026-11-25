@@ -39,7 +39,14 @@ export interface Via {
 
 export interface ResumenAnio {
   anio: number
-  uit: { valor: string; derechoEmision: string; ordenanza: string | null } | null
+  uit: {
+    valor: string
+    derechoEmision: string
+    incrementoDesdePiso: number | null // V03 (Fase 7 de rentas v2)
+    incrementoPisoPct: string | null
+    factorOficializacion: string | null // V05
+    ordenanza: string | null
+  } | null
   conteos: Record<string, number>
   bloqueado: boolean
 }
