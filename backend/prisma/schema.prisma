@@ -286,6 +286,10 @@ model Usuario {
   fiscalizacionesCreadas     Fiscalizacion[]     @relation("FiscalizacionCreadoPor")
   fiscalizacionesModificadas Fiscalizacion[]     @relation("FiscalizacionModificadoPor")
   fiscalizador               Fiscalizador?
+  lotesCobranzaCreados       CobranzaLote[]      @relation("CobranzaLoteCreadoPor")
+  lotesCobranzaModificados   CobranzaLote[]      @relation("CobranzaLoteModificadoPor")
+  gestionesCobranzaCreadas   GestionCobranza[]   @relation("GestionCobranzaCreadoPor")
+  gestionesCobranzaModif     GestionCobranza[]   @relation("GestionCobranzaModificadoPor")
 
   @@index([rolId])
   @@index([oficinaId])
@@ -396,26 +400,27 @@ model Contribuyente {
   modificadoPorId Int?
   modificadoPor   Usuario?      @relation("ContribuyenteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
 
-  documentos      ContribuyenteDocumento[]
-  contactos       ContribuyenteContacto[]
-  relacionados    ContribuyenteRelacionado[] @relation("RelacionadosDe")
-  relacionadoEn   ContribuyenteRelacionado[] @relation("RelacionadoPersona")
-  beneficios      ContribuyenteBeneficio[]
-  predios         PredioContribuyente[]
-  vehiculos       Vehiculo[]
-  cuentas         CuentaCorriente[]
-  pagos           Pago[]                     @relation("PagadorContribuyente")
-  recibos         Recibo[]
-  fiscalizaciones Fiscalizacion[]
-  valores         ValorCab[]
-  convenios       ConvenioCab[]
-  coactivoExps    CoactivoExp[]
-  licencias       Licencia[]
-  declaraciones   DeclaracionJurada[]
-  djPresentadas   DjPresentada[]
-  prorrogasDj     ProrrogaDj[]
-  djAdquirienteEn DjAdquiriente[]            @relation("DjAdquirientePersona")
-  determinaciones Determinacion[]
+  documentos       ContribuyenteDocumento[]
+  contactos        ContribuyenteContacto[]
+  relacionados     ContribuyenteRelacionado[] @relation("RelacionadosDe")
+  relacionadoEn    ContribuyenteRelacionado[] @relation("RelacionadoPersona")
+  beneficios       ContribuyenteBeneficio[]
+  predios          PredioContribuyente[]
+  vehiculos        Vehiculo[]
+  cuentas          CuentaCorriente[]
+  pagos            Pago[]                     @relation("PagadorContribuyente")
+  recibos          Recibo[]
+  fiscalizaciones  Fiscalizacion[]
+  valores          ValorCab[]
+  convenios        ConvenioCab[]
+  coactivoExps     CoactivoExp[]
+  licencias        Licencia[]
+  declaraciones    DeclaracionJurada[]
+  djPresentadas    DjPresentada[]
+  prorrogasDj      ProrrogaDj[]
+  djAdquirienteEn  DjAdquiriente[]            @relation("DjAdquirientePersona")
+  determinaciones  Determinacion[]
+  puntajesCobranza PuntajeCobranza[]
 
   @@index([numDoc])
   @@index([nombreCompleto])
@@ -2064,4 +2069,87 @@ model ChatMensaje {
 
   @@index([conversacionId, createdAt])
   @@map("chat_mensaje")
+}
+
+// ---------------------------------------------------------------------------
+// Priorización de cobranza (specs/prediccion-cobranza-v1.md).
+// Salida del modelo de 3 grupos (Python, 05_puntajes.py) importada por lotes.
+
+enum GrupoCobranza {
+  PUNTUAL
+  TARDIO
+  INCOBRABLE
+}
+
+enum EstadoGestionCobranza {
+  PENDIENTE
+  CONTACTADO
+  COMPROMISO
+  PAGO
+  NO_UBICADO
+}
+
+// Un import de puntajes_AAAA.csv. Reimportar el año deja el lote anterior con vigente=false.
+model CobranzaLote {
+  id              Int      @id @default(autoincrement())
+  anio            Int
+  modelo          String   @db.VarChar(60) // p. ej. "Random Forest (2015-2023)"
+  archivo         String   @db.VarChar(120)
+  filas           Int
+  enlazados       Int // filas con ficha en el sistema web (codigoLegacy)
+  vigente         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  creadoPorId     Int?
+  creadoPor       Usuario? @relation("CobranzaLoteCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario? @relation("CobranzaLoteModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  puntajes PuntajeCobranza[]
+
+  @@index([anio, vigente])
+  @@map("cobranza_lotes")
+}
+
+// Una fila del CSV. Sin auditoría por fila (~7 mil por import): se audita el lote.
+model PuntajeCobranza {
+  id              Int            @id @default(autoincrement())
+  loteId          Int
+  lote            CobranzaLote   @relation(fields: [loteId], references: [id], onDelete: Restrict)
+  anio            Int
+  prioridad       Int // 1 = primero a gestionar
+  tramo           String         @db.Char(1) // A top 5 %, B 5-20 %, C resto
+  codigoLegacy    String         @db.VarChar(7) // CODCLI SIMUN
+  contribuyenteId Int?
+  contribuyente   Contribuyente? @relation(fields: [contribuyenteId], references: [id], onDelete: Restrict)
+  grupo           GrupoCobranza
+  pPuntual        Decimal        @db.Decimal(5, 4)
+  pTardio         Decimal        @db.Decimal(5, 4)
+  pIncobrable     Decimal        @db.Decimal(5, 4)
+  deudaAnio       Decimal        @db.Decimal(12, 2)
+  deudaPendiente  Decimal        @db.Decimal(12, 2)
+  deudaEsperada   Decimal        @db.Decimal(12, 2)
+  accion          String         @db.VarChar(60)
+
+  @@unique([loteId, codigoLegacy])
+  @@unique([loteId, prioridad])
+  @@index([contribuyenteId])
+  @@map("puntajes_cobranza")
+}
+
+// Historial de gestión por contribuyente y año: solo inserción; el estado vigente es el último.
+// Se enlaza por año + CODCLI para que sobreviva a la reimportación del lote.
+model GestionCobranza {
+  id              Int                   @id @default(autoincrement())
+  anio            Int
+  codigoLegacy    String                @db.VarChar(7)
+  estado          EstadoGestionCobranza
+  observacion     String?               @db.VarChar(500)
+  createdAt       DateTime              @default(now())
+  creadoPorId     Int?
+  creadoPor       Usuario?              @relation("GestionCobranzaCreadoPor", fields: [creadoPorId], references: [id], onDelete: Restrict)
+  modificadoPorId Int?
+  modificadoPor   Usuario?              @relation("GestionCobranzaModificadoPor", fields: [modificadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([anio, codigoLegacy, createdAt])
+  @@map("gestiones_cobranza")
 }

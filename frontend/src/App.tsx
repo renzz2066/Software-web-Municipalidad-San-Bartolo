@@ -12,6 +12,7 @@ import { EditarRol } from './pages/accesibilidad/EditarRol'
 import { Niveles } from './pages/accesibilidad/Niveles'
 import { AccesosPorRol } from './pages/accesibilidad/AccesosPorRol'
 import { Auditoria } from './pages/tablero/Auditoria'
+import { PriorizacionCobranza } from './pages/tablero/PriorizacionCobranza'
 import { ModuloPlaceholder } from './pages/accesibilidad/ModuloPlaceholder'
 import { ModuloHub } from './pages/modulos/ModuloHub'
 import { MODULOS } from './pages/modulos/catalogo'
@@ -55,6 +56,7 @@ import { RequireNivel } from './routes/RequireNivel'
 // Submódulos ya implementados; el resto muestra "En construcción".
 const PAGINAS_SUBMODULO: Record<string, ReactNode> = {
   'tablero.auditoria': <Auditoria />,
+  'tablero.priorizacion-cobranza': <PriorizacionCobranza />,
   'rentas.maestros': <Maestros />,
   'rentas.registro-tributario': <Contribuyentes />,
   'rentas.calculo-masivo': <CalculoMasivo />,
