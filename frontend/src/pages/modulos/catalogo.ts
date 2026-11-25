@@ -95,6 +95,7 @@ export const MODULOS: Modulo[] = [
     submodulos: [
       { slug: 'resumen', titulo: 'Resumen', icono: 'bi bi-clipboard-data' },
       { slug: 'auditoria', titulo: 'Auditoría', icono: 'bi bi-journal-text' },
+      { slug: 'priorizacion-cobranza', titulo: 'Priorización de Cobranza', icono: 'bi bi-sort-down' },
     ],
   },
 ]

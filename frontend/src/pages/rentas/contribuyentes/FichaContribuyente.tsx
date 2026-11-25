@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../../lib/api'
 import { useAccesos } from '../../../context/AccesosContext'
+import { TarjetaCobranza } from '../../tablero/TarjetaCobranza'
 import { PageHeader } from '../../../components/layout/PageHeader'
 import { PanelCalculo } from '../calculo/PanelCalculo'
 import { ValoresContribuyente } from '../valores/ValoresContribuyente'
@@ -205,6 +206,8 @@ export function FichaContribuyente() {
                 </Link>
               </div>
             </div>
+
+            {tiene('tablero.priorizacion-cobranza') && <TarjetaCobranza contribuyenteId={c.id} />}
 
             <details className="mt-3 rounded-panel border border-borde bg-white p-5">
               <summary className="cursor-pointer text-sm font-semibold text-mar-profundo focus-visible:outline-3 focus-visible:outline-turquesa">

@@ -113,6 +113,7 @@ export const NIVELES_CATALOGO: NivelDef[] = [
   ...modulo('tablero', 'Tablero Gerencial', 'Indicadores para gerencia.', 7, [
     ['resumen', 'Resumen'],
     ['auditoria', 'Auditoría'],
+    ['priorizacion-cobranza', 'Priorización de Cobranza'],
   ]),
   // Chat IA (specs/ia-chat-v1.md): no va al sidebar; solo habilita el botón flotante.
   ...modulo('ayuda', 'Ayuda', 'Asistente IA de trámites municipales.', 9, [['chat', 'Chat IA']]),

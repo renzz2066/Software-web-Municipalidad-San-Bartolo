@@ -17,6 +17,7 @@ import { IaModule } from './ia/ia.module.js';
 import { CatalogosModule } from './catalogos/catalogos.module.js';
 import { DireccionesModule } from './direcciones/direcciones.module.js';
 import { DeclaracionesModule } from './declaraciones/declaraciones.module.js';
+import { CobranzaModule } from './cobranza/cobranza.module.js';
 import { AuditoriaContextoMiddleware } from './auditoria/auditoria-contexto.middleware.js';
 import { MuniModule } from './muni/muni.module.js';
 import { MuniMiddleware } from './muni/muni.middleware.js';
@@ -40,6 +41,7 @@ import { MuniMiddleware } from './muni/muni.middleware.js';
     CatalogosModule,
     DireccionesModule,
     DeclaracionesModule,
+    CobranzaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

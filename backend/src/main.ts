@@ -1,13 +1,16 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface.js';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Request } from 'express';
 import { AppModule } from './app.module.js';
 import { hostsPermitidos } from './muni/muni.registro.js';
 import { MuniService } from './muni/muni.service.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Import de puntajes de cobranza: el CSV llega tal cual (~1 MB por año).
+  app.useBodyParser('text', { type: 'text/csv', limit: '10mb' });
 
   // Orígenes = hosts de las munis activas + FRONTEND_URL (specs/multi-muni-v1.md).
   // Excepción: GET /muni/config es público, así un subdominio desconocido puede leer
